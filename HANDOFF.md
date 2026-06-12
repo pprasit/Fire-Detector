@@ -97,6 +97,33 @@ Read JSON status directly:
 curl http://127.0.0.1:8000/api/status
 ```
 
+## Boot Service And LAN URL
+
+The dashboard can be installed as a systemd service so it starts automatically
+when IRIV boots:
+
+```bash
+sudo cp deploy/fire-detector.service /etc/systemd/system/fire-detector.service
+sudo cp deploy/fire-detector-http.service /etc/avahi/services/fire-detector-http.service
+sudo sed -i 's/^#host-name=foo$/host-name=firedetector/' /etc/avahi/avahi-daemon.conf
+sudo systemctl daemon-reload
+sudo systemctl enable --now fire-detector.service
+sudo systemctl restart avahi-daemon.service
+```
+
+This keeps the Linux hostname as `iriv`, but Avahi/mDNS advertises the LAN name
+`firedetector.local`.
+
+Expected LAN URLs:
+
+```text
+http://firedetector.local:8000
+```
+
+Bare names like `http://firedetector:8000` or `http://FireDector:8000` depend on
+the client OS/router DNS behavior. Use `http://firedetector.local:8000` when in
+doubt.
+
 ## API Endpoints
 
 | Method | Path | Purpose |
@@ -192,4 +219,3 @@ Change the password with:
 ```bash
 passwd
 ```
-

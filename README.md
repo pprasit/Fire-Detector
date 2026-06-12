@@ -51,3 +51,27 @@ The monitor also exposes a JSON endpoint at:
 ```text
 http://<raspberry-pi-ip>:8000/api/status
 ```
+
+## Autostart and LAN Name
+
+This project includes systemd/Avahi deployment files in `deploy/`.
+
+Install the dashboard as a boot service:
+
+```bash
+sudo cp deploy/fire-detector.service /etc/systemd/system/fire-detector.service
+sudo cp deploy/fire-detector-http.service /etc/avahi/services/fire-detector-http.service
+sudo sed -i 's/^#host-name=foo$/host-name=firedetector/' /etc/avahi/avahi-daemon.conf
+sudo systemctl daemon-reload
+sudo systemctl enable --now fire-detector.service
+sudo systemctl restart avahi-daemon.service
+```
+
+On a LAN that supports mDNS, open:
+
+```text
+http://firedetector.local:8000
+```
+
+Bare names like `http://firedetector:8000` depend on router/client DNS behavior.
+Use the `.local` form when in doubt.
