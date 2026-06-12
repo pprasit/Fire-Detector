@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Fire Detector Monitor</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+  </head>
+  <body>
+    <main class="monitor-shell">
+      <header class="monitor-header">
+        <div class="header-copy">
+          <h1>Fire Detector Control Room</h1>
+        </div>
+      </header>
+
+      <section class="axis-monitor-grid">
+        <aside class="axis-status-column" aria-label="Axis status cards">
+          <article class="status-card azimuth" data-axis-card="Azimuth">
+            <div class="status-card-header">
+              <div>
+                <h2>Azimuth</h2>
+              </div>
+              <span class="axis-chip" id="azimuthStatus">Waiting</span>
+            </div>
+            <div class="tab-list" role="tablist" aria-label="AZM status tabs">
+              <button class="tab-button active" type="button" data-tab-button="Azimuth" data-tab-target="axis">Axis Status</button>
+              <button class="tab-button" type="button" data-tab-button="Azimuth" data-tab-target="drive">Drive Status</button>
+              <button class="tab-button" type="button" data-tab-button="Azimuth" data-tab-target="tuning">Tuning</button>
+            </div>
+            <div class="tab-panel active" data-tab-panel="Azimuth" data-tab-name="axis">
+              <dl class="status-readings">
+                <div><dt>Position</dt><dd id="azimuthPosition">--</dd></div>
+                <div><dt>Velocity</dt><dd id="azimuthVelocity">--</dd></div>
+                <div><dt>Current</dt><dd id="azimuthCurrent">--</dd></div>
+                <div><dt>State</dt><dd id="azimuthState">--</dd></div>
+                <div><dt>Errors</dt><dd id="azimuthErrors">--</dd></div>
+                <div><dt>Armed</dt><dd id="azimuthArmed">--</dd></div>
+              </dl>
+            </div>
+            <div class="tab-panel" data-tab-panel="Azimuth" data-tab-name="drive">
+              <dl class="status-readings">
+                <div><dt>Serial</dt><dd id="azimuthDriveSerial">--</dd></div>
+                <div><dt>Firmware</dt><dd id="azimuthDriveFirmware">--</dd></div>
+                <div><dt>Hardware</dt><dd id="azimuthDriveHardware">--</dd></div>
+                <div><dt>Bus</dt><dd id="azimuthDriveBus">--</dd></div>
+                <div><dt>Bus Current</dt><dd id="azimuthDriveCurrent">--</dd></div>
+                <div><dt>Faults</dt><dd id="azimuthDriveFaults">--</dd></div>
+              </dl>
+            </div>
+            <div class="tab-panel" data-tab-panel="Azimuth" data-tab-name="tuning">
+              <form class="tuning-form" data-tuning-form="Azimuth">
+                <label>
+                  <span>Position Gain</span>
+                  <input id="azimuthPositionGain" name="position_gain" type="number" min="0" step="0.001" inputmode="decimal">
+                </label>
+                <label>
+                  <span>Velocity Gain</span>
+                  <input id="azimuthVelocityGain" name="velocity_gain" type="number" min="0" step="0.001" inputmode="decimal">
+                </label>
+                <label>
+                  <span>Velocity I Gain</span>
+                  <input id="azimuthVelocityIntegratorGain" name="velocity_integrator_gain" type="number" min="0" step="0.001" inputmode="decimal">
+                </label>
+                <label>
+                  <span>Velocity I Limit</span>
+                  <input id="azimuthVelocityIntegratorLimit" name="velocity_integrator_limit" type="number" min="0" step="0.001" inputmode="decimal">
+                </label>
+                <label>
+                  <span>Velocity I Decay</span>
+                  <input id="azimuthVelocityIntegratorDecayGain" name="velocity_integrator_decay_gain" type="number" min="0" step="0.001" inputmode="decimal">
+                </label>
+                <label>
+                  <span>Velocity Limit</span>
+                  <input id="azimuthVelocityLimit" name="velocity_limit" type="number" min="0" step="0.001" inputmode="decimal">
+                </label>
+                <label>
+                  <span>Velocity Limit Tolerance</span>
+                  <input id="azimuthVelocityLimitTolerance" name="velocity_limit_tolerance" type="number" min="0" step="0.001" inputmode="decimal">
+                </label>
+                <label>
+                  <span>Velocity Ramp Rate</span>
+                  <input id="azimuthVelocityRampRate" name="velocity_ramp_rate" type="number" min="0" step="0.001" inputmode="decimal">
+                </label>
+                <label>
+                  <span>Torque Ramp Rate</span>
+                  <input id="azimuthTorqueRampRate" name="torque_ramp_rate" type="number" min="0" step="0.001" inputmode="decimal">
+                </label>
+                <label>
+                  <span>Input Filter Bandwidth</span>
+                  <input id="azimuthInputFilterBandwidth" name="input_filter_bandwidth" type="number" min="0" step="0.001" inputmode="decimal">
+                </label>
+                <label>
+                  <span>Inertia</span>
+                  <input id="azimuthInertia" name="inertia" type="number" min="0" step="0.001" inputmode="decimal">
+                </label>
+                <label>
+                  <span>Trap Velocity Limit</span>
+                  <input id="azimuthTrapVelocityLimit" name="trap_velocity_limit" type="number" min="0" step="0.001" inputmode="decimal">
+                </label>
+                <label>
+                  <span>Trap Accel Limit</span>
+                  <input id="azimuthTrapAccelLimit" name="trap_accel_limit" type="number" min="0" step="0.001" inputmode="decimal">
+                </label>
+                <label>
+                  <span>Trap Decel Limit</span>
+                  <input id="azimuthTrapDecelLimit" name="trap_decel_limit" type="number" min="0" step="0.001" inputmode="decimal">
+                </label>
+                <button class="tuning-apply" type="submit">Apply Tuning</button>
+                <button class="tuning-save" type="button" data-save-tuning="Azimuth">Save to Drive</button>
+                <p class="tuning-message" id="azimuthTuningMessage"></p>
+              </form>
+            </div>
+          </article>
+
+          <article class="status-card altitude" data-axis-card="Altitude">
+            <div class="status-card-header">
+              <div>
+                <h2>Altitude</h2>
+              </div>
+              <span class="axis-chip" id="altitudeStatus">Waiting</span>
+            </div>
+            <div class="tab-list" role="tablist" aria-label="ALT status tabs">
+              <button class="tab-button active" type="button" data-tab-button="Altitude" data-tab-target="axis">Axis Status</button>
+              <button class="tab-button" type="button" data-tab-button="Altitude" data-tab-target="drive">Drive Status</button>
+              <button class="tab-button" type="button" data-tab-button="Altitude" data-tab-target="tuning">Tuning</button>
+            </div>
+            <div class="tab-panel active" data-tab-panel="Altitude" data-tab-name="axis">
+              <dl class="status-readings">
+                <div><dt>Position</dt><dd id="altitudePosition">--</dd></div>
+                <div><dt>Velocity</dt><dd id="altitudeVelocity">--</dd></div>
+                <div><dt>Current</dt><dd id="altitudeCurrent">--</dd></div>
+                <div><dt>State</dt><dd id="altitudeState">--</dd></div>
+                <div><dt>Errors</dt><dd id="altitudeErrors">--</dd></div>
+                <div><dt>Armed</dt><dd id="altitudeArmed">--</dd></div>
+              </dl>
+            </div>
+            <div class="tab-panel" data-tab-panel="Altitude" data-tab-name="drive">
+              <dl class="status-readings">
+                <div><dt>Serial</dt><dd id="altitudeDriveSerial">--</dd></div>
+                <div><dt>Firmware</dt><dd id="altitudeDriveFirmware">--</dd></div>
+                <div><dt>Hardware</dt><dd id="altitudeDriveHardware">--</dd></div>
+                <div><dt>Bus</dt><dd id="altitudeDriveBus">--</dd></div>
+                <div><dt>Bus Current</dt><dd id="altitudeDriveCurrent">--</dd></div>
+                <div><dt>Faults</dt><dd id="altitudeDriveFaults">--</dd></div>
+              </dl>
+            </div>
+            <div class="tab-panel" data-tab-panel="Altitude" data-tab-name="tuning">
+              <form class="tuning-form" data-tuning-form="Altitude">
+                <label>
+                  <span>Position Gain</span>
+                  <input id="altitudePositionGain" name="position_gain" type="number" min="0" step="0.001" inputmode="decimal">
+                </label>
+                <label>
+                  <span>Velocity Gain</span>
+                  <input id="altitudeVelocityGain" name="velocity_gain" type="number" min="0" step="0.001" inputmode="decimal">
+                </label>
+                <label>
+                  <span>Velocity I Gain</span>
+                  <input id="altitudeVelocityIntegratorGain" name="velocity_integrator_gain" type="number" min="0" step="0.001" inputmode="decimal">
+                </label>
+                <label>
+                  <span>Velocity I Limit</span>
+                  <input id="altitudeVelocityIntegratorLimit" name="velocity_integrator_limit" type="number" min="0" step="0.001" inputmode="decimal">
+                </label>
+                <label>
+                  <span>Velocity I Decay</span>
+                  <input id="altitudeVelocityIntegratorDecayGain" name="velocity_integrator_decay_gain" type="number" min="0" step="0.001" inputmode="decimal">
+                </label>
+                <label>
+                  <span>Velocity Limit</span>
+                  <input id="altitudeVelocityLimit" name="velocity_limit" type="number" min="0" step="0.001" inputmode="decimal">
+                </label>
+                <label>
+                  <span>Velocity Limit Tolerance</span>
+                  <input id="altitudeVelocityLimitTolerance" name="velocity_limit_tolerance" type="number" min="0" step="0.001" inputmode="decimal">
+                </label>
+                <label>
+                  <span>Velocity Ramp Rate</span>
+                  <input id="altitudeVelocityRampRate" name="velocity_ramp_rate" type="number" min="0" step="0.001" inputmode="decimal">
+                </label>
+                <label>
+                  <span>Torque Ramp Rate</span>
+                  <input id="altitudeTorqueRampRate" name="torque_ramp_rate" type="number" min="0" step="0.001" inputmode="decimal">
+                </label>
+                <label>
+                  <span>Input Filter Bandwidth</span>
+                  <input id="altitudeInputFilterBandwidth" name="input_filter_bandwidth" type="number" min="0" step="0.001" inputmode="decimal">
+                </label>
+                <label>
+                  <span>Inertia</span>
+                  <input id="altitudeInertia" name="inertia" type="number" min="0" step="0.001" inputmode="decimal">
+                </label>
+                <label>
+                  <span>Trap Velocity Limit</span>
+                  <input id="altitudeTrapVelocityLimit" name="trap_velocity_limit" type="number" min="0" step="0.001" inputmode="decimal">
+                </label>
+                <label>
+                  <span>Trap Accel Limit</span>
+                  <input id="altitudeTrapAccelLimit" name="trap_accel_limit" type="number" min="0" step="0.001" inputmode="decimal">
+                </label>
+                <label>
+                  <span>Trap Decel Limit</span>
+                  <input id="altitudeTrapDecelLimit" name="trap_decel_limit" type="number" min="0" step="0.001" inputmode="decimal">
+                </label>
+                <button class="tuning-apply" type="submit">Apply Tuning</button>
+                <button class="tuning-save" type="button" data-save-tuning="Altitude">Save to Drive</button>
+                <p class="tuning-message" id="altitudeTuningMessage"></p>
+              </form>
+            </div>
+          </article>
+        </aside>
+
+        <section class="chart-column" aria-label="Axis telemetry charts">
+          <article class="chart-panel azimuth-chart">
+            <div class="chart-panel-header">
+              <div>
+                <p class="eyebrow">AZM Chart</p>
+              </div>
+              <div class="sensor-strip" aria-label="Azimuth sensor status">
+                <div class="sensor-pill" id="azimuthCcwSensor">
+                  <span class="sensor-led"></span>
+                  <span class="sensor-name">CCW Sensor</span>
+                  <strong>False</strong>
+                </div>
+                <div class="sensor-pill" id="azimuthCwSensor">
+                  <span class="sensor-led"></span>
+                  <span class="sensor-name">CW Sensor</span>
+                  <strong>False</strong>
+                </div>
+              </div>
+              <div class="chart-controls">
+                <span id="azimuthChartValue">-- Deg</span>
+                <select id="azimuthPlotSelect" aria-label="Azimuth plot value">
+                  <option value="position">Position</option>
+                  <option value="velocity">Velocity</option>
+                  <option value="current">Current</option>
+                </select>
+              </div>
+            </div>
+            <canvas id="azimuthChart" width="1200" height="300"></canvas>
+            <div class="legend-row">
+              <span class="legend position">Position</span>
+              <span class="legend velocity">Velocity</span>
+              <span class="legend current">Current</span>
+            </div>
+          </article>
+
+          <article class="chart-panel altitude-chart">
+            <div class="chart-panel-header">
+              <div>
+                <p class="eyebrow">ALT Chart</p>
+              </div>
+              <div class="chart-controls">
+                <span id="altitudeChartValue">-- Deg</span>
+                <select id="altitudePlotSelect" aria-label="Altitude plot value">
+                  <option value="position">Position</option>
+                  <option value="velocity">Velocity</option>
+                  <option value="current">Current</option>
+                </select>
+              </div>
+            </div>
+            <canvas id="altitudeChart" width="1200" height="300"></canvas>
+            <div class="legend-row">
+              <span class="legend position">Position</span>
+              <span class="legend velocity">Velocity</span>
+              <span class="legend current">Current</span>
+            </div>
+          </article>
+        </section>
+      </section>
+
+    </main>
+
+    <div class="tuning-step-panel" id="tuningStepPanel" hidden>
+      <div class="tuning-step-panel-header">
+        <span id="tuningStepTitle">Step</span>
+        <button type="button" id="tuningStepClose" aria-label="Close step editor">x</button>
+      </div>
+      <label>
+        <span>Step Size</span>
+        <input id="tuningStepInput" type="number" min="0.000001" step="0.000001" inputmode="decimal">
+      </label>
+      <p id="tuningStepHint">Right-click a tuning value to change its spinner step.</p>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+  </body>
+</html>

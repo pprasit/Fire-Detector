@@ -1,0 +1,2 @@
+"""Fire Detector control package."""
+

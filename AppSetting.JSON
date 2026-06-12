@@ -1,0 +1,14 @@
+{
+  "azimuth_sensors": {
+    "ccw_active_high": true,
+    "ccw_pin": null,
+    "cw_active_high": true,
+    "cw_pin": null
+  },
+  "tuning_steps": {
+    "Altitude": {},
+    "Azimuth": {
+      "position_gain": 0.5
+    }
+  }
+}
