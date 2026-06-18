@@ -3,30 +3,53 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Fire Detector Monitor</title>
+    <title>Fire Detector Mount</title>
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='img/fire-detector-favicon.svg') }}">
+    <meta name="theme-color" content="#171c32">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
   </head>
   <body>
     <main class="monitor-shell">
       <header class="monitor-header">
         <div class="header-copy">
-          <h1>Fire Detector Control Room</h1>
+          <h1 id="pageTitle">Fire Detector Mount</h1>
+        </div>
+        <div class="motor-controls" aria-label="Motor controls">
+          <div class="view-mode-toggle" role="tablist" aria-label="Dashboard view mode">
+            <button class="active" type="button" data-view-mode="axis" role="tab" aria-selected="true">Axis View</button>
+            <button type="button" data-view-mode="sky" role="tab" aria-selected="false">Horizon View</button>
+          </div>
+          <div class="server-uptime" aria-label="Device uptime">
+            <span>Device Uptime</span>
+            <strong id="serverUptime">--</strong>
+          </div>
+          <button class="system-setting" id="systemSetting" type="button">Setting</button>
+          <button class="motor-toggle" id="motorToggle" type="button" aria-pressed="false">
+            <span class="toggle-track"><span class="toggle-knob"></span></span>
+            <span id="motorToggleLabel">Enable</span>
+          </button>
+          <button class="motor-stop" id="motorStop" type="button" disabled>Stop</button>
+          <button class="motor-goto" id="motorGoto" type="button">Goto</button>
         </div>
       </header>
 
-      <section class="axis-monitor-grid">
+      <section class="axis-monitor-grid" id="axisView">
         <aside class="axis-status-column" aria-label="Axis status cards">
           <article class="status-card azimuth" data-axis-card="Azimuth">
             <div class="status-card-header">
               <div>
                 <h2>Azimuth</h2>
+                <div class="axis-enable-meter is-disabled" id="azimuthEnableMeter" aria-label="Azimuth disabled">
+                  <span></span>
+                </div>
               </div>
               <span class="axis-chip" id="azimuthStatus">Waiting</span>
             </div>
             <div class="tab-list" role="tablist" aria-label="AZM status tabs">
               <button class="tab-button active" type="button" data-tab-button="Azimuth" data-tab-target="axis">Axis Status</button>
               <button class="tab-button" type="button" data-tab-button="Azimuth" data-tab-target="drive">Drive Status</button>
-              <button class="tab-button" type="button" data-tab-button="Azimuth" data-tab-target="tuning">Tuning</button>
+              <button class="tab-button" type="button" data-tab-button="Azimuth" data-tab-target="control">Control</button>
+              <button class="tab-button" type="button" data-tab-button="Azimuth" data-tab-target="tuning" title="Right-click to open floating tuning window">Tuning</button>
             </div>
             <div class="tab-panel active" data-tab-panel="Azimuth" data-tab-name="axis">
               <dl class="status-readings">
@@ -47,6 +70,36 @@
                 <div><dt>Bus Current</dt><dd id="azimuthDriveCurrent">--</dd></div>
                 <div><dt>Faults</dt><dd id="azimuthDriveFaults">--</dd></div>
               </dl>
+            </div>
+            <div class="tab-panel" data-tab-panel="Azimuth" data-tab-name="control">
+              <form class="axis-control-form" data-axis-control="Azimuth">
+                <div class="axis-control-actions">
+                  <button class="axis-toggle axis-enable" type="button" data-axis-toggle data-axis-action="enable">Enable</button>
+                </div>
+                <label>
+                  <span>Jog Speed</span>
+                  <input name="jog_velocity" type="number" min="0" step="0.001" inputmode="decimal" value="5.000">
+                  <em>Deg/Sec</em>
+                </label>
+                <div class="axis-jog-actions">
+                  <button type="button" data-axis-jog="backward">Jog Backward</button>
+                  <button type="button" data-axis-jog="stop">Stop</button>
+                  <button type="button" data-axis-jog="forward">Jog Forward</button>
+                </div>
+                <label>
+                  <span>Goto Position</span>
+                  <input name="position_target" type="number" step="0.001" inputmode="decimal">
+                  <em>Deg</em>
+                </label>
+                <button class="axis-command-apply" type="button" data-axis-goto="position">Move Position</button>
+                <label>
+                  <span>Goto Velocity</span>
+                  <input name="velocity_target" type="number" step="0.001" inputmode="decimal">
+                  <em>Deg/Sec</em>
+                </label>
+                <button class="axis-command-apply" type="button" data-axis-goto="velocity">Apply Velocity</button>
+                <p class="axis-control-message" data-axis-control-message></p>
+              </form>
             </div>
             <div class="tab-panel" data-tab-panel="Azimuth" data-tab-name="tuning">
               <form class="tuning-form" data-tuning-form="Azimuth">
@@ -117,13 +170,17 @@
             <div class="status-card-header">
               <div>
                 <h2>Altitude</h2>
+                <div class="axis-enable-meter is-disabled" id="altitudeEnableMeter" aria-label="Altitude disabled">
+                  <span></span>
+                </div>
               </div>
               <span class="axis-chip" id="altitudeStatus">Waiting</span>
             </div>
             <div class="tab-list" role="tablist" aria-label="ALT status tabs">
               <button class="tab-button active" type="button" data-tab-button="Altitude" data-tab-target="axis">Axis Status</button>
               <button class="tab-button" type="button" data-tab-button="Altitude" data-tab-target="drive">Drive Status</button>
-              <button class="tab-button" type="button" data-tab-button="Altitude" data-tab-target="tuning">Tuning</button>
+              <button class="tab-button" type="button" data-tab-button="Altitude" data-tab-target="control">Control</button>
+              <button class="tab-button" type="button" data-tab-button="Altitude" data-tab-target="tuning" title="Right-click to open floating tuning window">Tuning</button>
             </div>
             <div class="tab-panel active" data-tab-panel="Altitude" data-tab-name="axis">
               <dl class="status-readings">
@@ -144,6 +201,36 @@
                 <div><dt>Bus Current</dt><dd id="altitudeDriveCurrent">--</dd></div>
                 <div><dt>Faults</dt><dd id="altitudeDriveFaults">--</dd></div>
               </dl>
+            </div>
+            <div class="tab-panel" data-tab-panel="Altitude" data-tab-name="control">
+              <form class="axis-control-form" data-axis-control="Altitude">
+                <div class="axis-control-actions">
+                  <button class="axis-toggle axis-enable" type="button" data-axis-toggle data-axis-action="enable">Enable</button>
+                </div>
+                <label>
+                  <span>Jog Speed</span>
+                  <input name="jog_velocity" type="number" min="0" step="0.001" inputmode="decimal" value="5.000">
+                  <em>Deg/Sec</em>
+                </label>
+                <div class="axis-jog-actions">
+                  <button type="button" data-axis-jog="backward">Jog Backward</button>
+                  <button type="button" data-axis-jog="stop">Stop</button>
+                  <button type="button" data-axis-jog="forward">Jog Forward</button>
+                </div>
+                <label>
+                  <span>Goto Position</span>
+                  <input name="position_target" type="number" step="0.001" inputmode="decimal">
+                  <em>Deg</em>
+                </label>
+                <button class="axis-command-apply" type="button" data-axis-goto="position">Move Position</button>
+                <label>
+                  <span>Goto Velocity</span>
+                  <input name="velocity_target" type="number" step="0.001" inputmode="decimal">
+                  <em>Deg/Sec</em>
+                </label>
+                <button class="axis-command-apply" type="button" data-axis-goto="velocity">Apply Velocity</button>
+                <p class="axis-control-message" data-axis-control-message></p>
+              </form>
             </div>
             <div class="tab-panel" data-tab-panel="Altitude" data-tab-name="tuning">
               <form class="tuning-form" data-tuning-form="Altitude">
@@ -221,16 +308,19 @@
                 <div class="sensor-pill" id="azimuthCcwSensor">
                   <span class="sensor-led"></span>
                   <span class="sensor-name">CCW Sensor</span>
-                  <strong>False</strong>
                 </div>
                 <div class="sensor-pill" id="azimuthCwSensor">
                   <span class="sensor-led"></span>
                   <span class="sensor-name">CW Sensor</span>
-                  <strong>False</strong>
                 </div>
               </div>
               <div class="chart-controls">
-                <span id="azimuthChartValue">-- Deg</span>
+                <div class="actual-readouts" id="azimuthChartValue" aria-label="Azimuth actual values">
+                  <span class="amplitude-readout" id="azimuthAmplitudeAverage" aria-label="Azimuth 60 second average amplitude"><strong>AVG AMP</strong><em>--</em></span>
+                  <span class="actual-readout position"><strong>Position Actual</strong><em>-- Deg</em></span>
+                  <span class="actual-readout velocity"><strong>Velocity Actual</strong><em>-- Deg/Sec</em></span>
+                  <span class="actual-readout current"><strong>Current Actual</strong><em>-- Amp</em></span>
+                </div>
                 <select id="azimuthPlotSelect" aria-label="Azimuth plot value">
                   <option value="position">Position</option>
                   <option value="velocity">Velocity</option>
@@ -252,7 +342,12 @@
                 <p class="eyebrow">ALT Chart</p>
               </div>
               <div class="chart-controls">
-                <span id="altitudeChartValue">-- Deg</span>
+                <div class="actual-readouts" id="altitudeChartValue" aria-label="Altitude actual values">
+                  <span class="amplitude-readout" id="altitudeAmplitudeAverage" aria-label="Altitude 60 second average amplitude"><strong>AVG AMP</strong><em>--</em></span>
+                  <span class="actual-readout position"><strong>Position Actual</strong><em>-- Deg</em></span>
+                  <span class="actual-readout velocity"><strong>Velocity Actual</strong><em>-- Deg/Sec</em></span>
+                  <span class="actual-readout current"><strong>Current Actual</strong><em>-- Amp</em></span>
+                </div>
                 <select id="altitudePlotSelect" aria-label="Altitude plot value">
                   <option value="position">Position</option>
                   <option value="velocity">Velocity</option>
@@ -270,10 +365,89 @@
         </section>
       </section>
 
+      <section class="sky-view-panel" id="skyView" aria-label="Mount horizon sphere view" hidden>
+        <div class="sky-view-layout">
+          <aside class="sky-status-panel" aria-label="Horizon view position status">
+            <div class="sky-status-header">
+              <h2>Mount Position</h2>
+            </div>
+            <div class="sky-axis-readouts">
+              <section class="sky-axis-readout">
+                <h3>Azimuth</h3>
+                <span><strong>Position Actual</strong><em id="skyAzimuthPositionValue">-- Deg</em></span>
+                <span><strong>Velocity Actual</strong><em id="skyAzimuthVelocityValue">-- Deg/Sec</em></span>
+                <span><strong>Current Actual</strong><em id="skyAzimuthCurrentValue">-- Amp</em></span>
+              </section>
+              <section class="sky-axis-readout">
+                <h3>Altitude</h3>
+                <span><strong>Position Actual</strong><em id="skyAltitudePositionValue">-- Deg</em></span>
+                <span><strong>Velocity Actual</strong><em id="skyAltitudeVelocityValue">-- Deg/Sec</em></span>
+                <span><strong>Current Actual</strong><em id="skyAltitudeCurrentValue">-- Amp</em></span>
+              </section>
+            </div>
+          </aside>
+          <div class="sky-stop-rail" aria-label="Horizon emergency stop">
+            <button class="sky-stop-button" id="skyStop" type="button" disabled>Stop</button>
+          </div>
+          <div class="sky-sphere-wrap">
+            <canvas id="skySphereCanvas" width="900" height="900" aria-label="Horizon sphere mount position"></canvas>
+          </div>
+          <aside class="sky-command-panel" aria-label="Horizon view motion command panel">
+            <div class="sky-command-header">
+              <h2>Horizon Command</h2>
+            </div>
+            <form class="sky-command-form" id="skyGotoForm">
+              <p class="eyebrow">Position</p>
+              <label>
+                <span>Azimuth Target</span>
+                <input id="skyGotoAzimuth" name="Azimuth" type="number" step="0.001" inputmode="decimal">
+                <em>Deg</em>
+              </label>
+              <label>
+                <span>Altitude Target</span>
+                <input id="skyGotoAltitude" name="Altitude" type="number" step="0.001" inputmode="decimal">
+                <em>Deg</em>
+              </label>
+              <label>
+                <span>Velocity Target</span>
+                <input id="skyGotoVelocity" name="velocity_target_deg_per_sec" type="number" min="0" step="0.001" inputmode="decimal" value="10">
+                <em>Deg/Sec</em>
+              </label>
+              <div class="sky-command-actions">
+                <button type="button" id="skyGotoUseActual">Use Actual</button>
+                <button type="submit">Move Position</button>
+              </div>
+              <p class="sky-target-message" id="skyTargetMessage" aria-live="polite"></p>
+            </form>
+            <form class="sky-command-form" id="skyVelocityForm">
+              <p class="eyebrow">Velocity</p>
+              <label>
+                <span>Azimuth Velocity</span>
+                <input id="skyVelocityAzimuth" name="Azimuth" type="number" step="0.001" inputmode="decimal" value="10">
+                <em>Deg/Sec</em>
+              </label>
+              <label>
+                <span>Altitude Velocity</span>
+                <input id="skyVelocityAltitude" name="Altitude" type="number" step="0.001" inputmode="decimal" value="10">
+                <em>Deg/Sec</em>
+              </label>
+              <div class="sky-command-actions">
+                <button type="button" id="skyVelocityZero">Zero Velocity</button>
+                <button type="submit">Apply Velocity</button>
+              </div>
+            </form>
+          </aside>
+        </div>
+      </section>
+
+      <section class="system-log-panel" aria-label="System log">
+        <div class="system-log-entries" id="systemLogEntries" aria-live="polite"></div>
+      </section>
+
     </main>
 
-    <div class="tuning-step-panel" id="tuningStepPanel" hidden>
-      <div class="tuning-step-panel-header">
+    <div class="tuning-step-panel" id="tuningStepPanel" hidden data-floating-window="tuningStepPanel">
+      <div class="tuning-step-panel-header" data-floating-window-handle>
         <span id="tuningStepTitle">Step</span>
         <button type="button" id="tuningStepClose" aria-label="Close step editor">x</button>
       </div>
@@ -282,6 +456,159 @@
         <input id="tuningStepInput" type="number" min="0.000001" step="0.000001" inputmode="decimal">
       </label>
       <p id="tuningStepHint">Right-click a tuning value to change its spinner step.</p>
+    </div>
+
+    <div class="goto-panel" id="gotoPanel" hidden data-floating-window="gotoPanel">
+      <div class="goto-panel-header" data-floating-window-handle>
+        <div class="goto-tabs" role="tablist" aria-label="Motor command mode">
+          <button class="goto-tab active" type="button" data-goto-tab="position" role="tab" aria-selected="true">Goto Position</button>
+          <button class="goto-tab" type="button" data-goto-tab="velocity" role="tab" aria-selected="false">Velocity Control</button>
+        </div>
+        <button type="button" id="gotoClose" aria-label="Close goto panel">x</button>
+      </div>
+      <form id="gotoForm" class="goto-form goto-tab-panel active" data-goto-panel="position">
+        <label>
+          <span>Azimuth Target</span>
+          <input id="gotoAzimuth" name="Azimuth" type="number" step="0.001" inputmode="decimal">
+          <em>Deg</em>
+        </label>
+        <label>
+          <span>Altitude Target</span>
+          <input id="gotoAltitude" name="Altitude" type="number" step="0.001" inputmode="decimal">
+          <em>Deg</em>
+        </label>
+        <div class="goto-actions">
+          <button type="button" id="gotoUseActual">Use Actual</button>
+          <button type="submit" id="gotoApply">Move</button>
+        </div>
+      </form>
+      <form id="velocityForm" class="goto-form goto-tab-panel" data-goto-panel="velocity">
+        <label>
+          <span>Azimuth Velocity</span>
+          <input id="velocityAzimuth" name="Azimuth" type="number" step="0.001" inputmode="decimal" value="0">
+          <em>Deg/Sec</em>
+        </label>
+        <label>
+          <span>Altitude Velocity</span>
+          <input id="velocityAltitude" name="Altitude" type="number" step="0.001" inputmode="decimal" value="0">
+          <em>Deg/Sec</em>
+        </label>
+        <div class="goto-actions">
+          <button type="button" id="velocityZero">Zero Velocity</button>
+          <button type="submit" id="velocityApply">Apply Velocity</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="floating-tuning-panel" id="azimuthTuningPanel" hidden data-floating-window="azimuthTuningPanel" data-floating-tuning-panel="Azimuth">
+      <div class="floating-tuning-panel-header" data-floating-window-handle>
+        <strong>Azimuth Tuning</strong>
+        <button type="button" data-close-floating-tuning="Azimuth" aria-label="Close Azimuth tuning panel">x</button>
+      </div>
+      <form class="tuning-form floating-tuning-form" data-tuning-form="Azimuth" data-floating-tuning-form="Azimuth"></form>
+    </div>
+
+    <div class="floating-tuning-panel" id="altitudeTuningPanel" hidden data-floating-window="altitudeTuningPanel" data-floating-tuning-panel="Altitude">
+      <div class="floating-tuning-panel-header" data-floating-window-handle>
+        <strong>Altitude Tuning</strong>
+        <button type="button" data-close-floating-tuning="Altitude" aria-label="Close Altitude tuning panel">x</button>
+      </div>
+      <form class="tuning-form floating-tuning-form" data-tuning-form="Altitude" data-floating-tuning-form="Altitude"></form>
+    </div>
+
+    <div class="settings-panel" id="settingsPanel" hidden data-floating-window="settingsPanel">
+      <div class="settings-panel-header" data-floating-window-handle>
+        <strong>System Settings</strong>
+        <button type="button" id="settingsClose" aria-label="Close settings panel">x</button>
+      </div>
+      <form id="settingsForm" class="settings-form">
+        <div class="settings-axis-tabs" role="tablist" aria-label="Axis settings">
+          <button class="settings-axis-tab active" type="button" data-settings-tab="general" role="tab" aria-selected="true">
+            <span>General</span>
+          </button>
+          <button class="settings-axis-tab" type="button" data-settings-tab="azimuth" role="tab" aria-selected="false">
+            <span>Azimuth</span>
+            <em id="settingsAzimuthSerialView">--</em>
+          </button>
+          <button class="settings-axis-tab" type="button" data-settings-tab="altitude" role="tab" aria-selected="false">
+            <span>Altitude</span>
+            <em id="settingsAltitudeSerialView">--</em>
+          </button>
+        </div>
+        <section class="settings-axis-panel active" data-settings-panel="general" role="tabpanel">
+          <label>
+            <span>Station Name</span>
+            <input id="settingsStationName" name="station_name" type="text" autocomplete="off">
+          </label>
+          <label>
+            <span>Latitude</span>
+            <input id="settingsLatitude" name="latitude" type="number" min="-90" max="90" step="0.000001" inputmode="decimal">
+            <em>Deg</em>
+          </label>
+          <label>
+            <span>Longitude</span>
+            <input id="settingsLongitude" name="longitude" type="number" min="-180" max="180" step="0.000001" inputmode="decimal">
+            <em>Deg</em>
+          </label>
+          <label>
+            <span>Match Azimuth Drive Serial</span>
+            <select id="settingsAzimuthSerial" name="azimuth_serial"></select>
+          </label>
+        </section>
+        <section class="settings-axis-panel" data-settings-panel="azimuth" role="tabpanel">
+          <label>
+            <span>CCW Limit</span>
+            <input id="settingsAzimuthCcwLimit" name="azimuth_ccw_limit_deg" type="number" step="0.001" inputmode="decimal">
+            <em>Deg</em>
+          </label>
+          <label>
+            <span>CW Limit</span>
+            <input id="settingsAzimuthCwLimit" name="azimuth_cw_limit_deg" type="number" step="0.001" inputmode="decimal">
+            <em>Deg</em>
+          </label>
+          <label>
+            <span>Offset Position</span>
+            <input id="settingsAzimuthOffset" name="azimuth_position_offset_deg" type="number" step="0.001" inputmode="decimal">
+            <em>Deg</em>
+          </label>
+          <label>
+            <span>Current Limit</span>
+            <input id="settingsAzimuthCurrentLimit" name="azimuth_current_limit_amp" type="number" min="1" max="150" step="0.001" inputmode="decimal">
+            <em>Amp</em>
+          </label>
+        </section>
+        <section class="settings-axis-panel" data-settings-panel="altitude" role="tabpanel">
+          <label>
+            <span>Upper Limit</span>
+            <input id="settingsAltitudeUpperLimit" name="altitude_upper_limit_deg" type="number" step="0.001" inputmode="decimal">
+            <em>Deg</em>
+          </label>
+          <label>
+            <span>Lower Limit</span>
+            <input id="settingsAltitudeLowerLimit" name="altitude_lower_limit_deg" type="number" step="0.001" inputmode="decimal">
+            <em>Deg</em>
+          </label>
+          <label>
+            <span>Offset Position</span>
+            <input id="settingsAltitudeOffset" name="altitude_position_offset_deg" type="number" step="0.001" inputmode="decimal">
+            <em>Deg</em>
+          </label>
+          <label>
+            <span>Current Limit</span>
+            <input id="settingsAltitudeCurrentLimit" name="altitude_current_limit_amp" type="number" min="1" max="150" step="0.001" inputmode="decimal">
+            <em>Amp</em>
+          </label>
+        </section>
+        <label>
+          <span>Max Velocity</span>
+          <input id="settingsSlewRate" name="slew_rate_deg_per_sec" type="number" min="0" step="0.001" inputmode="decimal">
+          <em>Deg/Sec</em>
+        </label>
+        <div class="settings-actions">
+          <button type="button" id="settingsReloadSerials">Reset Mount Server</button>
+          <button type="submit" id="settingsSave">Save Settings</button>
+        </div>
+      </form>
     </div>
 
     <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
