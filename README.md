@@ -83,13 +83,16 @@ Bookworm installation on an IRIV PiControl CM4/CM5. It installs the IRIV board
 support, SSH development tools, Codex CLI, ODrive USB permissions, this Python
 environment, the dashboard service, Avahi/mDNS, and the automatic updater.
 
-Copy `scripts/bootstrap_iriv.sh` and your Windows SSH public key to the new
-IRIV, then run:
+Copy `scripts/bootstrap_iriv.sh` to the new IRIV, then run:
 
 ```bash
-sudo bash scripts/bootstrap_iriv.sh \
-  --ssh-public-key-file /path/to/id_ed25519.pub
+sudo bash scripts/bootstrap_iriv.sh
 ```
+
+The script already contains the public half of the authorized Windows Codex
+SSH key. The matching private key remains on the Windows workstation and must
+never be copied into this repository. Use `--ssh-public-key-file PATH` only to
+override the bundled public key.
 
 If the current production code has not been merged to `main`, select its branch
 explicitly with `--branch <branch-name>`. Run `--help` to see every option.

@@ -11,6 +11,9 @@ REPO_URL="https://github.com/pprasit/Fire-Detector.git"
 BRANCH="main"
 DEVICE_HOSTNAME="firedetector"
 SSH_PUBLIC_KEY_FILE=""
+# Public key used by the Windows Codex workstation. The matching private key
+# must remain only on that workstation and must never be committed.
+DEFAULT_SSH_PUBLIC_KEY="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE3zpMByqP997XcqWGWvZ0i1f8cLqDEirjFnJHnGwRrF codex-iriv"
 INSTALL_IRIV_SUPPORT=1
 INSTALL_CODEX=1
 ENABLE_UPDATER=1
@@ -39,7 +42,7 @@ Options:
   --repo URL                  Git repository URL
   --branch NAME               Branch to install and track (default: main)
   --hostname NAME             LAN hostname and mDNS name (default: firedetector)
-  --ssh-public-key-file PATH  Add this public key to USER's authorized_keys
+  --ssh-public-key-file PATH  Override the bundled Windows Codex public key
   --skip-iriv-support         Do not run Cytron's IRIV PiControl setup script
   --skip-codex                Do not install Codex CLI
   --disable-updater           Install the web service but not the automatic updater timer
@@ -166,6 +169,10 @@ chown "$TARGET_USER:$TARGET_USER" "$TARGET_HOME/.ssh/authorized_keys"
 chmod 0600 "$TARGET_HOME/.ssh/authorized_keys"
 if [[ -n "$SSH_PUBLIC_KEY_FILE" ]]; then
     PUBLIC_KEY="$(tr -d '\r\n' < "$SSH_PUBLIC_KEY_FILE")"
+else
+    PUBLIC_KEY="$DEFAULT_SSH_PUBLIC_KEY"
+fi
+if [[ -n "$PUBLIC_KEY" ]]; then
     grep -Fqx "$PUBLIC_KEY" "$TARGET_HOME/.ssh/authorized_keys" \
         || printf '%s\n' "$PUBLIC_KEY" >> "$TARGET_HOME/.ssh/authorized_keys"
 fi
@@ -329,7 +336,7 @@ ODrive check after connecting USB and motor power:
   .venv/bin/python scripts/check_odrive.py
 EOF
 
-if [[ -z "$SSH_PUBLIC_KEY_FILE" ]]; then
+if [[ -z "$PUBLIC_KEY" ]]; then
     warn "No SSH public key was installed. Add one to $TARGET_HOME/.ssh/authorized_keys and verify login before disabling password authentication."
 fi
 
