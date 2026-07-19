@@ -8,6 +8,8 @@ from typing import Any
 
 import odrive
 
+TURN_DEGREES = 360.0
+
 
 class ODriveConnectionError(RuntimeError):
     """Raised when an ODrive cannot be found or queried."""
@@ -26,6 +28,7 @@ class AxisStatus:
     position_deg: float | None
     velocity_deg_per_sec: float | None
     current: float | None
+    current_setpoint: float | None
     is_armed: bool | None
     drive_serial: int | None
     drive_firmware: str
@@ -41,6 +44,21 @@ class AxisStatus:
     velocity_limit_tolerance: float | None
     velocity_ramp_rate: float | None
     torque_ramp_rate: float | None
+    control_mode: int | None
+    input_mode: int | None
+    trajectory_done: bool | None
+    input_pos: float | None
+    pos_setpoint: float | None
+    input_vel: float | None
+    vel_setpoint: float | None
+    torque_setpoint: float | None
+    effective_torque_setpoint: float | None
+    torque_soft_min: float | None
+    torque_soft_max: float | None
+    spinout_electrical_power_threshold: float | None
+    spinout_mechanical_power_threshold: float | None
+    spinout_electrical_power_bandwidth: float | None
+    spinout_mechanical_power_bandwidth: float | None
     input_filter_bandwidth: float | None
     inertia: float | None
     trap_velocity_limit: float | None
@@ -167,7 +185,9 @@ def read_dual_drive_status(devices: tuple[Any, ...]) -> ODriveStatus:
 
 
 def _read_axis_status(axis: Any, name: str, label: str, device: Any | None = None) -> AxisStatus:
-    pos_estimate = _first_float(
+    if device is not None:
+        _ensure_axis_feedback_config(label, device)
+    mapper_pos_estimate = _first_float(
         axis,
         (
             "pos_estimate",
@@ -176,7 +196,7 @@ def _read_axis_status(axis: Any, name: str, label: str, device: Any | None = Non
             "controller.pos_setpoint",
         ),
     )
-    vel_estimate = _first_float(
+    mapper_vel_estimate = _first_float(
         axis,
         (
             "vel_estimate",
@@ -185,6 +205,12 @@ def _read_axis_status(axis: Any, name: str, label: str, device: Any | None = Non
             "controller.vel_setpoint",
         ),
     )
+    pos_estimate = _axis_feedback_turns(label, device) if device is not None else None
+    if pos_estimate is None:
+        pos_estimate = mapper_pos_estimate
+    vel_estimate = _axis_feedback_turns_per_second(label, device) if device is not None else None
+    if vel_estimate is None:
+        vel_estimate = mapper_vel_estimate
     return AxisStatus(
         name=name,
         label=label,
@@ -194,8 +220,8 @@ def _read_axis_status(axis: Any, name: str, label: str, device: Any | None = Non
         disarm_reason=_get(axis, "disarm_reason"),
         pos_estimate=pos_estimate,
         vel_estimate=vel_estimate,
-        position_deg=_turns_to_degrees(pos_estimate),
-        velocity_deg_per_sec=_turns_to_degrees(vel_estimate),
+        position_deg=_axis_turns_to_degrees(label, pos_estimate),
+        velocity_deg_per_sec=_axis_turns_to_degrees(label, vel_estimate),
         current=_first_float(
             axis,
             (
@@ -204,6 +230,7 @@ def _read_axis_status(axis: Any, name: str, label: str, device: Any | None = Non
                 "motor.torque_estimate",
             ),
         ),
+        current_setpoint=_get_path_float(axis, "motor.foc.Iq_setpoint"),
         is_armed=_get(axis, "is_armed"),
         drive_serial=_get(device, "serial_number"),
         drive_firmware=_version(device, "fw") if device is not None else "unknown",
@@ -215,22 +242,55 @@ def _read_axis_status(axis: Any, name: str, label: str, device: Any | None = Non
         velocity_integrator_gain=_get_path_float(axis, "controller.config.vel_integrator_gain"),
         velocity_integrator_limit=_get_path_float(axis, "controller.config.vel_integrator_limit"),
         velocity_integrator_decay_gain=_get_path_float(axis, "controller.config.vel_integrator_decay_gain"),
-        velocity_limit=_get_path_float(axis, "controller.config.vel_limit"),
+        velocity_limit=_turns_to_degrees(_get_path_float(axis, "controller.config.vel_limit")),
         velocity_limit_tolerance=_get_path_float(axis, "controller.config.vel_limit_tolerance"),
-        velocity_ramp_rate=_get_path_float(axis, "controller.config.vel_ramp_rate"),
+        velocity_ramp_rate=_turns_to_degrees(_get_path_float(axis, "controller.config.vel_ramp_rate")),
         torque_ramp_rate=_get_path_float(axis, "controller.config.torque_ramp_rate"),
+        control_mode=_get_path_int(axis, "controller.config.control_mode"),
+        input_mode=_get_path_int(axis, "controller.config.input_mode"),
+        trajectory_done=_get_path_bool(axis, "controller.trajectory_done"),
+        input_pos=_turns_to_degrees(_get_path_float(axis, "controller.input_pos")),
+        pos_setpoint=_turns_to_degrees(_get_path_float(axis, "controller.pos_setpoint")),
+        input_vel=_turns_to_degrees(_get_path_float(axis, "controller.input_vel")),
+        vel_setpoint=_turns_to_degrees(_get_path_float(axis, "controller.vel_setpoint")),
+        torque_setpoint=_get_path_float(axis, "controller.torque_setpoint"),
+        effective_torque_setpoint=_get_path_float(axis, "controller.effective_torque_setpoint"),
+        torque_soft_min=_get_path_float(axis, "config.torque_soft_min"),
+        torque_soft_max=_get_path_float(axis, "config.torque_soft_max"),
+        spinout_electrical_power_threshold=_get_path_float(axis, "controller.config.spinout_electrical_power_threshold"),
+        spinout_mechanical_power_threshold=_get_path_float(axis, "controller.config.spinout_mechanical_power_threshold"),
+        spinout_electrical_power_bandwidth=_get_path_float(axis, "controller.config.spinout_electrical_power_bandwidth"),
+        spinout_mechanical_power_bandwidth=_get_path_float(axis, "controller.config.spinout_mechanical_power_bandwidth"),
         input_filter_bandwidth=_get_path_float(axis, "controller.config.input_filter_bandwidth"),
         inertia=_get_path_float(axis, "controller.config.inertia"),
-        trap_velocity_limit=_get_path_float(axis, "trap_traj.config.vel_limit"),
-        trap_accel_limit=_get_path_float(axis, "trap_traj.config.accel_limit"),
-        trap_decel_limit=_get_path_float(axis, "trap_traj.config.decel_limit"),
+        trap_velocity_limit=_turns_to_degrees(_get_path_float(axis, "trap_traj.config.vel_limit")),
+        trap_accel_limit=_turns_to_degrees(_get_path_float(axis, "trap_traj.config.accel_limit")),
+        trap_decel_limit=_turns_to_degrees(_get_path_float(axis, "trap_traj.config.decel_limit")),
     )
+
+
+def _axis_feedback_turns(label: str, device: Any) -> float | None:
+    return None
+
+
+def _ensure_axis_feedback_config(label: str, device: Any) -> None:
+    return
+
+
+def _axis_feedback_turns_per_second(label: str, device: Any) -> float | None:
+    return None
 
 
 def _turns_to_degrees(value: float | None) -> float | None:
     if value is None:
         return None
-    return value * 360.0
+    return value * TURN_DEGREES
+
+
+def _axis_turns_to_degrees(label: str, value: float | None) -> float | None:
+    if value is None:
+        return None
+    return _turns_to_degrees(value)
 
 
 def _get(obj: Any, attr: str) -> Any:
@@ -261,6 +321,30 @@ def _first_float(obj: Any, paths: tuple[str, ...]) -> float | None:
         if value is not None:
             return value
     return None
+
+
+def _get_path_int(obj: Any, path: str) -> int | None:
+    current = obj
+    for part in path.split("."):
+        current = _get(current, part)
+        if current is None:
+            return None
+    try:
+        return int(current)
+    except (TypeError, ValueError):
+        return None
+
+
+def _get_path_bool(obj: Any, path: str) -> bool | None:
+    current = obj
+    for part in path.split("."):
+        current = _get(current, part)
+        if current is None:
+            return None
+    try:
+        return bool(current)
+    except Exception:
+        return None
 
 
 def _get_path_float(obj: Any, path: str) -> float | None:

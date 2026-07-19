@@ -8,29 +8,36 @@
     "cw_pull": "up"
   },
   "drive_serials": {
-    "altitude_serial": "59898476770354",
-    "azimuth_serial": "59812575523890"
+    "altitude_serial": "59812575523890",
+    "azimuth_serial": "59898476770354"
   },
   "motion_limits": {
-    "altitude_current_limit_amp": 25.0,
-    "altitude_lower_limit_deg": -40.0,
-    "altitude_position_offset_deg": 0.0,
-    "altitude_upper_limit_deg": 85.0,
-    "azimuth_ccw_limit_deg": -300.0,
-    "azimuth_current_limit_amp": 25.0,
-    "azimuth_cw_limit_deg": 300.0,
+    "altitude_current_limit_amp": 40.0,
+    "altitude_lower_limit_deg": -300.0,
+    "altitude_position_offset_deg": -0.064,
+    "altitude_upper_limit_deg": 300.0,
+    "azimuth_ccw_limit_deg": -330.0,
+    "azimuth_current_limit_amp": 40.0,
+    "azimuth_cw_limit_deg": 330.0,
     "azimuth_position_offset_deg": 0.0,
-    "slew_rate_deg_per_sec": 50.0
+    "slew_rate_deg_per_sec": 500.0
   },
   "station": {
-    "latitude": null,
-    "longitude": null,
+    "elevation_above_ground_m": 40.0,
+    "latitude": 18.853,
+    "longitude": 98.958,
     "name": "NARIT#1"
   },
   "tuning_steps": {
     "Altitude": {},
     "Azimuth": {
-      "position_gain": 0.5
+      "position_gain": 1.0
     }
+  },
+  "updater": {
+    "channel": "main",
+    "check_interval_minutes": 15,
+    "device_id": "iriv",
+    "enabled": true
   }
 }

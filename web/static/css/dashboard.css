@@ -1,5 +1,6 @@
 :root {
   color-scheme: dark;
+  --app-max-width: 1920px;
   --bg: #171b2c;
   --panel: #252944;
   --panel-2: #20243b;
@@ -11,6 +12,1306 @@
   --cyan: #49c7d9;
   --green: #57d68d;
   --red: #ff5d73;
+}
+
+/* NARIT wildfire control visual theme */
+:root {
+  --bg: #050c0f;
+  --panel: #10191b;
+  --panel-2: #0c1417;
+  --muted: #98a6a8;
+  --text: #f3f7f4;
+  --line: rgba(150, 178, 166, 0.14);
+  --purple: #69c779;
+  --orange: #ff8a2f;
+  --cyan: #56b6c2;
+  --green: #63c978;
+  --red: #ff5548;
+  --warning: #f4aa3e;
+  --surface: rgba(17, 25, 27, 0.82);
+  --surface-strong: rgba(21, 31, 33, 0.92);
+  --surface-soft: rgba(106, 128, 118, 0.08);
+  --glow-green: rgba(99, 201, 120, 0.22);
+  --glow-fire: rgba(255, 96, 48, 0.20);
+}
+
+body {
+  background:
+    linear-gradient(180deg, rgba(5, 12, 15, 0.96), rgba(7, 15, 17, 0.98)),
+    #050c0f;
+}
+
+body::before,
+body.is-pointing-view::before {
+  background:
+    linear-gradient(90deg, rgba(5, 12, 15, 0.98), rgba(5, 12, 15, 0.82), rgba(5, 12, 15, 0.98)),
+    url("/static/img/fire-detector-head.png") 58% center / min(720px, 50vw) auto no-repeat;
+  opacity: 0.16;
+  filter: saturate(0.72) contrast(1.08);
+}
+
+.monitor-header,
+.status-card,
+.chart-panel,
+.system-log-panel,
+.sky-view-panel,
+.pointing-view-panel,
+.sky-status-panel,
+.sky-command-panel,
+.floating-tuning-panel,
+.auto-tune-panel,
+.goto-panel,
+.settings-panel,
+.tuning-step-panel {
+  border-color: rgba(151, 181, 166, 0.14);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.012)),
+    linear-gradient(180deg, rgba(17, 27, 29, 0.92), rgba(9, 17, 19, 0.94));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.055),
+    0 22px 52px rgba(0, 0, 0, 0.34);
+}
+
+.monitor-header {
+  background:
+    linear-gradient(90deg, rgba(99, 201, 120, 0.10), transparent 36%),
+    linear-gradient(180deg, rgba(14, 25, 27, 0.94), rgba(6, 13, 16, 0.94));
+}
+
+.monitor-header::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(99, 201, 120, 0.44), transparent);
+}
+
+.eyebrow,
+.sensor-name,
+.actual-readout strong,
+.motion-readout strong,
+.status-readings dt,
+.server-uptime span {
+  color: rgba(196, 212, 204, 0.72);
+}
+
+h1,
+h2,
+.pointing-map-header h2,
+.sky-status-header h2,
+.sky-command-header h2 {
+  color: #f7fbf7;
+}
+
+.header-copy .eyebrow,
+.pointing-map-header h2 {
+  color: var(--green);
+}
+
+button,
+.axis-command-apply,
+.tuning-apply,
+.motor-goto,
+.goto-actions button[type="submit"],
+.sky-command-form button[type="submit"] {
+  border: 1px solid rgba(116, 217, 130, 0.18);
+  background:
+    linear-gradient(135deg, rgba(96, 196, 111, 0.86), rgba(43, 132, 80, 0.88));
+  box-shadow: 0 12px 26px rgba(41, 140, 82, 0.18);
+}
+
+button:hover:not(:disabled) {
+  filter: brightness(1.07);
+}
+
+.view-mode-toggle,
+.server-uptime,
+.system-setting,
+.motor-toggle,
+.actual-readout,
+.motion-readout,
+.sensor-pill,
+.tab-list,
+.status-readings div,
+.axis-control-form input,
+.tuning-form input,
+.floating-tuning-form input,
+.settings-form input,
+.settings-form select,
+.goto-form input,
+.goto-form select,
+.chart-controls select,
+.sky-command-form input,
+.sky-command-form select,
+.sky-axis-readout span,
+.pointing-map-summary span,
+.pointing-layer-controls label,
+.pointing-selection-card span {
+  border-color: rgba(155, 181, 170, 0.14);
+  background: rgba(132, 157, 145, 0.07);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+}
+
+.view-mode-toggle button.active,
+.tab-button.active,
+.goto-tab.active {
+  color: #f8fff9;
+  background:
+    linear-gradient(135deg, rgba(96, 196, 111, 0.50), rgba(52, 122, 80, 0.38));
+  box-shadow: inset 3px 0 0 rgba(99, 201, 120, 0.92), 0 10px 22px rgba(99, 201, 120, 0.12);
+}
+
+.tab-button,
+.goto-tab,
+.chart-controls select,
+.system-setting,
+.server-uptime {
+  color: rgba(224, 233, 228, 0.84);
+}
+
+.status-card.azimuth,
+.status-card.altitude {
+  color: var(--green);
+}
+
+.status-card-header h2 {
+  color: #f6faf6;
+}
+
+.axis-chip,
+.axis-chip.is-connected,
+.status-card .axis-chip {
+  color: #eaffef;
+  background: rgba(99, 201, 120, 0.18);
+  border-color: rgba(99, 201, 120, 0.30);
+  box-shadow: 0 0 18px rgba(99, 201, 120, 0.10);
+}
+
+.axis-enable-meter {
+  background: rgba(151, 181, 166, 0.16);
+}
+
+.axis-enable-meter span,
+.axis-enable-meter.is-enabled span {
+  background: linear-gradient(90deg, #63c978, #84df8d);
+  box-shadow: 0 0 16px rgba(99, 201, 120, 0.36);
+}
+
+.axis-enable {
+  color: #f3fff5;
+  background: linear-gradient(135deg, rgba(99, 201, 120, 0.86), rgba(42, 143, 86, 0.88));
+}
+
+.motor-stop,
+.axis-disable,
+.axis-jog-actions button[data-axis-jog="stop"],
+.sine-velocity-actions button[data-axis-sine="stop"],
+.sky-stop-button,
+.motor-toggle.is-enabled {
+  color: #fff5f2;
+  border-color: rgba(255, 87, 72, 0.28);
+  background: linear-gradient(135deg, rgba(255, 85, 72, 0.88), rgba(156, 50, 45, 0.88));
+  box-shadow: 0 12px 28px rgba(255, 85, 72, 0.16);
+}
+
+.motor-toggle.is-partial,
+.tuning-auto,
+.auto-tune-start,
+.axis-jog-actions button.is-pressed {
+  color: #fff7ed;
+  border-color: rgba(255, 138, 47, 0.24);
+  background: linear-gradient(135deg, rgba(255, 138, 47, 0.82), rgba(166, 82, 35, 0.82));
+  box-shadow: 0 12px 28px rgba(255, 138, 47, 0.14);
+}
+
+.axis-jog-actions button,
+.sine-velocity-panel,
+.tuning-form,
+.floating-tuning-form,
+.axis-control-form {
+  border-color: rgba(155, 181, 170, 0.12);
+}
+
+.sine-velocity-panel {
+  background:
+    linear-gradient(180deg, rgba(99, 201, 120, 0.055), rgba(255, 138, 47, 0.035)),
+    rgba(9, 17, 19, 0.48);
+}
+
+.sine-velocity-panel legend {
+  color: rgba(99, 201, 120, 0.92);
+}
+
+.actual-readout.position {
+  border-color: rgba(99, 201, 120, 0.28);
+}
+
+.actual-readout.position em,
+.legend-item.position,
+.status-card.azimuth .status-readings dd {
+  color: #80e08f;
+}
+
+.actual-readout.velocity {
+  border-color: rgba(255, 138, 47, 0.26);
+}
+
+.actual-readout.velocity em,
+.legend-item.velocity {
+  color: #ff9b42;
+}
+
+.actual-readout.current {
+  border-color: rgba(86, 182, 194, 0.26);
+}
+
+.actual-readout.current em,
+.legend-item.current {
+  color: #61d4df;
+}
+
+.motion-readout {
+  border-color: rgba(99, 201, 120, 0.26);
+  background: rgba(99, 201, 120, 0.08);
+}
+
+.motion-readout em {
+  color: #d7f7dc;
+}
+
+.motion-readout.is-moving {
+  border-color: rgba(255, 138, 47, 0.34);
+  background: rgba(255, 138, 47, 0.11);
+}
+
+.motion-readout.is-moving em {
+  color: #ffb15d;
+}
+
+.motion-readout.is-settling {
+  border-color: rgba(86, 182, 194, 0.30);
+  background: rgba(86, 182, 194, 0.10);
+}
+
+.motion-readout.is-reached {
+  border-color: rgba(99, 201, 120, 0.34);
+  background: rgba(99, 201, 120, 0.10);
+}
+
+.sensor-pill.is-active {
+  border-color: rgba(99, 201, 120, 0.44);
+  background: rgba(99, 201, 120, 0.14);
+}
+
+.sensor-pill.is-active .sensor-led {
+  background: var(--green);
+  box-shadow: 0 0 16px rgba(99, 201, 120, 0.60);
+}
+
+.chart-panel,
+.chart-panel canvas,
+.pointing-map-stage {
+  background-color: #061012;
+}
+
+.chart-panel {
+  background:
+    linear-gradient(180deg, rgba(17, 25, 27, 0.90), rgba(5, 12, 15, 0.92));
+}
+
+.chart-panel-header {
+  border-bottom-color: rgba(151, 181, 166, 0.10);
+}
+
+.system-log-panel table,
+.system-log-panel tbody,
+.system-log-panel tr {
+  border-color: rgba(151, 181, 166, 0.10);
+}
+
+.log-type-error,
+.axis-control-message.is-error,
+.tuning-message.is-error {
+  color: #ff6a5b;
+}
+
+.log-type-warning,
+.axis-control-message.is-warning,
+.tuning-message.is-warning {
+  color: #ffb15d;
+}
+
+.log-type-success,
+.axis-control-message.is-ok,
+.tuning-message.is-ok {
+  color: #77df86;
+}
+/* NARIT main-frame refinement final override */
+body {
+  background:
+    radial-gradient(circle at 72% 0%, rgba(99, 201, 120, 0.075), transparent 34rem),
+    radial-gradient(circle at 4% 18%, rgba(255, 138, 47, 0.05), transparent 28rem),
+    linear-gradient(180deg, #060d10 0%, #050a0d 48%, #04080b 100%);
+}
+
+body::before,
+body.is-pointing-view::before {
+  display: none;
+  background: none;
+}
+
+.monitor-shell {
+  position: relative;
+  grid-template-rows: auto minmax(0, 1fr) 154px;
+  width: calc(100% - 24px);
+  height: calc(100vh - 24px);
+  margin: 12px auto;
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid rgba(148, 174, 164, 0.16);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.030), rgba(255, 255, 255, 0.008)),
+    linear-gradient(135deg, rgba(15, 25, 27, 0.96), rgba(7, 14, 16, 0.98));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.055),
+    0 24px 64px rgba(0, 0, 0, 0.46);
+}
+
+.monitor-shell::before {
+  content: "";
+  position: absolute;
+  inset: 70px 0 0;
+  pointer-events: none;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px);
+  background-size: 36px 36px;
+  mask-image: linear-gradient(180deg, transparent, #000 8%, #000 88%, transparent);
+}
+
+.monitor-header {
+  min-height: 72px;
+  padding: 14px 26px;
+  border: 0;
+  border-bottom: 1px solid rgba(148, 174, 164, 0.15);
+  border-radius: 0;
+  background:
+    linear-gradient(90deg, rgba(99, 201, 120, 0.065), transparent 35%),
+    linear-gradient(180deg, rgba(9, 18, 20, 0.98), rgba(6, 13, 15, 0.96));
+  box-shadow: none;
+}
+
+.monitor-header::after {
+  background: linear-gradient(90deg, transparent, rgba(99, 201, 120, 0.18), transparent);
+}
+
+.header-copy h1 {
+  font-size: 28px;
+  letter-spacing: 0;
+}
+
+.axis-monitor-grid {
+  position: relative;
+  z-index: 1;
+  grid-template-columns: minmax(340px, 458px) minmax(0, 1fr);
+  gap: 0;
+  padding: 16px 18px 16px 0;
+  border-bottom: 1px solid rgba(148, 174, 164, 0.12);
+}
+
+.axis-status-column {
+  gap: 18px;
+  padding: 0 16px;
+  border-right: 1px solid rgba(148, 174, 164, 0.12);
+  background:
+    linear-gradient(90deg, rgba(99, 201, 120, 0.045), transparent 78%),
+    linear-gradient(180deg, rgba(10, 19, 21, 0.52), rgba(8, 16, 18, 0.30));
+}
+
+.chart-column {
+  gap: 18px;
+  padding-left: 18px;
+}
+
+.status-card,
+.chart-panel,
+.system-log-panel,
+.sky-view-panel,
+.pointing-view-panel,
+.sky-status-panel,
+.sky-command-panel,
+.floating-tuning-panel,
+.auto-tune-panel,
+.goto-panel,
+.settings-panel,
+.tuning-step-panel,
+.auto-tune-results-panel,
+.auto-tune-settings-panel,
+.auto-tune-result-panel {
+  border-color: rgba(148, 174, 164, 0.13);
+  border-radius: 7px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.026), rgba(255, 255, 255, 0.010)),
+    linear-gradient(180deg, rgba(18, 29, 31, 0.74), rgba(10, 18, 21, 0.74));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 14px 34px rgba(0, 0, 0, 0.24);
+}
+
+.status-card {
+  padding: 18px;
+}
+
+.status-card::before {
+  inset: auto -20% -24% 28%;
+  height: 150px;
+  opacity: 0.10;
+}
+
+.chart-panel {
+  padding: 14px 18px 12px;
+}
+
+.chart-panel.azimuth-chart,
+.chart-panel.altitude-chart,
+.system-log-panel {
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.019) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.019) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(8, 15, 18, 0.84), rgba(5, 10, 13, 0.86));
+  background-size: 34px 34px, 34px 34px, auto;
+}
+
+.system-log-panel {
+  z-index: 1;
+  height: 154px;
+  min-height: 154px;
+  max-height: 154px;
+  margin: 0;
+  border-width: 0;
+  border-radius: 0;
+  border-top: 1px solid rgba(148, 174, 164, 0.12);
+  box-shadow: none;
+}
+
+.system-log-entries {
+  padding: 10px 18px;
+}
+
+.view-mode-toggle button.active,
+.tab-button.active,
+.goto-tab.active {
+  color: #f6fff7;
+  background:
+    linear-gradient(135deg, rgba(99, 201, 120, 0.34), rgba(54, 116, 78, 0.22)),
+    rgba(99, 201, 120, 0.06);
+  box-shadow:
+    inset 0 0 0 1px rgba(99, 201, 120, 0.18),
+    0 8px 20px rgba(99, 201, 120, 0.10);
+}
+
+.tab-list {
+  gap: 4px;
+  background: rgba(105, 132, 121, 0.055);
+}
+
+.tab-button,
+.goto-tab {
+  border-radius: 6px;
+}
+
+.tab-button:hover,
+.goto-tab:hover {
+  background: rgba(99, 201, 120, 0.10);
+}
+
+.axis-jog-actions button,
+.axis-command-apply,
+.tuning-apply,
+.tuning-save,
+.tuning-auto,
+.motor-goto,
+.motor-stop,
+.system-setting,
+.motor-toggle {
+  border-radius: 7px;
+}
+
+@media (max-width: 980px) {
+  .monitor-shell {
+    width: 100%;
+    height: auto;
+    min-height: 100vh;
+    margin: 0;
+    border-radius: 0;
+  }
+
+  .axis-monitor-grid {
+    padding: 14px;
+  }
+
+  .axis-status-column {
+    padding: 0;
+    border-right: 0;
+    background: transparent;
+  }
+
+  .chart-column {
+    padding-left: 0;
+  }
+}
+
+/* Final workspace split: equal Azimuth/Altitude bands */
+.monitor-shell {
+  grid-template-rows: 82px minmax(0, 1fr) 156px;
+}
+
+.axis-monitor-grid {
+  display: grid;
+  grid-template-columns: minmax(500px, 540px) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  column-gap: 0;
+  row-gap: 14px;
+  min-height: 0;
+  height: 100%;
+  padding: 14px;
+}
+
+.axis-status-column,
+.chart-column {
+  display: contents;
+}
+
+.status-card.azimuth,
+.chart-panel.azimuth-chart,
+.status-card.altitude,
+.chart-panel.altitude-chart {
+  height: 100%;
+  min-height: 0;
+}
+
+.status-card.azimuth {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.chart-panel.azimuth-chart {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.status-card.altitude {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.chart-panel.altitude-chart {
+  grid-column: 2;
+  grid-row: 2;
+}
+
+.status-card.azimuth,
+.status-card.altitude {
+  border-radius: 8px 0 0 8px;
+  border-right-width: 0;
+}
+
+.chart-panel.azimuth-chart,
+.chart-panel.altitude-chart {
+  border-radius: 0 8px 8px 0;
+  border-left-color: rgba(152, 183, 169, 0.10);
+}
+
+.tab-list {
+  grid-template-columns: repeat(4, minmax(92px, 1fr));
+  gap: 6px;
+  padding: 5px;
+}
+
+.tab-button {
+  min-width: 0;
+  padding-inline: 12px;
+}
+
+.chart-panel {
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+.chart-panel canvas {
+  width: 100%;
+  height: 100%;
+}
+
+.system-log-panel {
+  height: 156px;
+  min-height: 156px;
+  max-height: 156px;
+  margin: 0 14px 14px;
+}
+
+@media (max-width: 1180px) {
+  .axis-monitor-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: none;
+    overflow: auto;
+  }
+
+  .axis-status-column,
+  .chart-column {
+    display: grid;
+  }
+
+  .status-card.azimuth,
+  .status-card.altitude,
+  .chart-panel.azimuth-chart,
+  .chart-panel.altitude-chart {
+    grid-column: auto;
+    grid-row: auto;
+    border-width: 1px;
+    border-radius: 8px;
+  }
+}
+
+/* Axis-band layout final override */
+.monitor-shell {
+  grid-template-rows: 82px minmax(0, 1fr) 176px;
+  width: calc(100% - 18px);
+  height: calc(100vh - 18px);
+  margin: 9px auto;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.022), rgba(255, 255, 255, 0.006)),
+    linear-gradient(135deg, rgba(8, 17, 19, 0.98), rgba(4, 10, 12, 0.99));
+}
+
+.monitor-header {
+  display: grid;
+  grid-template-columns: minmax(300px, 1fr) auto;
+  align-items: center;
+  min-height: 82px;
+  padding: 16px 28px;
+  border-bottom: 1px solid rgba(143, 173, 160, 0.20);
+  background:
+    linear-gradient(90deg, rgba(99, 201, 120, 0.09), transparent 28%),
+    linear-gradient(180deg, rgba(10, 20, 22, 0.99), rgba(4, 11, 13, 0.98));
+}
+
+.header-copy h1 {
+  font-size: 28px;
+  line-height: 1.05;
+}
+
+.motor-controls {
+  min-width: 0;
+}
+
+.axis-monitor-grid {
+  display: grid;
+  grid-template-columns: minmax(360px, 470px) minmax(0, 1fr);
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  column-gap: 0;
+  row-gap: 14px;
+  padding: 14px;
+  overflow: hidden;
+  border-bottom: 1px solid rgba(143, 173, 160, 0.16);
+}
+
+.axis-status-column,
+.chart-column {
+  display: contents;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+.status-card.azimuth {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.chart-panel.azimuth-chart {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.status-card.altitude {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.chart-panel.altitude-chart {
+  grid-column: 2;
+  grid-row: 2;
+}
+
+.status-card.azimuth,
+.status-card.altitude,
+.chart-panel.azimuth-chart,
+.chart-panel.altitude-chart {
+  min-height: 0;
+  border-color: rgba(152, 183, 169, 0.22);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.030), rgba(255, 255, 255, 0.010)),
+    linear-gradient(180deg, rgba(12, 25, 26, 0.86), rgba(6, 15, 17, 0.88));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.050),
+    0 16px 34px rgba(0, 0, 0, 0.28);
+}
+
+.status-card.azimuth,
+.status-card.altitude {
+  border-right-width: 0;
+  border-radius: 8px 0 0 8px;
+}
+
+.chart-panel.azimuth-chart,
+.chart-panel.altitude-chart {
+  border-left-color: rgba(152, 183, 169, 0.10);
+  border-radius: 0 8px 8px 0;
+}
+
+.status-card.azimuth::after,
+.status-card.altitude::after {
+  content: "";
+  position: absolute;
+  top: 18px;
+  right: 0;
+  bottom: 18px;
+  width: 1px;
+  background: linear-gradient(180deg, transparent, rgba(143, 173, 160, 0.22), transparent);
+  pointer-events: none;
+}
+
+.status-card-header,
+.chart-panel-header {
+  align-items: center;
+}
+
+.chart-panel-header {
+  min-height: 42px;
+}
+
+.tab-list {
+  border-color: rgba(143, 173, 160, 0.16);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.020), rgba(255, 255, 255, 0.006)),
+    rgba(13, 29, 28, 0.58);
+}
+
+.tab-button.active,
+.view-mode-toggle button.active,
+.goto-tab.active {
+  background:
+    linear-gradient(135deg, rgba(99, 201, 120, 0.38), rgba(51, 117, 75, 0.26)),
+    rgba(99, 201, 120, 0.08);
+  box-shadow:
+    inset 0 0 0 1px rgba(99, 201, 120, 0.22),
+    0 10px 20px rgba(30, 90, 54, 0.16);
+}
+
+.actual-readouts {
+  grid-template-columns: 148px max-content max-content max-content;
+}
+
+.system-log-panel {
+  height: 176px;
+  min-height: 176px;
+  max-height: 176px;
+  margin: 0 14px 14px;
+  border: 1px solid rgba(152, 183, 169, 0.22);
+  border-radius: 8px;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(8, 17, 18, 0.90), rgba(4, 10, 12, 0.92));
+  background-size: 32px 32px, 32px 32px, auto;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.045),
+    0 16px 34px rgba(0, 0, 0, 0.26);
+}
+
+.log-entry {
+  grid-template-columns: 190px 80px minmax(0, 1fr);
+}
+
+@media (max-width: 1180px) {
+  .monitor-shell {
+    grid-template-rows: auto minmax(0, 1fr) 176px;
+  }
+
+  .monitor-header {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .axis-monitor-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: none;
+    overflow: auto;
+  }
+
+  .axis-status-column,
+  .chart-column {
+    display: grid;
+  }
+
+  .status-card.azimuth,
+  .status-card.altitude,
+  .chart-panel.azimuth-chart,
+  .chart-panel.altitude-chart {
+    grid-column: auto;
+    grid-row: auto;
+    border-width: 1px;
+    border-radius: 8px;
+  }
+
+  .status-card.azimuth::after,
+  .status-card.altitude::after {
+    display: none;
+  }
+}
+
+/* NARIT main-frame refinement final override */
+body {
+  background:
+    radial-gradient(circle at 72% 0%, rgba(99, 201, 120, 0.075), transparent 34rem),
+    radial-gradient(circle at 4% 18%, rgba(255, 138, 47, 0.05), transparent 28rem),
+    linear-gradient(180deg, #060d10 0%, #050a0d 48%, #04080b 100%);
+}
+
+body::before,
+body.is-pointing-view::before {
+  display: none;
+  background: none;
+}
+
+.monitor-shell {
+  position: relative;
+  grid-template-rows: auto minmax(0, 1fr) 154px;
+  width: calc(100% - 24px);
+  height: calc(100vh - 24px);
+  margin: 12px auto;
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid rgba(148, 174, 164, 0.16);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.030), rgba(255, 255, 255, 0.008)),
+    linear-gradient(135deg, rgba(15, 25, 27, 0.96), rgba(7, 14, 16, 0.98));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.055),
+    0 24px 64px rgba(0, 0, 0, 0.46);
+}
+
+.monitor-shell::before {
+  content: "";
+  position: absolute;
+  inset: 70px 0 0;
+  pointer-events: none;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px);
+  background-size: 36px 36px;
+  mask-image: linear-gradient(180deg, transparent, #000 8%, #000 88%, transparent);
+}
+
+.monitor-header {
+  min-height: 72px;
+  padding: 14px 26px;
+  border: 0;
+  border-bottom: 1px solid rgba(148, 174, 164, 0.15);
+  border-radius: 0;
+  background:
+    linear-gradient(90deg, rgba(99, 201, 120, 0.065), transparent 35%),
+    linear-gradient(180deg, rgba(9, 18, 20, 0.98), rgba(6, 13, 15, 0.96));
+  box-shadow: none;
+}
+
+.monitor-header::after {
+  background: linear-gradient(90deg, transparent, rgba(99, 201, 120, 0.18), transparent);
+}
+
+.header-copy h1 {
+  font-size: 28px;
+  letter-spacing: 0;
+}
+
+.axis-monitor-grid {
+  position: relative;
+  z-index: 1;
+  grid-template-columns: minmax(340px, 458px) minmax(0, 1fr);
+  gap: 0;
+  padding: 16px 18px 16px 0;
+  border-bottom: 1px solid rgba(148, 174, 164, 0.12);
+}
+
+.axis-status-column {
+  gap: 18px;
+  padding: 0 16px;
+  border-right: 1px solid rgba(148, 174, 164, 0.12);
+  background:
+    linear-gradient(90deg, rgba(99, 201, 120, 0.045), transparent 78%),
+    linear-gradient(180deg, rgba(10, 19, 21, 0.52), rgba(8, 16, 18, 0.30));
+}
+
+.chart-column {
+  gap: 18px;
+  padding-left: 18px;
+}
+
+.status-card,
+.chart-panel,
+.system-log-panel,
+.sky-view-panel,
+.pointing-view-panel,
+.sky-status-panel,
+.sky-command-panel,
+.floating-tuning-panel,
+.auto-tune-panel,
+.goto-panel,
+.settings-panel,
+.tuning-step-panel,
+.auto-tune-results-panel,
+.auto-tune-settings-panel,
+.auto-tune-result-panel {
+  border-color: rgba(148, 174, 164, 0.13);
+  border-radius: 7px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.026), rgba(255, 255, 255, 0.010)),
+    linear-gradient(180deg, rgba(18, 29, 31, 0.74), rgba(10, 18, 21, 0.74));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 14px 34px rgba(0, 0, 0, 0.24);
+}
+
+.status-card {
+  padding: 18px;
+}
+
+.status-card::before {
+  inset: auto -20% -24% 28%;
+  height: 150px;
+  opacity: 0.10;
+}
+
+.chart-panel {
+  padding: 14px 18px 12px;
+}
+
+.chart-panel.azimuth-chart,
+.chart-panel.altitude-chart,
+.system-log-panel {
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.019) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.019) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(8, 15, 18, 0.84), rgba(5, 10, 13, 0.86));
+  background-size: 34px 34px, 34px 34px, auto;
+}
+
+.system-log-panel {
+  z-index: 1;
+  height: 154px;
+  min-height: 154px;
+  max-height: 154px;
+  margin: 0;
+  border-width: 0;
+  border-radius: 0;
+  border-top: 1px solid rgba(148, 174, 164, 0.12);
+  box-shadow: none;
+}
+
+.system-log-entries {
+  padding: 10px 18px;
+}
+
+.view-mode-toggle button.active,
+.tab-button.active,
+.goto-tab.active {
+  color: #f6fff7;
+  background:
+    linear-gradient(135deg, rgba(99, 201, 120, 0.34), rgba(54, 116, 78, 0.22)),
+    rgba(99, 201, 120, 0.06);
+  box-shadow:
+    inset 0 0 0 1px rgba(99, 201, 120, 0.18),
+    0 8px 20px rgba(99, 201, 120, 0.10);
+}
+
+.tab-list {
+  gap: 4px;
+  background: rgba(105, 132, 121, 0.055);
+}
+
+.tab-button,
+.goto-tab {
+  border-radius: 6px;
+}
+
+.tab-button:hover,
+.goto-tab:hover {
+  background: rgba(99, 201, 120, 0.10);
+}
+
+.axis-jog-actions button,
+.axis-command-apply,
+.tuning-apply,
+.tuning-save,
+.tuning-auto,
+.motor-goto,
+.motor-stop,
+.system-setting,
+.motor-toggle {
+  border-radius: 7px;
+}
+
+@media (max-width: 980px) {
+  .monitor-shell {
+    width: 100%;
+    height: auto;
+    min-height: 100vh;
+    margin: 0;
+    border-radius: 0;
+  }
+
+  .axis-monitor-grid {
+    padding: 14px;
+  }
+
+  .axis-status-column {
+    padding: 0;
+    border-right: 0;
+    background: transparent;
+  }
+
+  .chart-column {
+    padding-left: 0;
+  }
+}
+
+/* NARIT main-frame refinement */
+body {
+  background:
+    radial-gradient(circle at 72% 0%, rgba(99, 201, 120, 0.075), transparent 34rem),
+    radial-gradient(circle at 4% 18%, rgba(255, 138, 47, 0.05), transparent 28rem),
+    linear-gradient(180deg, #060d10 0%, #050a0d 48%, #04080b 100%);
+}
+
+body::before,
+body.is-pointing-view::before {
+  display: none;
+  background: none;
+}
+
+.monitor-shell {
+  position: relative;
+  grid-template-rows: auto minmax(0, 1fr) 154px;
+  width: calc(100% - 24px);
+  height: calc(100vh - 24px);
+  margin: 12px auto;
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid rgba(148, 174, 164, 0.16);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.030), rgba(255, 255, 255, 0.008)),
+    linear-gradient(135deg, rgba(15, 25, 27, 0.96), rgba(7, 14, 16, 0.98));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.055),
+    0 24px 64px rgba(0, 0, 0, 0.46);
+}
+
+.monitor-shell::before {
+  content: "";
+  position: absolute;
+  inset: 70px 0 0;
+  pointer-events: none;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px);
+  background-size: 36px 36px;
+  mask-image: linear-gradient(180deg, transparent, #000 8%, #000 88%, transparent);
+}
+
+.monitor-header {
+  min-height: 72px;
+  padding: 14px 26px;
+  border: 0;
+  border-bottom: 1px solid rgba(148, 174, 164, 0.15);
+  border-radius: 0;
+  background:
+    linear-gradient(90deg, rgba(99, 201, 120, 0.065), transparent 35%),
+    linear-gradient(180deg, rgba(9, 18, 20, 0.98), rgba(6, 13, 15, 0.96));
+  box-shadow: none;
+}
+
+.monitor-header::after {
+  background: linear-gradient(90deg, transparent, rgba(99, 201, 120, 0.18), transparent);
+}
+
+.header-copy h1 {
+  font-size: 28px;
+  letter-spacing: 0;
+}
+
+.axis-monitor-grid {
+  position: relative;
+  z-index: 1;
+  grid-template-columns: minmax(340px, 458px) minmax(0, 1fr);
+  gap: 0;
+  padding: 16px 18px 16px 0;
+  border-bottom: 1px solid rgba(148, 174, 164, 0.12);
+}
+
+.axis-status-column {
+  gap: 18px;
+  padding: 0 16px;
+  border-right: 1px solid rgba(148, 174, 164, 0.12);
+  background:
+    linear-gradient(90deg, rgba(99, 201, 120, 0.045), transparent 78%),
+    linear-gradient(180deg, rgba(10, 19, 21, 0.52), rgba(8, 16, 18, 0.30));
+}
+
+.chart-column {
+  gap: 18px;
+  padding-left: 18px;
+}
+
+.status-card,
+.chart-panel,
+.system-log-panel,
+.sky-view-panel,
+.pointing-view-panel,
+.sky-status-panel,
+.sky-command-panel,
+.floating-tuning-panel,
+.auto-tune-panel,
+.goto-panel,
+.settings-panel,
+.tuning-step-panel,
+.auto-tune-results-panel,
+.auto-tune-settings-panel,
+.auto-tune-result-panel {
+  border-color: rgba(148, 174, 164, 0.13);
+  border-radius: 7px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.026), rgba(255, 255, 255, 0.010)),
+    linear-gradient(180deg, rgba(18, 29, 31, 0.74), rgba(10, 18, 21, 0.74));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 14px 34px rgba(0, 0, 0, 0.24);
+}
+
+.status-card {
+  padding: 18px;
+}
+
+.status-card::before {
+  inset: auto -20% -24% 28%;
+  height: 150px;
+  opacity: 0.10;
+}
+
+.chart-panel {
+  padding: 14px 18px 12px;
+}
+
+.chart-panel.azimuth-chart,
+.chart-panel.altitude-chart,
+.system-log-panel {
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.019) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.019) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(8, 15, 18, 0.84), rgba(5, 10, 13, 0.86));
+  background-size: 34px 34px, 34px 34px, auto;
+}
+
+.system-log-panel {
+  z-index: 1;
+  height: 154px;
+  min-height: 154px;
+  max-height: 154px;
+  margin: 0;
+  border-width: 0;
+  border-radius: 0;
+  border-top: 1px solid rgba(148, 174, 164, 0.12);
+  box-shadow: none;
+}
+
+.system-log-entries {
+  padding: 10px 18px;
+}
+
+.view-mode-toggle button.active,
+.tab-button.active,
+.goto-tab.active {
+  color: #f6fff7;
+  background:
+    linear-gradient(135deg, rgba(99, 201, 120, 0.34), rgba(54, 116, 78, 0.22)),
+    rgba(99, 201, 120, 0.06);
+  box-shadow:
+    inset 0 0 0 1px rgba(99, 201, 120, 0.18),
+    0 8px 20px rgba(99, 201, 120, 0.10);
+}
+
+.tab-list {
+  gap: 4px;
+  background: rgba(105, 132, 121, 0.055);
+}
+
+.tab-button,
+.goto-tab {
+  border-radius: 6px;
+}
+
+.tab-button:hover,
+.goto-tab:hover {
+  background: rgba(99, 201, 120, 0.10);
+}
+
+.axis-jog-actions button,
+.axis-command-apply,
+.tuning-apply,
+.tuning-save,
+.tuning-auto,
+.motor-goto,
+.motor-stop,
+.system-setting,
+.motor-toggle {
+  border-radius: 7px;
+}
+
+@media (max-width: 980px) {
+  .monitor-shell {
+    width: 100%;
+    height: auto;
+    min-height: 100vh;
+    margin: 0;
+    border-radius: 0;
+  }
+
+  .axis-monitor-grid {
+    padding: 14px;
+  }
+
+  .axis-status-column {
+    padding: 0;
+    border-right: 0;
+    background: transparent;
+  }
+
+  .chart-column {
+    padding-left: 0;
+  }
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(99, 201, 120, 0.38);
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(5, 12, 15, 0.64);
 }
 
 * { box-sizing: border-box; }
@@ -45,10 +1346,20 @@ body::before {
   pointer-events: none;
 }
 
+body.is-pointing-view::before {
+  background:
+    linear-gradient(90deg, rgba(17, 21, 37, 0.52), rgba(17, 21, 37, 0.30), rgba(17, 21, 37, 0.64)),
+    url("/static/img/fire-detector-head.png") 42% center / min(980px, 68vw) auto no-repeat;
+  opacity: 0.52;
+}
+
 .monitor-shell {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) 170px;
+  width: 100%;
+  max-width: var(--app-max-width);
   height: 100vh;
+  margin: 0 auto;
   padding: 22px;
   gap: 14px;
   overflow: hidden;
@@ -114,7 +1425,7 @@ body::before {
 
 .view-mode-toggle {
   display: grid;
-  grid-template-columns: repeat(2, minmax(86px, 1fr));
+  grid-template-columns: repeat(3, minmax(86px, 1fr));
   gap: 4px;
   min-height: 38px;
   padding: 4px;
@@ -296,6 +1607,468 @@ button {
 
 .sky-view-panel[hidden] {
   display: none;
+}
+
+.pointing-view-panel {
+  min-height: 0;
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.022) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.022) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(10, 16, 27, 0.90), rgba(8, 11, 20, 0.90));
+  background-size: 32px 32px, 32px 32px, auto;
+  box-shadow: 0 20px 55px rgba(0, 0, 0, 0.28);
+}
+
+.pointing-view-panel[hidden] {
+  display: none;
+}
+
+.pointing-map-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 0.8fr);
+  gap: 16px;
+  align-items: center;
+}
+
+.pointing-map-header h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 20px;
+}
+
+.pointing-map-header p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.pointing-map-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.pointing-layer-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.pointing-layer-controls label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 32px;
+  padding: 7px 10px;
+  border: 1px solid rgba(142, 152, 183, 0.18);
+  border-radius: 7px;
+  color: rgba(244, 246, 255, 0.82);
+  background: rgba(142, 152, 183, 0.08);
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.pointing-layer-controls input {
+  width: 14px;
+  height: 14px;
+  accent-color: #7d5df2;
+}
+
+.pointing-layer-controls small {
+  flex-basis: 100%;
+  color: rgba(166, 174, 207, 0.78);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.pointing-map-summary span,
+.pointing-selection-card span {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 9px 10px;
+  border: 1px solid rgba(142, 152, 183, 0.18);
+  border-radius: 7px;
+  background: rgba(142, 152, 183, 0.08);
+}
+
+.pointing-map-summary strong,
+.pointing-selection-card b {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pointing-map-summary em,
+.pointing-selection-card em {
+  overflow: hidden;
+  color: #f4f6ff;
+  font-style: normal;
+  font-size: 12px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pointing-map-stage {
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid rgba(142, 152, 183, 0.16);
+  border-radius: 8px;
+  background: rgba(4, 7, 14, 0.90);
+}
+
+#pointingMapCanvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 520px;
+  cursor: crosshair;
+}
+
+.pointing-map-progress {
+  position: absolute;
+  left: 50%;
+  bottom: 26px;
+  z-index: 9;
+  display: grid;
+  gap: 7px;
+  width: min(420px, calc(100% - 36px));
+  padding: 12px 14px;
+  border: 1px solid rgba(142, 152, 183, 0.26);
+  border-radius: 8px;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    rgba(25, 31, 54, 0.92);
+  background-size: 24px 24px, 24px 24px, auto;
+  box-shadow: 0 18px 38px rgba(0, 0, 0, 0.30);
+  transform: translateX(-50%);
+}
+
+.pointing-map-progress[hidden] {
+  display: none;
+}
+
+.pointing-map-progress strong {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.pointing-map-progress span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.pointing-map-progress div {
+  position: relative;
+  overflow: hidden;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(142, 152, 183, 0.20);
+}
+
+.pointing-map-progress em {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 42%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #8e46f0, #5d6dfb);
+  animation: pointing-progress-slide 1.15s ease-in-out infinite;
+}
+
+@keyframes pointing-progress-slide {
+  0% {
+    left: -45%;
+  }
+
+  100% {
+    left: 103%;
+  }
+}
+
+.pointing-selection-card {
+  position: absolute;
+  right: 14px;
+  top: 14px;
+  display: grid;
+  gap: 8px;
+  width: min(280px, calc(100% - 28px));
+  padding: 12px;
+  border: 1px solid rgba(142, 152, 183, 0.25);
+  border-radius: 8px;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    rgba(25, 31, 54, 0.88);
+  background-size: 24px 24px, 24px 24px, auto;
+  box-shadow: 0 18px 38px rgba(0, 0, 0, 0.26);
+}
+
+.pointing-selection-card > strong {
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.pointing-selection-card small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+body.is-pointing-view .monitor-shell {
+  --pointing-rail-left: 48px;
+  --pointing-rail-top: 34px;
+  --pointing-rail-width: min(560px, calc(100vw - 96px));
+  --pointing-rail-gap: 14px;
+  --pointing-title-panel-height: 70px;
+  --pointing-control-panel-height: 106px;
+  --pointing-summary-panel-height: 72px;
+  position: relative;
+  grid-template-rows: minmax(0, 1fr);
+  padding: 12px;
+  gap: 0;
+}
+
+body.is-pointing-view .monitor-header {
+  position: absolute;
+  top: calc(var(--pointing-rail-top) + var(--pointing-title-panel-height) + var(--pointing-rail-gap));
+  left: var(--pointing-rail-left);
+  right: auto;
+  z-index: 8;
+  width: var(--pointing-rail-width);
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  pointer-events: none;
+}
+
+body.is-pointing-view .header-copy {
+  display: none;
+}
+
+body.is-pointing-view .motor-controls {
+  display: grid;
+  grid-template-columns: minmax(166px, 1.85fr) minmax(78px, 0.82fr) minmax(102px, 1.08fr) minmax(66px, 0.70fr) minmax(70px, 0.75fr);
+  grid-auto-rows: 38px;
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
+  margin-left: 0;
+  padding: 10px;
+  border: 1px solid rgba(142, 152, 183, 0.20);
+  border-radius: 8px;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    rgba(31, 37, 65, 0.90);
+  background-size: 28px 28px, 28px 28px, auto;
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.25);
+  pointer-events: auto;
+}
+
+body.is-pointing-view .view-mode-toggle {
+  grid-column: 1 / -1;
+}
+
+body.is-pointing-view .server-uptime,
+body.is-pointing-view .system-setting,
+body.is-pointing-view .motor-toggle,
+body.is-pointing-view .motor-stop,
+body.is-pointing-view .motor-goto {
+  min-width: 0;
+  width: 100%;
+  min-height: 38px;
+}
+
+body.is-pointing-view .server-uptime {
+  grid-template-columns: max-content minmax(0, 1fr);
+  justify-content: stretch;
+  gap: 6px;
+  padding-inline: 8px;
+}
+
+body.is-pointing-view .server-uptime span {
+  font-size: 10px;
+  letter-spacing: 0;
+}
+
+body.is-pointing-view .server-uptime strong {
+  overflow: hidden;
+  font-size: 12px;
+  text-align: right;
+  text-overflow: ellipsis;
+}
+
+body.is-pointing-view .motor-toggle {
+  justify-content: center;
+}
+
+body.is-pointing-view .pointing-view-panel {
+  grid-row: 1 / -1;
+  height: 100%;
+  padding: 10px;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(10, 16, 27, 0.90), rgba(8, 11, 20, 0.90));
+  background-size: 32px 32px, 32px 32px, auto;
+}
+
+body.is-pointing-view .pointing-map-header {
+  position: absolute;
+  top: var(--pointing-rail-top);
+  left: var(--pointing-rail-left);
+  right: auto;
+  z-index: 6;
+  display: grid;
+  grid-template-columns: var(--pointing-rail-width);
+  justify-content: start;
+  align-items: start;
+  gap: 0;
+  pointer-events: none;
+}
+
+body.is-pointing-view .pointing-map-summary,
+body.is-pointing-view .pointing-map-header > div:first-child,
+body.is-pointing-view .pointing-layer-controls {
+  pointer-events: auto;
+}
+
+body.is-pointing-view .pointing-map-header > div:first-child,
+body.is-pointing-view .pointing-map-summary,
+body.is-pointing-view .pointing-layer-controls {
+  width: var(--pointing-rail-width);
+  min-height: 58px;
+  padding: 12px;
+  border: 1px solid rgba(142, 152, 183, 0.20);
+  border-radius: 8px;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    rgba(31, 37, 65, 0.90);
+  background-size: 28px 28px, 28px 28px, auto;
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.25);
+}
+
+body.is-pointing-view .motor-controls,
+body.is-pointing-view .pointing-map-header > div:first-child,
+body.is-pointing-view .pointing-map-summary,
+body.is-pointing-view .pointing-layer-controls,
+body.is-pointing-view .system-log-panel {
+  box-sizing: border-box;
+}
+
+body.is-pointing-view .pointing-map-header h2 {
+  font-size: 18px;
+}
+
+body.is-pointing-view .pointing-map-header p {
+  margin-top: 3px;
+  font-size: 12px;
+}
+
+body.is-pointing-view .pointing-map-summary {
+  position: fixed;
+  top: calc(var(--pointing-rail-top) + var(--pointing-title-panel-height) + var(--pointing-rail-gap) + var(--pointing-control-panel-height) + var(--pointing-rail-gap));
+  left: calc(max(0px, (100vw - var(--app-max-width)) / 2) + var(--pointing-rail-left));
+  z-index: 6;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 8px;
+  padding: 10px;
+}
+
+body.is-pointing-view .pointing-layer-controls {
+  position: fixed;
+  top: calc(var(--pointing-rail-top) + var(--pointing-title-panel-height) + var(--pointing-rail-gap) + var(--pointing-control-panel-height) + var(--pointing-rail-gap) + var(--pointing-summary-panel-height) + var(--pointing-rail-gap));
+  left: calc(max(0px, (100vw - var(--app-max-width)) / 2) + var(--pointing-rail-left));
+  z-index: 6;
+  min-height: 0;
+  padding: 10px;
+  border-color: rgba(142, 152, 183, 0.16);
+}
+
+body.is-pointing-view .pointing-map-summary span {
+  padding: 8px 10px;
+  border-color: rgba(142, 152, 183, 0.14);
+  background: rgba(7, 11, 22, 0.78);
+}
+
+body.is-pointing-view .pointing-layer-controls label {
+  border-color: rgba(142, 152, 183, 0.14);
+  background: rgba(7, 11, 22, 0.78);
+}
+
+body.is-pointing-view .pointing-map-stage {
+  grid-row: 1 / -1;
+  height: 100%;
+  background: rgba(4, 7, 14, 0.90);
+}
+
+body.is-pointing-view #pointingMapCanvas {
+  min-height: 0;
+}
+
+body.is-pointing-view .pointing-selection-card {
+  top: 168px;
+  right: 18px;
+}
+
+body.is-pointing-view .system-log-panel {
+  position: absolute;
+  left: var(--pointing-rail-left);
+  bottom: 34px;
+  z-index: 7;
+  width: var(--pointing-rail-width);
+  height: 108px;
+  min-height: 108px;
+  max-height: 108px;
+  border-color: rgba(142, 152, 183, 0.16);
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.022) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.022) 1px, transparent 1px),
+    rgba(7, 10, 18, 0.90);
+  background-size: 28px 28px, 28px 28px, auto;
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.24);
+}
+
+@media (max-width: 1500px) {
+  body.is-pointing-view .pointing-map-header {
+    grid-template-columns: minmax(300px, 440px);
+  }
+
+  body.is-pointing-view .pointing-map-summary {
+    grid-template-columns: 1fr;
+    max-width: 440px;
+  }
+
+  body.is-pointing-view .motor-controls {
+    max-width: 100%;
+  }
 }
 
 .sky-view-layout {
@@ -542,6 +2315,9 @@ button {
 }
 
 .system-log-panel {
+  position: relative;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
   height: 170px;
   min-height: 170px;
   max-height: 170px;
@@ -560,6 +2336,55 @@ button {
   color: #f4f6ff;
   font-family: "Consolas", "SFMono-Regular", monospace;
   font-size: 12px;
+}
+
+.update-progress {
+  display: grid;
+  gap: 7px;
+  padding: 8px 14px 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(10, 14, 28, 0.72);
+}
+
+.update-progress[hidden] {
+  display: none;
+}
+
+.update-progress-header {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  color: #f4f6ff;
+  font-size: 12px;
+}
+
+.update-progress-header strong {
+  color: #8feaf4;
+  font-weight: 900;
+}
+
+.update-progress-header span {
+  overflow: hidden;
+  color: rgba(244, 246, 255, 0.72);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.update-progress-track {
+  overflow: hidden;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.10);
+}
+
+.update-progress-track span {
+  display: block;
+  width: 20%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #8e45e6, #5c7cff);
+  transition: width 0.25s ease;
 }
 
 .system-log-entries::-webkit-scrollbar {
@@ -849,11 +2674,18 @@ dd {
   box-shadow: 0 0 0 3px rgba(142, 69, 230, 0.18);
 }
 
+.tuning-auto,
 .tuning-apply,
 .tuning-save {
   width: 100%;
   margin-top: 2px;
   font-weight: 800;
+}
+
+.tuning-auto {
+  grid-column: 1 / -1;
+  color: #fff8e8;
+  background: linear-gradient(135deg, rgba(255, 138, 42, 0.74), rgba(116, 97, 255, 0.80));
 }
 
 .tuning-save {
@@ -879,10 +2711,399 @@ dd {
 }
 
 .floating-tuning-form {
-  max-height: calc(min(720px, 100vh - 32px) - 40px);
+  max-height: calc(min(504px, 100vh - 32px) - 40px);
   margin: 0;
   padding: 14px;
   overflow: auto;
+}
+
+.auto-tune-panel {
+  width: min(1000px, calc(100vw - 32px));
+  overflow: hidden;
+}
+
+.auto-tune-form {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(210px, 250px) minmax(210px, 250px) minmax(420px, 1fr);
+  grid-template-rows: minmax(210px, 0.78fr) minmax(190px, 1fr) auto minmax(18px, auto) auto;
+  gap: 12px;
+  align-items: start;
+  height: calc(min(720px, 100vh - 32px) - 40px);
+  max-height: calc(min(720px, 100vh - 32px) - 40px);
+  margin: 0;
+  padding: 14px;
+  overflow: hidden;
+}
+
+.auto-tune-settings-panel {
+  display: grid;
+  grid-column: 1 / 3;
+  grid-row: 1;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 12px;
+  border: 1px solid rgba(142, 69, 230, 0.34);
+  border-radius: 8px;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+    rgba(22, 29, 54, 0.32);
+  background-size: 24px 24px, 24px 24px, auto;
+}
+
+.auto-tune-form label {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.auto-tune-form label span {
+  grid-column: 1 / -1;
+}
+
+.auto-tune-form input {
+  width: 100%;
+  min-width: 0;
+  min-height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.055);
+  font: inherit;
+  font-weight: 800;
+  outline: none;
+}
+
+.auto-tune-form input:focus {
+  border-color: rgba(142, 69, 230, 0.68);
+  box-shadow: 0 0 0 3px rgba(142, 69, 230, 0.18);
+}
+
+.auto-tune-form em {
+  align-self: center;
+  color: rgba(221, 226, 255, 0.62);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.auto-tune-start {
+  min-height: 40px;
+}
+
+.auto-tune-actions {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-row: 3;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 0.55fr);
+  gap: 12px;
+  align-items: stretch;
+}
+
+.auto-tune-actions button {
+  margin-top: 0;
+}
+
+.auto-tune-start.is-running {
+  color: #fff5f6;
+  background: linear-gradient(135deg, rgba(255, 86, 114, 0.92), rgba(198, 64, 76, 0.86));
+}
+
+.auto-tune-start.is-stopping {
+  opacity: 0.72;
+}
+
+.auto-tune-start:not(.is-stopping) {
+  transition: background 0.2s ease, opacity 0.2s ease;
+}
+
+.auto-tune-progress {
+  grid-column: 1 / -1;
+  grid-row: 5;
+  height: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(142, 69, 230, 0.45);
+  border-radius: 999px;
+  background: rgba(12, 16, 35, 0.62);
+  box-shadow:
+    inset 0 1px 2px rgba(0, 0, 0, 0.42),
+    0 0 0 1px rgba(255, 255, 255, 0.035);
+}
+
+.auto-tune-progress span {
+  display: block;
+  width: 0%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #ff8a2a, #8e45e6, #49c7d9);
+  box-shadow: 0 0 18px rgba(142, 69, 230, 0.42);
+  transition: width 0.32s ease, background 0.24s ease;
+}
+
+.auto-tune-progress.is-running span {
+  background-size: 180% 100%;
+  animation: autoTuneProgressSweep 1.2s linear infinite;
+}
+
+.auto-tune-progress.is-ok span {
+  background: linear-gradient(90deg, rgba(87, 214, 141, 0.92), rgba(45, 171, 103, 0.92));
+}
+
+.auto-tune-progress.is-error span {
+  background: linear-gradient(90deg, rgba(255, 86, 114, 0.92), rgba(255, 138, 42, 0.88));
+}
+
+.auto-tune-result {
+  display: flex;
+  grid-column: 1 / 3;
+  grid-row: 2;
+  align-self: stretch;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid rgba(87, 214, 141, 0.26);
+  border-radius: 8px;
+  background: rgba(9, 18, 28, 0.24);
+}
+
+.auto-tune-result-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 11px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.075);
+}
+
+.auto-tune-result-header strong {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.auto-tune-result-header span {
+  color: rgba(87, 214, 141, 0.88);
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.auto-tune-result-body {
+  display: grid;
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+  gap: 7px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 10px;
+}
+
+.auto-tune-result-empty {
+  margin: 24px 0;
+  color: rgba(221, 226, 255, 0.48);
+  font-size: 12px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.auto-tune-result-row {
+  display: grid;
+  grid-template-columns: minmax(126px, 1fr) minmax(0, 1.7fr);
+  gap: 10px;
+  align-items: center;
+  padding: 8px 9px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.auto-tune-result-row.is-changed {
+  border-color: rgba(87, 214, 141, 0.22);
+  background: rgba(87, 214, 141, 0.045);
+}
+
+.auto-tune-result-row.is-warning {
+  border-color: rgba(255, 193, 112, 0.28);
+  background: rgba(255, 193, 112, 0.07);
+}
+
+.auto-tune-result-row strong {
+  color: rgba(244, 246, 255, 0.86);
+  font-size: 12px;
+}
+
+.auto-tune-result-row span {
+  color: rgba(221, 226, 255, 0.72);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.auto-tune-result-row em {
+  color: rgba(87, 214, 141, 0.96);
+  font-style: normal;
+}
+
+.auto-tune-result-row.is-same em {
+  color: rgba(221, 226, 255, 0.78);
+}
+
+.auto-tune-result-row small {
+  color: rgba(221, 226, 255, 0.46);
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.auto-tune-step-log {
+  position: relative;
+  display: flex;
+  grid-column: 3;
+  grid-row: 1 / 3;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid rgba(142, 69, 230, 0.45);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(35, 43, 72, 0.94), rgba(19, 24, 45, 0.96)),
+    rgba(14, 18, 34, 0.96);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.36);
+}
+
+.auto-tune-form > .tuning-message {
+  grid-row: 4;
+}
+
+.auto-tune-step-log-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 40px;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--text);
+}
+
+.auto-tune-step-log-header span {
+  color: rgba(221, 226, 255, 0.55);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.auto-tune-step-log-entries {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  gap: 8px;
+  overscroll-behavior: contain;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 10px;
+  touch-action: pan-y;
+  user-select: auto;
+}
+
+.auto-tune-step-entry {
+  display: grid;
+  gap: 6px;
+  padding: 9px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  border-left: 3px solid rgba(142, 69, 230, 0.75);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.auto-tune-step-entry.is-settled { border-left-color: rgba(87, 214, 141, 0.95); }
+.auto-tune-step-entry.is-stalled,
+.auto-tune-step-entry.is-timeout,
+.auto-tune-step-entry.is-drive_error { border-left-color: rgba(255, 86, 114, 0.95); }
+.auto-tune-step-entry.is-not_settled { border-left-color: rgba(255, 193, 112, 0.95); }
+
+.auto-tune-step-entry strong {
+  color: var(--text);
+  font-size: 12px;
+}
+
+.auto-tune-step-entry p {
+  margin: 0;
+  color: rgba(221, 226, 255, 0.68);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.auto-tune-step-empty {
+  margin: auto;
+  color: rgba(221, 226, 255, 0.48);
+  font-size: 12px;
+  font-weight: 800;
+  text-align: center;
+}
+
+@media (max-width: 980px) {
+  .auto-tune-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: none;
+    height: auto;
+    overflow: auto;
+  }
+
+  .auto-tune-start,
+  .auto-tune-actions,
+  .auto-tune-settings-panel,
+  .auto-tune-form > .tuning-message,
+  .auto-tune-progress,
+  .auto-tune-result {
+    grid-row: auto;
+  }
+
+  .auto-tune-settings-panel {
+    grid-column: 1 / -1;
+    max-height: 320px;
+  }
+
+  .auto-tune-result {
+    grid-column: 1 / -1;
+    min-height: 180px;
+  }
+
+  .auto-tune-actions {
+    grid-column: 1 / -1;
+    grid-template-columns: 1fr;
+  }
+
+  .auto-tune-step-log {
+    position: static;
+    grid-column: 1 / -1;
+    grid-row: auto;
+    width: 100%;
+    min-width: 0;
+    height: 260px;
+  }
+}
+
+@keyframes autoTuneProgressSweep {
+  from {
+    background-position: 0% 50%;
+  }
+  to {
+    background-position: 180% 50%;
+  }
 }
 
 .floating-tuning-form::-webkit-scrollbar {
@@ -984,8 +3205,53 @@ dd {
   background: rgba(142, 152, 183, 0.20);
 }
 
+.axis-jog-actions button.is-pressed {
+  color: #ffffff;
+  background: linear-gradient(135deg, rgba(128, 72, 238, 0.86), rgba(86, 111, 255, 0.82));
+}
+
 .axis-command-apply {
   grid-column: 1 / -1;
+}
+
+.sine-velocity-panel {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 2px 0 0;
+  padding: 12px;
+  border: 1px solid rgba(73, 199, 217, 0.22);
+  border-radius: 8px;
+  background: rgba(73, 199, 217, 0.055);
+}
+
+.sine-velocity-panel legend {
+  padding: 0 6px;
+  color: rgba(244, 246, 255, 0.72);
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.sine-velocity-panel label {
+  grid-column: auto;
+}
+
+.sine-velocity-actions {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+}
+
+.sine-velocity-actions .axis-command-apply {
+  grid-column: auto;
+}
+
+.sine-velocity-actions button[data-axis-sine="stop"] {
+  color: #fff1f3;
+  background: linear-gradient(135deg, rgba(255, 93, 115, 0.82), rgba(184, 56, 78, 0.76));
 }
 
 .axis-control-message {
@@ -1065,7 +3331,7 @@ dd {
   right: 80px;
   z-index: 27;
   width: min(560px, calc(100vw - 32px));
-  max-height: min(720px, calc(100vh - 32px));
+  max-height: min(504px, calc(100vh - 32px));
   padding: 0;
   border: 1px solid rgba(142, 69, 230, 0.42);
   border-radius: 8px;
@@ -1082,6 +3348,11 @@ dd {
     inset 0 1px 0 rgba(255, 255, 255, 0.12);
   -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
+}
+
+.floating-tuning-panel.auto-tune-panel {
+  width: min(1000px, calc(100vw - 32px));
+  max-height: min(720px, calc(100vh - 32px));
 }
 
 .settings-panel {
@@ -1322,7 +3593,7 @@ dd {
 .settings-axis-tabs {
   grid-column: 1 / -1;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 4px;
   padding: 3px;
   border: 1px solid var(--line);
@@ -1388,8 +3659,66 @@ dd {
 }
 
 .settings-axis-panel[data-settings-panel="general"] label:first-child,
-.settings-axis-panel[data-settings-panel="general"] label:nth-child(4) {
+.settings-axis-panel[data-settings-panel="general"] label:nth-child(5) {
   grid-column: 1 / -1;
+}
+
+.system-info-grid {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.system-info-grid div {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.system-info-grid span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.system-info-grid strong {
+  min-width: 0;
+  overflow: hidden;
+  color: #f4f6ff;
+  font-size: 13px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-axis-panel[data-settings-panel="system"] .system-update-check {
+  width: 100%;
+  min-height: 38px;
+  align-self: end;
+  font-weight: 900;
+}
+
+.system-update-message {
+  grid-column: 1 / -1;
+  min-height: 18px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.system-update-message.is-ok {
+  color: #6ff0a8;
+}
+
+.system-update-message.is-error {
+  color: #ff7f91;
 }
 
 .settings-actions {
@@ -1672,18 +4001,20 @@ dd {
 }
 
 .actual-readouts {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+  display: grid;
+  grid-template-columns: 148px max-content max-content max-content;
+  align-items: center;
   gap: 10px;
+  min-width: 0;
 }
 
-.amplitude-readout {
+.motion-readout {
   display: grid;
-  grid-template-columns: auto auto;
+  grid-template-columns: 54px minmax(0, 1fr);
   align-items: baseline;
   gap: 8px;
-  min-width: 160px;
+  width: 148px;
+  min-width: 0;
   padding: 8px 10px;
   border-radius: 8px;
   border: 1px solid rgba(255, 138, 42, 0.26);
@@ -1693,18 +4024,48 @@ dd {
   white-space: nowrap;
 }
 
-.amplitude-readout strong {
+.motion-readout {
+  border-color: rgba(116, 97, 255, 0.32);
+  background: rgba(116, 97, 255, 0.10);
+}
+
+.motion-readout.is-moving {
+  border-color: rgba(255, 138, 42, 0.34);
+  background: rgba(255, 138, 42, 0.10);
+}
+
+.motion-readout.is-settling {
+  border-color: rgba(73, 199, 217, 0.32);
+  background: rgba(73, 199, 217, 0.10);
+}
+
+.motion-readout.is-reached {
+  border-color: rgba(90, 224, 154, 0.34);
+  background: rgba(90, 224, 154, 0.10);
+}
+
+.motion-readout strong {
+  min-width: 0;
+  overflow: hidden;
   color: rgba(244, 246, 255, 0.72);
   font-size: 11px;
   font-weight: 900;
+  text-overflow: ellipsis;
   text-transform: uppercase;
 }
 
-.amplitude-readout em {
-  color: #ffb470;
+.motion-readout em {
+  min-width: 0;
+  overflow: hidden;
+  color: #c6d0ff;
   font-style: normal;
   font-weight: 900;
+  text-overflow: ellipsis;
 }
+
+.motion-readout.is-moving em { color: #ffb470; }
+.motion-readout.is-settling em { color: #75e8f7; }
+.motion-readout.is-reached em { color: #78f0b4; }
 
 .sensor-strip {
   display: flex;
@@ -1762,10 +4123,11 @@ dd {
 
 .actual-readout {
   display: grid;
-  grid-template-columns: auto auto;
+  grid-template-columns: max-content max-content;
   align-items: baseline;
   gap: 8px;
-  min-width: 178px;
+  width: auto;
+  min-width: max-content;
   padding: 7px 9px;
   border-radius: 8px;
   border: 1px solid var(--line);
@@ -1775,16 +4137,24 @@ dd {
 }
 
 .actual-readout strong {
+  min-width: max-content;
+  overflow: visible;
   color: rgba(244, 246, 255, 0.72);
   font-size: 11px;
   font-weight: 800;
+  text-overflow: clip;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .actual-readout em {
+  min-width: max-content;
+  overflow: visible;
   color: #edf2ff;
   font-style: normal;
   font-weight: 800;
+  text-overflow: clip;
+  white-space: nowrap;
 }
 
 .actual-readout.position em { color: #cdaaff; }
@@ -1903,7 +4273,6 @@ dd,
 .floating-tuning-form input,
 .tuning-step-panel input,
 .actual-readout em,
-.amplitude-readout em,
 .chart-controls select {
   font-weight: 400;
 }
@@ -1928,13 +4297,32 @@ dd,
     overflow: visible;
   }
 
-  .sky-view-panel {
+  .sky-view-panel,
+  .pointing-view-panel {
     min-height: 620px;
     overflow: visible;
   }
 
   .sky-view-layout {
     grid-template-columns: 1fr;
+  }
+
+  .pointing-map-header {
+    grid-template-columns: 1fr;
+  }
+
+  .pointing-map-summary {
+    grid-template-columns: 1fr;
+  }
+
+  #pointingMapCanvas {
+    min-height: 540px;
+  }
+
+  .pointing-selection-card {
+    position: static;
+    width: auto;
+    margin: 12px;
   }
 
   .sky-stop-rail {
@@ -1956,6 +4344,11 @@ dd,
     flex-direction: column;
     min-height: 250px;
     padding: 22px;
+  }
+
+  .actual-readouts {
+    grid-template-columns: 148px max-content;
+    justify-content: start;
   }
 
   .motor-controls {
@@ -1987,4 +4380,968 @@ dd,
   .chart-column {
     grid-template-rows: none;
   }
+}
+
+/* Final NARIT wildfire theme cascade */
+body {
+  color: var(--text);
+  background:
+    linear-gradient(180deg, rgba(5, 12, 15, 0.98), rgba(6, 14, 16, 0.99)),
+    #050c0f;
+}
+
+body::before,
+body.is-pointing-view::before {
+  background:
+    linear-gradient(90deg, rgba(5, 12, 15, 0.98), rgba(5, 12, 15, 0.82), rgba(5, 12, 15, 0.98)),
+    url("/static/img/fire-detector-head.png") 58% center / min(720px, 50vw) auto no-repeat;
+  opacity: 0.16;
+  filter: saturate(0.72) contrast(1.08);
+}
+
+.monitor-header,
+.status-card,
+.chart-panel,
+.system-log-panel,
+.sky-view-panel,
+.pointing-view-panel,
+.sky-status-panel,
+.sky-command-panel,
+.floating-tuning-panel,
+.auto-tune-panel,
+.goto-panel,
+.settings-panel,
+.tuning-step-panel,
+.auto-tune-results-panel,
+.auto-tune-settings-panel,
+.auto-tune-result-panel {
+  border-color: rgba(151, 181, 166, 0.14);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.012)),
+    linear-gradient(180deg, rgba(17, 27, 29, 0.92), rgba(9, 17, 19, 0.94));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.055),
+    0 22px 52px rgba(0, 0, 0, 0.34);
+}
+
+.monitor-header {
+  background:
+    linear-gradient(90deg, rgba(99, 201, 120, 0.10), transparent 36%),
+    linear-gradient(180deg, rgba(14, 25, 27, 0.94), rgba(6, 13, 16, 0.94));
+}
+
+.monitor-header::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(99, 201, 120, 0.44), transparent);
+}
+
+.eyebrow,
+.sensor-name,
+.actual-readout strong,
+.motion-readout strong,
+.status-readings dt,
+.server-uptime span,
+.tab-button,
+.goto-tab,
+.chart-controls select,
+.system-setting,
+.server-uptime {
+  color: rgba(196, 212, 204, 0.76);
+}
+
+h1,
+h2,
+.status-card-header h2,
+.pointing-map-header h2,
+.sky-status-header h2,
+.sky-command-header h2 {
+  color: #f7fbf7;
+}
+
+.header-copy .eyebrow,
+.pointing-map-header h2 {
+  color: var(--green);
+}
+
+button,
+.axis-command-apply,
+.tuning-apply,
+.motor-goto,
+.goto-actions button[type="submit"],
+.sky-command-form button[type="submit"] {
+  border: 1px solid rgba(116, 217, 130, 0.18);
+  background: linear-gradient(135deg, rgba(96, 196, 111, 0.86), rgba(43, 132, 80, 0.88));
+  box-shadow: 0 12px 26px rgba(41, 140, 82, 0.18);
+}
+
+.view-mode-toggle,
+.server-uptime,
+.system-setting,
+.motor-toggle,
+.actual-readout,
+.motion-readout,
+.sensor-pill,
+.tab-list,
+.status-readings div,
+.axis-control-form input,
+.tuning-form input,
+.floating-tuning-form input,
+.settings-form input,
+.settings-form select,
+.goto-form input,
+.goto-form select,
+.chart-controls select,
+.sky-command-form input,
+.sky-command-form select,
+.sky-axis-readout span,
+.pointing-map-summary span,
+.pointing-layer-controls label,
+.pointing-selection-card span {
+  border-color: rgba(155, 181, 170, 0.14);
+  background: rgba(132, 157, 145, 0.07);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+}
+
+.view-mode-toggle button.active,
+.tab-button.active,
+.goto-tab.active {
+  color: #f8fff9;
+  background: linear-gradient(135deg, rgba(96, 196, 111, 0.50), rgba(52, 122, 80, 0.38));
+  box-shadow: inset 3px 0 0 rgba(99, 201, 120, 0.92), 0 10px 22px rgba(99, 201, 120, 0.12);
+}
+
+.axis-chip,
+.axis-chip.is-connected,
+.status-card .axis-chip {
+  color: #eaffef;
+  background: rgba(99, 201, 120, 0.18);
+  border-color: rgba(99, 201, 120, 0.30);
+  box-shadow: 0 0 18px rgba(99, 201, 120, 0.10);
+}
+
+.status-card.azimuth,
+.status-card.altitude {
+  color: var(--green);
+}
+
+.axis-enable-meter span,
+.axis-enable-meter.is-enabled span {
+  background: linear-gradient(90deg, #63c978, #84df8d);
+  box-shadow: 0 0 16px rgba(99, 201, 120, 0.36);
+}
+
+.axis-enable {
+  color: #f3fff5;
+  background: linear-gradient(135deg, rgba(99, 201, 120, 0.86), rgba(42, 143, 86, 0.88));
+}
+
+.motor-stop,
+.axis-disable,
+.axis-jog-actions button[data-axis-jog="stop"],
+.sine-velocity-actions button[data-axis-sine="stop"],
+.sky-stop-button,
+.motor-toggle.is-enabled {
+  color: #fff5f2;
+  border-color: rgba(255, 87, 72, 0.28);
+  background: linear-gradient(135deg, rgba(255, 85, 72, 0.88), rgba(156, 50, 45, 0.88));
+  box-shadow: 0 12px 28px rgba(255, 85, 72, 0.16);
+}
+
+.motor-toggle.is-partial,
+.tuning-auto,
+.auto-tune-start,
+.axis-jog-actions button.is-pressed {
+  color: #fff7ed;
+  border-color: rgba(255, 138, 47, 0.24);
+  background: linear-gradient(135deg, rgba(255, 138, 47, 0.82), rgba(166, 82, 35, 0.82));
+  box-shadow: 0 12px 28px rgba(255, 138, 47, 0.14);
+}
+
+.sine-velocity-panel {
+  border-color: rgba(155, 181, 170, 0.12);
+  background:
+    linear-gradient(180deg, rgba(99, 201, 120, 0.055), rgba(255, 138, 47, 0.035)),
+    rgba(9, 17, 19, 0.48);
+}
+
+.sine-velocity-panel legend {
+  color: rgba(99, 201, 120, 0.92);
+}
+
+.actual-readout.position {
+  border-color: rgba(99, 201, 120, 0.28);
+}
+
+.actual-readout.position em,
+.legend-item.position,
+.status-card.azimuth .status-readings dd {
+  color: #80e08f;
+}
+
+.actual-readout.velocity {
+  border-color: rgba(255, 138, 47, 0.26);
+}
+
+.actual-readout.velocity em,
+.legend-item.velocity {
+  color: #ff9b42;
+}
+
+.actual-readout.current {
+  border-color: rgba(86, 182, 194, 0.26);
+}
+
+.actual-readout.current em,
+.legend-item.current {
+  color: #61d4df;
+}
+
+.motion-readout {
+  border-color: rgba(99, 201, 120, 0.26);
+  background: rgba(99, 201, 120, 0.08);
+}
+
+.motion-readout em {
+  color: #d7f7dc;
+}
+
+.motion-readout.is-moving {
+  border-color: rgba(255, 138, 47, 0.34);
+  background: rgba(255, 138, 47, 0.11);
+}
+
+.motion-readout.is-moving em {
+  color: #ffb15d;
+}
+
+.motion-readout.is-settling {
+  border-color: rgba(86, 182, 194, 0.30);
+  background: rgba(86, 182, 194, 0.10);
+}
+
+.motion-readout.is-reached {
+  border-color: rgba(99, 201, 120, 0.34);
+  background: rgba(99, 201, 120, 0.10);
+}
+
+.sensor-pill.is-active {
+  border-color: rgba(99, 201, 120, 0.44);
+  background: rgba(99, 201, 120, 0.14);
+}
+
+.sensor-pill.is-active .sensor-led {
+  background: var(--green);
+  box-shadow: 0 0 16px rgba(99, 201, 120, 0.60);
+}
+
+.chart-panel,
+.chart-panel canvas,
+.pointing-map-stage {
+  background-color: #061012;
+}
+
+.chart-panel {
+  background: linear-gradient(180deg, rgba(17, 25, 27, 0.90), rgba(5, 12, 15, 0.92));
+}
+
+.log-type-error,
+.axis-control-message.is-error,
+.tuning-message.is-error {
+  color: #ff6a5b;
+}
+
+.log-type-warning,
+.axis-control-message.is-warning,
+.tuning-message.is-warning {
+  color: #ffb15d;
+}
+
+.log-type-success,
+.axis-control-message.is-ok,
+.tuning-message.is-ok {
+  color: #77df86;
+}
+
+/* NARIT main-frame refinement final override */
+body {
+  background:
+    radial-gradient(circle at 72% 0%, rgba(99, 201, 120, 0.075), transparent 34rem),
+    radial-gradient(circle at 4% 18%, rgba(255, 138, 47, 0.05), transparent 28rem),
+    linear-gradient(180deg, #060d10 0%, #050a0d 48%, #04080b 100%);
+}
+
+body::before,
+body.is-pointing-view::before {
+  display: none;
+  background: none;
+}
+
+.monitor-shell {
+  position: relative;
+  grid-template-rows: auto minmax(0, 1fr) 154px;
+  width: calc(100% - 24px);
+  height: calc(100vh - 24px);
+  margin: 12px auto;
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid rgba(148, 174, 164, 0.16);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.030), rgba(255, 255, 255, 0.008)),
+    linear-gradient(135deg, rgba(15, 25, 27, 0.96), rgba(7, 14, 16, 0.98));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.055),
+    0 24px 64px rgba(0, 0, 0, 0.46);
+}
+
+.monitor-shell::before {
+  content: "";
+  position: absolute;
+  inset: 70px 0 0;
+  pointer-events: none;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px);
+  background-size: 36px 36px;
+  mask-image: linear-gradient(180deg, transparent, #000 8%, #000 88%, transparent);
+}
+
+.monitor-header {
+  min-height: 72px;
+  padding: 14px 26px;
+  border: 0;
+  border-bottom: 1px solid rgba(148, 174, 164, 0.15);
+  border-radius: 0;
+  background:
+    linear-gradient(90deg, rgba(99, 201, 120, 0.065), transparent 35%),
+    linear-gradient(180deg, rgba(9, 18, 20, 0.98), rgba(6, 13, 15, 0.96));
+  box-shadow: none;
+}
+
+.monitor-header::after {
+  background: linear-gradient(90deg, transparent, rgba(99, 201, 120, 0.18), transparent);
+}
+
+.header-copy h1 {
+  font-size: 28px;
+  letter-spacing: 0;
+}
+
+.axis-monitor-grid {
+  position: relative;
+  z-index: 1;
+  grid-template-columns: minmax(340px, 458px) minmax(0, 1fr);
+  gap: 0;
+  padding: 16px 18px 16px 0;
+  border-bottom: 1px solid rgba(148, 174, 164, 0.12);
+}
+
+.axis-status-column {
+  gap: 18px;
+  padding: 0 16px;
+  border-right: 1px solid rgba(148, 174, 164, 0.12);
+  background:
+    linear-gradient(90deg, rgba(99, 201, 120, 0.045), transparent 78%),
+    linear-gradient(180deg, rgba(10, 19, 21, 0.52), rgba(8, 16, 18, 0.30));
+}
+
+.chart-column {
+  gap: 18px;
+  padding-left: 18px;
+}
+
+.status-card,
+.chart-panel,
+.system-log-panel,
+.sky-view-panel,
+.pointing-view-panel,
+.sky-status-panel,
+.sky-command-panel,
+.floating-tuning-panel,
+.auto-tune-panel,
+.goto-panel,
+.settings-panel,
+.tuning-step-panel,
+.auto-tune-results-panel,
+.auto-tune-settings-panel,
+.auto-tune-result-panel {
+  border-color: rgba(148, 174, 164, 0.13);
+  border-radius: 7px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.026), rgba(255, 255, 255, 0.010)),
+    linear-gradient(180deg, rgba(18, 29, 31, 0.74), rgba(10, 18, 21, 0.74));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 14px 34px rgba(0, 0, 0, 0.24);
+}
+
+.status-card {
+  padding: 18px;
+}
+
+.status-card::before {
+  inset: auto -20% -24% 28%;
+  height: 150px;
+  opacity: 0.10;
+}
+
+.chart-panel {
+  padding: 14px 18px 12px;
+}
+
+.chart-panel.azimuth-chart,
+.chart-panel.altitude-chart,
+.system-log-panel {
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.019) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.019) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(8, 15, 18, 0.84), rgba(5, 10, 13, 0.86));
+  background-size: 34px 34px, 34px 34px, auto;
+}
+
+.system-log-panel {
+  z-index: 1;
+  height: 154px;
+  min-height: 154px;
+  max-height: 154px;
+  margin: 0;
+  border-width: 0;
+  border-radius: 0;
+  border-top: 1px solid rgba(148, 174, 164, 0.12);
+  box-shadow: none;
+}
+
+.system-log-entries {
+  padding: 10px 18px;
+}
+
+.view-mode-toggle button.active,
+.tab-button.active,
+.goto-tab.active {
+  color: #f6fff7;
+  background:
+    linear-gradient(135deg, rgba(99, 201, 120, 0.34), rgba(54, 116, 78, 0.22)),
+    rgba(99, 201, 120, 0.06);
+  box-shadow:
+    inset 0 0 0 1px rgba(99, 201, 120, 0.18),
+    0 8px 20px rgba(99, 201, 120, 0.10);
+}
+
+.tab-list {
+  gap: 4px;
+  background: rgba(105, 132, 121, 0.055);
+}
+
+.tab-button,
+.goto-tab {
+  border-radius: 6px;
+}
+
+.tab-button:hover,
+.goto-tab:hover {
+  background: rgba(99, 201, 120, 0.10);
+}
+
+.axis-jog-actions button,
+.axis-command-apply,
+.tuning-apply,
+.tuning-save,
+.tuning-auto,
+.motor-goto,
+.motor-stop,
+.system-setting,
+.motor-toggle {
+  border-radius: 7px;
+}
+
+@media (max-width: 980px) {
+  .monitor-shell {
+    width: 100%;
+    height: auto;
+    min-height: 100vh;
+    margin: 0;
+    border-radius: 0;
+  }
+
+  .axis-monitor-grid {
+    padding: 14px;
+  }
+
+  .axis-status-column {
+    padding: 0;
+    border-right: 0;
+    background: transparent;
+  }
+
+  .chart-column {
+    padding-left: 0;
+  }
+}
+/* Final workspace split: equal Azimuth/Altitude bands - EOF override */
+.monitor-shell {
+  grid-template-rows: 82px minmax(0, 1fr) 156px;
+}
+
+.axis-monitor-grid {
+  display: grid;
+  grid-template-columns: minmax(500px, 540px) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  column-gap: 0;
+  row-gap: 14px;
+  min-height: 0;
+  height: 100%;
+  padding: 14px;
+}
+
+.axis-status-column,
+.chart-column {
+  display: contents;
+}
+
+.status-card.azimuth,
+.chart-panel.azimuth-chart,
+.status-card.altitude,
+.chart-panel.altitude-chart {
+  height: 100%;
+  min-height: 0;
+}
+
+.status-card.azimuth {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.chart-panel.azimuth-chart {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.status-card.altitude {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.chart-panel.altitude-chart {
+  grid-column: 2;
+  grid-row: 2;
+}
+
+.status-card.azimuth,
+.status-card.altitude {
+  border-radius: 8px 0 0 8px;
+  border-right-width: 0;
+}
+
+.chart-panel.azimuth-chart,
+.chart-panel.altitude-chart {
+  border-radius: 0 8px 8px 0;
+  border-left-color: rgba(152, 183, 169, 0.10);
+}
+
+.tab-list {
+  grid-template-columns: repeat(4, minmax(92px, 1fr));
+  gap: 6px;
+  padding: 5px;
+}
+
+.tab-button {
+  min-width: 0;
+  padding-inline: 12px;
+}
+
+.chart-panel {
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+.chart-panel canvas {
+  width: 100%;
+  height: 100%;
+}
+
+.system-log-panel {
+  height: 156px;
+  min-height: 156px;
+  max-height: 156px;
+  margin: 0 14px 14px;
+}
+
+@media (max-width: 1180px) {
+  .axis-monitor-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: none;
+    overflow: auto;
+  }
+
+  .axis-status-column,
+  .chart-column {
+    display: grid;
+  }
+
+  .status-card.azimuth,
+  .status-card.altitude,
+  .chart-panel.azimuth-chart,
+  .chart-panel.altitude-chart {
+    grid-column: auto;
+    grid-row: auto;
+    border-width: 1px;
+    border-radius: 8px;
+  }
+}
+/* Sharp main-panel frame override */
+.monitor-shell,
+.monitor-header,
+.system-log-panel,
+.status-card.azimuth,
+.status-card.altitude,
+.chart-panel.azimuth-chart,
+.chart-panel.altitude-chart {
+  border-radius: 0;
+}
+
+.status-card.azimuth,
+.status-card.altitude {
+  border-radius: 0;
+}
+
+.chart-panel.azimuth-chart,
+.chart-panel.altitude-chart {
+  border-radius: 0;
+}
+
+@media (max-width: 1180px) {
+  .monitor-shell,
+  .monitor-header,
+  .system-log-panel,
+  .status-card.azimuth,
+  .status-card.altitude,
+  .chart-panel.azimuth-chart,
+  .chart-panel.altitude-chart {
+    border-radius: 0;
+  }
+}
+/* Log panel flush with the main frame */
+.system-log-panel {
+  margin: 0;
+  border-left-width: 0;
+  border-right-width: 0;
+  border-bottom-width: 0;
+}
+
+.system-log-entries {
+  padding-left: 32px;
+  padding-right: 32px;
+}
+/* Status rows should sit on the panel surface without filled strips */
+.status-readings div {
+  background: transparent;
+  box-shadow: none;
+}
+
+/* Supplied NARIT wildfire mark in the header */
+.header-brand {
+  grid-template-columns: 68px 1px minmax(0, 1fr);
+  gap: 15px;
+}
+
+.brand-mark {
+  width: 68px;
+  height: 58px;
+}
+
+.brand-mark::before {
+  display: none;
+}
+
+.brand-mark img {
+  width: 64px;
+  height: 58px;
+  object-fit: contain;
+  filter:
+    drop-shadow(0 7px 12px rgba(0, 0, 0, 0.38))
+    drop-shadow(0 0 12px rgba(255, 102, 47, 0.16));
+}
+
+.brand-divider {
+  height: 48px;
+}
+
+@media (max-width: 980px) {
+  .header-brand {
+    grid-template-columns: 56px 1px minmax(0, 1fr);
+  }
+
+  .brand-mark {
+    width: 56px;
+    height: 50px;
+  }
+
+  .brand-mark img {
+    width: 54px;
+    height: 48px;
+  }
+}
+
+/* Header brand lockup */
+.header-copy {
+  max-width: none;
+}
+
+.header-brand {
+  display: grid;
+  grid-template-columns: 52px 1px minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.brand-mark {
+  position: relative;
+  display: grid;
+  width: 52px;
+  height: 52px;
+  place-items: center;
+}
+
+.brand-mark::before {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  background:
+    radial-gradient(circle at 50% 52%, rgba(255, 85, 72, 0.24), transparent 52%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.070), rgba(255, 255, 255, 0.010));
+  clip-path: polygon(50% 2%, 90% 20%, 88% 72%, 50% 98%, 12% 72%, 10% 20%);
+  box-shadow: 0 0 26px rgba(255, 85, 72, 0.16);
+}
+
+.brand-mark img {
+  position: relative;
+  z-index: 1;
+  width: 40px;
+  height: 40px;
+  filter: drop-shadow(0 0 12px rgba(255, 85, 72, 0.22));
+}
+
+.brand-divider {
+  width: 1px;
+  height: 42px;
+  background: linear-gradient(180deg, transparent, rgba(224, 238, 230, 0.28), transparent);
+}
+
+.brand-text {
+  display: grid;
+  align-content: center;
+  min-width: 0;
+}
+
+.header-copy h1,
+.brand-text h1 {
+  margin: 0;
+  color: #f7fff8;
+  font-size: 28px;
+  font-weight: 900;
+  line-height: 1.02;
+  text-transform: none;
+}
+
+.brand-rule {
+  width: min(360px, 100%);
+  height: 2px;
+  margin: 7px 0 5px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.86), rgba(99, 201, 120, 0.38), transparent);
+}
+
+.brand-text p {
+  margin: 0;
+  overflow: hidden;
+  color: rgba(232, 242, 236, 0.78);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+@media (max-width: 980px) {
+  .header-brand {
+    grid-template-columns: 44px 1px minmax(0, 1fr);
+    gap: 11px;
+  }
+
+  .brand-mark {
+    width: 44px;
+    height: 44px;
+  }
+
+  .brand-mark img {
+    width: 34px;
+    height: 34px;
+  }
+
+  .header-copy h1,
+  .brand-text h1 {
+    font-size: 22px;
+  }
+}
+/* Flush axis bands horizontally and let gaps show the page backdrop */
+.monitor-shell {
+  background:
+    radial-gradient(circle at 72% 0%, rgba(99, 201, 120, 0.045), transparent 34rem),
+    linear-gradient(180deg, #050b0d 0%, #03080a 100%);
+}
+
+.axis-monitor-grid {
+  padding: 14px 0;
+  background: transparent;
+}
+
+.status-card.azimuth,
+.status-card.altitude {
+  border-left-width: 0;
+}
+
+.chart-panel.azimuth-chart,
+.chart-panel.altitude-chart {
+  border-right-width: 0;
+}
+
+.monitor-header,
+.system-log-panel {
+  margin-left: 0;
+  margin-right: 0;
+}
+/* Let vertical gaps breathe without connector border lines */
+.monitor-header {
+  border-bottom-width: 0;
+}
+
+.axis-monitor-grid {
+  border-top-width: 0;
+  border-bottom-width: 0;
+}
+
+.system-log-panel {
+  border-top-width: 0;
+}
+
+.status-card.azimuth,
+.status-card.altitude,
+.chart-panel.azimuth-chart,
+.chart-panel.altitude-chart {
+  border-top-width: 0;
+  border-bottom-width: 0;
+}
+/* Restore horizontal dividers; remove only vertical connector lines in the gaps */
+.monitor-header {
+  border-bottom: 1px solid rgba(143, 173, 160, 0.20);
+}
+
+.axis-monitor-grid {
+  border-bottom: 1px solid rgba(148, 174, 164, 0.12);
+}
+
+.system-log-panel {
+  border-top: 1px solid rgba(148, 174, 164, 0.12);
+}
+
+.status-card.azimuth,
+.status-card.altitude,
+.chart-panel.azimuth-chart,
+.chart-panel.altitude-chart {
+  border-top-width: 1px;
+  border-bottom-width: 1px;
+}
+
+.monitor-shell {
+  border-left-width: 0;
+  border-right-width: 0;
+}
+
+.axis-monitor-grid {
+  border-left-width: 0;
+  border-right-width: 0;
+}
+
+.monitor-header,
+.system-log-panel {
+  border-left-width: 0;
+  border-right-width: 0;
+}
+/* Restore vertical borders for each main channel panel */
+.monitor-header,
+.system-log-panel,
+.status-card.azimuth,
+.status-card.altitude,
+.chart-panel.azimuth-chart,
+.chart-panel.altitude-chart {
+  border-left-width: 1px;
+  border-right-width: 1px;
+}
+
+.status-card.azimuth,
+.status-card.altitude {
+  border-left-color: rgba(152, 183, 169, 0.22);
+}
+
+.chart-panel.azimuth-chart,
+.chart-panel.altitude-chart {
+  border-right-color: rgba(152, 183, 169, 0.22);
+}
+/* Final main panel borders and 5px corner radius */
+.monitor-header,
+.system-log-panel {
+  border-left: 1px solid rgba(152, 183, 169, 0.22);
+  border-right: 1px solid rgba(152, 183, 169, 0.22);
+  border-radius: 5px;
+}
+
+.status-card.azimuth,
+.status-card.altitude {
+  border-left: 1px solid rgba(152, 183, 169, 0.22);
+  border-radius: 5px 0 0 5px;
+}
+
+.chart-panel.azimuth-chart,
+.chart-panel.altitude-chart {
+  border-right: 1px solid rgba(152, 183, 169, 0.22);
+  border-radius: 0 5px 5px 0;
+}
+
+.monitor-shell {
+  border-radius: 5px;
+}
+
+@media (max-width: 1180px) {
+  .status-card.azimuth,
+  .status-card.altitude,
+  .chart-panel.azimuth-chart,
+  .chart-panel.altitude-chart {
+    border-radius: 5px;
+  }
+}
+/* Align Pointing Model title rail with summary and layer panels */
+body.is-pointing-view .pointing-map-header {
+  position: fixed;
+  left: calc(max(0px, (100vw - var(--app-max-width)) / 2) + var(--pointing-rail-left));
+}
+
+/* Pointing rail alignment and spacing refinement */
+body.is-pointing-view .monitor-shell {
+  --pointing-rail-gap: 16px;
+  --pointing-control-panel-height: 120px;
+}
+
+body.is-pointing-view .monitor-header {
+  position: fixed;
+  left: calc(max(0px, (100vw - var(--app-max-width)) / 2) + var(--pointing-rail-left));
+  width: var(--pointing-rail-width);
+}
+
+body.is-pointing-view .motor-controls {
+  min-height: var(--pointing-control-panel-height);
+  align-content: start;
 }
