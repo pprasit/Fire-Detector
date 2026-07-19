@@ -80,8 +80,9 @@ Use the `.local` form when in doubt.
 
 The repository includes an idempotent bootstrap script for a Raspberry Pi OS
 Bookworm installation on an IRIV PiControl CM4/CM5. It installs the IRIV board
-support, SSH development tools, Codex CLI, ODrive USB permissions, this Python
-environment, the dashboard service, Avahi/mDNS, and the automatic updater.
+support, SSH development tools, Codex CLI, GitHub CLI, Tailscale, ODrive USB
+permissions, this Python environment, the dashboard service, Avahi/mDNS, and
+the automatic updater.
 
 Copy `scripts/bootstrap_iriv.sh` to the new IRIV, then run:
 
@@ -101,12 +102,15 @@ After the required reboot, connect from Windows and authenticate Codex using
 the headless device-code flow:
 
 ```text
-ssh pi@firedetector.local
+ssh pi@iriv-production.local
 codex login --device-auth
+gh auth login --web --git-protocol https
 cd /home/pi/Public/Fire-Detector
 codex
 ```
 
-Do not copy `~/.codex/auth.json` from another machine or put an OpenAI token in
-the bootstrap script. The dashboard is available at
-`http://firedetector.local:8000` after installation.
+Do not copy `~/.codex/auth.json` from another machine or put an OpenAI token,
+GitHub password, or private SSH key in the bootstrap script. The default
+production hostname is `iriv-production`; the dashboard is available at
+`http://iriv-production.local:8000` or through the assigned Tailscale IP after
+installation.

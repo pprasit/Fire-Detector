@@ -9,13 +9,14 @@ TARGET_USER="pi"
 PROJECT_DIR="/home/pi/Public/Fire-Detector"
 REPO_URL="https://github.com/pprasit/Fire-Detector.git"
 BRANCH="main"
-DEVICE_HOSTNAME="firedetector"
+DEVICE_HOSTNAME="iriv-production"
 SSH_PUBLIC_KEY_FILE=""
 # Public key used by the Windows Codex workstation. The matching private key
 # must remain only on that workstation and must never be committed.
 DEFAULT_SSH_PUBLIC_KEY="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE3zpMByqP997XcqWGWvZ0i1f8cLqDEirjFnJHnGwRrF codex-iriv"
 INSTALL_IRIV_SUPPORT=1
 INSTALL_CODEX=1
+INSTALL_TAILSCALE=1
 ENABLE_UPDATER=1
 REBOOT_WHEN_DONE=0
 
@@ -41,10 +42,11 @@ Options:
   --project-dir PATH          Clone destination (default: /home/pi/Public/Fire-Detector)
   --repo URL                  Git repository URL
   --branch NAME               Branch to install and track (default: main)
-  --hostname NAME             LAN hostname and mDNS name (default: firedetector)
+  --hostname NAME             LAN, mDNS, and Tailscale name (default: iriv-production)
   --ssh-public-key-file PATH  Override the bundled Windows Codex public key
   --skip-iriv-support         Do not run Cytron's IRIV PiControl setup script
   --skip-codex                Do not install Codex CLI
+  --skip-tailscale            Do not install or configure Tailscale
   --disable-updater           Install the web service but not the automatic updater timer
   --reboot                    Reboot automatically after a successful installation
   -h, --help                  Show this help
@@ -86,6 +88,10 @@ while (($#)); do
             ;;
         --skip-codex)
             INSTALL_CODEX=0
+            shift
+            ;;
+        --skip-tailscale)
+            INSTALL_TAILSCALE=0
             shift
             ;;
         --disable-updater)
@@ -138,6 +144,7 @@ apt-get install -y --no-install-recommends \
     build-essential \
     ca-certificates \
     curl \
+    gh \
     git \
     htop \
     jq \
@@ -212,7 +219,8 @@ if [[ -d "$PROJECT_DIR/.git" ]]; then
     CURRENT_REMOTE="$(git -C "$PROJECT_DIR" remote get-url origin 2>/dev/null || true)"
     [[ "$CURRENT_REMOTE" == "$REPO_URL" ]] \
         || die "Existing checkout uses a different origin: ${CURRENT_REMOTE:-none}"
-    if [[ -n "$(git -C "$PROJECT_DIR" status --porcelain)" ]]; then
+    DIRTY_PATHS="$(git -C "$PROJECT_DIR" status --porcelain | awk '{print substr($0,4)}' | grep -vx 'AppSetting.JSON' || true)"
+    if [[ -n "$DIRTY_PATHS" ]]; then
         die "Existing checkout has local changes; refusing to overwrite it."
     fi
     runuser -u "$TARGET_USER" -- git -C "$PROJECT_DIR" fetch origin "$BRANCH"
@@ -297,6 +305,28 @@ EOF
     chown "$TARGET_USER:$TARGET_USER" "$PROFILE"
 fi
 
+if ((INSTALL_TAILSCALE)); then
+    log "Installing Tailscale for conflict-free remote access"
+    if ! command -v tailscale >/dev/null 2>&1; then
+        TAILSCALE_INSTALLER="$(mktemp)"
+        trap 'rm -f "${TAILSCALE_INSTALLER:-}"' EXIT
+        curl --fail --location --proto '=https' --tlsv1.2 \
+            https://tailscale.com/install.sh -o "$TAILSCALE_INSTALLER"
+        sh "$TAILSCALE_INSTALLER"
+        rm -f "$TAILSCALE_INSTALLER"
+        trap - EXIT
+    fi
+    systemctl enable --now tailscaled.service
+    if ! tailscale ip -4 >/dev/null 2>&1; then
+        cat <<EOF
+
+Tailscale needs one-time browser approval. Open the URL printed below using
+your phone or another computer and approve this device.
+EOF
+        tailscale up --hostname="$DEVICE_HOSTNAME"
+    fi
+fi
+
 log "Checking the dashboard"
 for _ in {1..20}; do
     if curl --fail --silent --show-error http://127.0.0.1:8000/api/status >/dev/null; then
@@ -311,6 +341,7 @@ if [[ "${DASHBOARD_OK:-0}" != 1 ]]; then
 fi
 
 IP_ADDRESS="$(hostname -I | awk '{print $1}')"
+TAILSCALE_IP="$(tailscale ip -4 2>/dev/null || true)"
 cat <<EOF
 
 Installation complete.
@@ -318,10 +349,15 @@ Installation complete.
 From Windows:
   ssh ${TARGET_USER}@${DEVICE_HOSTNAME}.local
   # fallback: ssh ${TARGET_USER}@${IP_ADDRESS:-<ip-address>}
+  # remote/VPN: ssh ${TARGET_USER}@${TAILSCALE_IP:-<tailscale-ip>}
 
 First Codex login on the IRIV (run after SSH login):
   codex login --device-auth
   codex login status
+
+First GitHub login on the IRIV (browser flow; do not use a password):
+  gh auth login --web --git-protocol https
+  gh auth status
 
 Start developing:
   cd ${PROJECT_DIR}
@@ -330,6 +366,7 @@ Start developing:
 Dashboard:
   http://${DEVICE_HOSTNAME}.local:8000
   http://${IP_ADDRESS:-<ip-address>}:8000
+  http://${TAILSCALE_IP:-<tailscale-ip>}:8000
 
 ODrive check after connecting USB and motor power:
   cd ${PROJECT_DIR}
