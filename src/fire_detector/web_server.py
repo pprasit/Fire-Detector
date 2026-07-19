@@ -36,6 +36,7 @@ POINTING_CACHE_DIR = PROJECT_ROOT / "data" / "pointing_cache"
 ARCGIS_WORLD_IMAGERY_EXPORT_URL = "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export"
 SYSTEM_DIST_PACKAGES = "/usr/lib/python3/dist-packages"
 ODRIVE_PRO_V44_MAX_CURRENT_AMP = 150.0
+SAFE_MAX_SLEW_RATE_DEG_PER_SEC = 20.0
 DEFAULT_TORQUE_CONSTANT_NM_PER_AMP = 1.0
 DEFAULT_UPDATE_INTERVAL_MINUTES = 15
 POINTING_RADIUS_KM = 20.0
@@ -1678,7 +1679,7 @@ def _default_app_settings() -> dict[str, Any]:
             "altitude_lower_limit_deg": -100.0,
             "altitude_position_offset_deg": 0.0,
             "altitude_current_limit_amp": 20.0,
-            "slew_rate_deg_per_sec": None,
+            "slew_rate_deg_per_sec": SAFE_MAX_SLEW_RATE_DEG_PER_SEC,
         },
         "azimuth_sensors": {
             "ccw_pin": None,
@@ -1827,8 +1828,8 @@ def _clean_motion_limits(settings: dict[str, Any]) -> dict[str, Any]:
             raise ValueError(f"motion_limits.{key} must be a number.") from exc
         if not math.isfinite(number):
             raise ValueError(f"motion_limits.{key} must be finite.")
-        if key == "slew_rate_deg_per_sec" and number <= 0:
-            raise ValueError("Max Velocity must be greater than 0.")
+        if key == "slew_rate_deg_per_sec" and (number <= 0 or number > SAFE_MAX_SLEW_RATE_DEG_PER_SEC):
+            raise ValueError(f"Max Velocity must be greater than 0 and no more than {SAFE_MAX_SLEW_RATE_DEG_PER_SEC:g} Deg/Sec.")
         if key.endswith("_current_limit_amp") and (number < 1.0 or number > ODRIVE_PRO_V44_MAX_CURRENT_AMP):
             raise ValueError(f"Current Limit must be between 1 and {ODRIVE_PRO_V44_MAX_CURRENT_AMP:g} Amp.")
         clean[key] = number
@@ -2222,11 +2223,11 @@ def _configured_slew_rate() -> float | None:
     configured_slew_rate = _load_app_settings().get("motion_limits", {}).get("slew_rate_deg_per_sec")
     if not isinstance(configured_slew_rate, (int, float)) or not math.isfinite(configured_slew_rate) or configured_slew_rate <= 0:
         return None
-    return configured_slew_rate
+    return min(configured_slew_rate, SAFE_MAX_SLEW_RATE_DEG_PER_SEC)
 
 
 def _validate_max_velocity(label: str, velocity_deg_per_sec: float) -> None:
-    max_velocity = _load_app_settings().get("motion_limits", {}).get("slew_rate_deg_per_sec")
+    max_velocity = _configured_slew_rate()
     if max_velocity is None:
         return
     if abs(velocity_deg_per_sec) > max_velocity:
@@ -2234,9 +2235,9 @@ def _validate_max_velocity(label: str, velocity_deg_per_sec: float) -> None:
 
 
 def _max_reasonable_position_delta_deg(dt: float) -> float:
-    max_velocity = _load_app_settings().get("motion_limits", {}).get("slew_rate_deg_per_sec")
-    if not isinstance(max_velocity, (int, float)) or not math.isfinite(max_velocity) or max_velocity <= 0:
-        max_velocity = 50.0
+    max_velocity = _configured_slew_rate()
+    if max_velocity is None:
+        max_velocity = SAFE_MAX_SLEW_RATE_DEG_PER_SEC
     return max(30.0, max_velocity * dt * 10.0)
 
 
@@ -2260,7 +2261,9 @@ def _flash_motion_limits_to_drives(devices: tuple[Any, ...], settings: dict[str,
             limits.get("altitude_current_limit_amp"),
         ),
     )
-    slew_rate = limits.get("slew_rate_deg_per_sec")
+    slew_rate = _finite_float(limits.get("slew_rate_deg_per_sec"))
+    if slew_rate is not None:
+        slew_rate = min(slew_rate, SAFE_MAX_SLEW_RATE_DEG_PER_SEC)
     for label, index, lower_limit, upper_limit, current_limit_amp in axis_specs:
         if index >= len(devices):
             warnings.append(f"{label} drive is not connected; limits were not flashed.")
@@ -3054,9 +3057,12 @@ def _auto_tune_speed_profile(options: dict[str, Any]) -> list[float]:
     if min_speed is None and max_speed is None and single_speed is not None:
         min_speed = max(0.1, min(single_speed, 1.0))
         max_speed = single_speed
-    min_speed = 0.1 if min_speed is None else max(0.001, min_speed)
-    max_speed = 50.0 if max_speed is None else max(min_speed, max_speed)
-    base = [0.1, 0.3, 1.0, 3.0, 10.0, 30.0, 50.0]
+    min_speed = 0.1 if min_speed is None else min(SAFE_MAX_SLEW_RATE_DEG_PER_SEC, max(0.001, min_speed))
+    max_speed = SAFE_MAX_SLEW_RATE_DEG_PER_SEC if max_speed is None else min(
+        SAFE_MAX_SLEW_RATE_DEG_PER_SEC,
+        max(min_speed, max_speed),
+    )
+    base = [0.1, 0.3, 1.0, 3.0, 10.0, SAFE_MAX_SLEW_RATE_DEG_PER_SEC]
     speeds = [min_speed, max_speed]
     speeds.extend(speed for speed in base if min_speed <= speed <= max_speed)
     return sorted({round(speed, 4) for speed in speeds if speed > 0})

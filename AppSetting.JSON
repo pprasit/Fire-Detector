@@ -20,7 +20,7 @@
     "azimuth_current_limit_amp": 20.0,
     "azimuth_cw_limit_deg": 100.0,
     "azimuth_position_offset_deg": 0.0,
-    "slew_rate_deg_per_sec": 500.0
+    "slew_rate_deg_per_sec": 20.0
   },
   "station": {
     "elevation_above_ground_m": 40.0,

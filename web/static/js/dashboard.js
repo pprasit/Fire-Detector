@@ -2704,12 +2704,12 @@ function populateAutoTuneDefaults(label) {
     lower = Number.isFinite(Number(limits[lowerKey])) ? Math.max(Number(limits[lowerKey]), currentLower) : currentLower;
     upper = Number.isFinite(Number(limits[upperKey])) ? Math.min(Number(limits[upperKey]), currentUpper) : currentUpper;
   }
-  const speed = Number.isFinite(Number(limits.slew_rate_deg_per_sec)) ? Number(limits.slew_rate_deg_per_sec) : 30;
+  const speed = Number.isFinite(Number(limits.slew_rate_deg_per_sec)) ? Number(limits.slew_rate_deg_per_sec) : 20;
   const hasTemplateRange = autoUi.min?.value === "-60" && autoUi.max?.value === "60";
   if (autoUi.min && (autoUi.min.value === "" || hasTemplateRange)) autoUi.min.value = formatAutoTuneInput(lower);
   if (autoUi.max && (autoUi.max.value === "" || hasTemplateRange)) autoUi.max.value = formatAutoTuneInput(upper);
   if (autoUi.minSpeed && autoUi.minSpeed.value === "") autoUi.minSpeed.value = "0.1";
-  if (autoUi.maxSpeed && autoUi.maxSpeed.value === "") autoUi.maxSpeed.value = String(Math.min(Math.max(speed, 1), 50));
+  if (autoUi.maxSpeed && autoUi.maxSpeed.value === "") autoUi.maxSpeed.value = String(Math.min(Math.max(speed, 1), 20));
   if (autoUi.cycles && autoUi.cycles.value === "") autoUi.cycles.value = "3";
 }
 
