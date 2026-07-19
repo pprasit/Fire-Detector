@@ -75,3 +75,35 @@ http://firedetector.local:8000
 
 Bare names like `http://firedetector:8000` depend on router/client DNS behavior.
 Use the `.local` form when in doubt.
+
+## Provision a New IRIV PiControl
+
+The repository includes an idempotent bootstrap script for a Raspberry Pi OS
+Bookworm installation on an IRIV PiControl CM4/CM5. It installs the IRIV board
+support, SSH development tools, Codex CLI, ODrive USB permissions, this Python
+environment, the dashboard service, Avahi/mDNS, and the automatic updater.
+
+Copy `scripts/bootstrap_iriv.sh` and your Windows SSH public key to the new
+IRIV, then run:
+
+```bash
+sudo bash scripts/bootstrap_iriv.sh \
+  --ssh-public-key-file /path/to/id_ed25519.pub
+```
+
+If the current production code has not been merged to `main`, select its branch
+explicitly with `--branch <branch-name>`. Run `--help` to see every option.
+
+After the required reboot, connect from Windows and authenticate Codex using
+the headless device-code flow:
+
+```text
+ssh pi@firedetector.local
+codex login --device-auth
+cd /home/pi/Public/Fire-Detector
+codex
+```
+
+Do not copy `~/.codex/auth.json` from another machine or put an OpenAI token in
+the bootstrap script. The dashboard is available at
+`http://firedetector.local:8000` after installation.
