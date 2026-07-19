@@ -12,13 +12,13 @@
     "azimuth_serial": "59898476770354"
   },
   "motion_limits": {
-    "altitude_current_limit_amp": 40.0,
-    "altitude_lower_limit_deg": -300.0,
+    "altitude_current_limit_amp": 20.0,
+    "altitude_lower_limit_deg": -100.0,
     "altitude_position_offset_deg": -0.064,
-    "altitude_upper_limit_deg": 300.0,
-    "azimuth_ccw_limit_deg": -330.0,
-    "azimuth_current_limit_amp": 40.0,
-    "azimuth_cw_limit_deg": 330.0,
+    "altitude_upper_limit_deg": 100.0,
+    "azimuth_ccw_limit_deg": -100.0,
+    "azimuth_current_limit_amp": 20.0,
+    "azimuth_cw_limit_deg": 100.0,
     "azimuth_position_offset_deg": 0.0,
     "slew_rate_deg_per_sec": 500.0
   },

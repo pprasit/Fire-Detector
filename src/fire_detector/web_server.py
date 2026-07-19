@@ -1670,14 +1670,14 @@ def _default_app_settings() -> dict[str, Any]:
             "elevation_above_ground_m": 0.0,
         },
         "motion_limits": {
-            "azimuth_ccw_limit_deg": None,
-            "azimuth_cw_limit_deg": None,
+            "azimuth_ccw_limit_deg": -100.0,
+            "azimuth_cw_limit_deg": 100.0,
             "azimuth_position_offset_deg": 0.0,
-            "azimuth_current_limit_amp": None,
-            "altitude_upper_limit_deg": None,
-            "altitude_lower_limit_deg": None,
+            "azimuth_current_limit_amp": 20.0,
+            "altitude_upper_limit_deg": 100.0,
+            "altitude_lower_limit_deg": -100.0,
             "altitude_position_offset_deg": 0.0,
-            "altitude_current_limit_amp": None,
+            "altitude_current_limit_amp": 20.0,
             "slew_rate_deg_per_sec": None,
         },
         "azimuth_sensors": {
@@ -2968,13 +2968,13 @@ def _auto_tune_targets(label: str, axis: Any, options: dict[str, Any] | None = N
     if label == "Altitude":
         lower = _finite_float(limits.get("altitude_lower_limit_deg"))
         upper = _finite_float(limits.get("altitude_upper_limit_deg"))
-        lower = -300.0 if lower is None else lower
-        upper = 300.0 if upper is None else upper
+        lower = -100.0 if lower is None else lower
+        upper = 100.0 if upper is None else upper
     else:
         lower = _finite_float(limits.get("azimuth_ccw_limit_deg"))
         upper = _finite_float(limits.get("azimuth_cw_limit_deg"))
-        lower = -300.0 if lower is None else lower
-        upper = 300.0 if upper is None else upper
+        lower = -100.0 if lower is None else lower
+        upper = 100.0 if upper is None else upper
     center = (lower + upper) / 2.0
     span = upper - lower
     if span < 80.0:
