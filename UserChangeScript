@@ -1,0 +1,166 @@
+#!/usr/bin/env bash
+
+# Switch the complete Codex home directory between two IRIV user profiles.
+# Each profile keeps its own authentication, cache, configuration, and state.
+
+set -Eeuo pipefail
+umask 077
+
+readonly PROFILE_ROOT="$HOME/.codex-user-profiles"
+readonly ACTIVE_HOME="$HOME/.codex"
+readonly ACTIVE_MARKER="$PROFILE_ROOT/.active-profile"
+
+declare -A ACCOUNT_EMAIL=(
+  [pakawat]="Pakawat.prasit633@gmail.com"
+  [eak]="eak.prasit633@gmail.com"
+)
+
+message() {
+  local text="$1"
+  if command -v zenity >/dev/null 2>&1 && [[ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]]; then
+    zenity --info --title="Codex User Switcher" --width=460 --text="$text"
+  else
+    printf '\n%s\n' "$text"
+  fi
+}
+
+fail() {
+  local text="$1"
+  if command -v zenity >/dev/null 2>&1 && [[ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]]; then
+    zenity --error --title="Codex User Switcher" --width=460 --text="$text"
+  else
+    printf '\nERROR: %s\n' "$text" >&2
+  fi
+  exit 1
+}
+
+choose_account() {
+  local prompt="${1:-Choose the Codex account to use on IRIV Production}"
+
+  if command -v zenity >/dev/null 2>&1 && [[ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]]; then
+    local choice
+    choice="$(zenity --list --radiolist --title="Codex User Switcher" \
+      --width=540 --height=280 --text="$prompt" \
+      --column="Select" --column="Profile" --column="Email" \
+      TRUE pakawat "${ACCOUNT_EMAIL[pakawat]}" \
+      FALSE eak "${ACCOUNT_EMAIL[eak]}" 2>/dev/null)" || choice="__CANCEL__"
+    [[ -n "$choice" ]] || choice="__CANCEL__"
+    printf '%s\n' "$choice"
+    return
+  fi
+
+  printf '\n%s\n' "$prompt" >&2
+  printf '  1) Pakawat <%s>\n' "${ACCOUNT_EMAIL[pakawat]}" >&2
+  printf '  2) Eak     <%s>\n' "${ACCOUNT_EMAIL[eak]}" >&2
+  printf 'Select [1-2]: ' >&2
+  read -r choice
+  case "$choice" in
+    1) printf 'pakawat\n' ;;
+    2) printf 'eak\n' ;;
+    *) fail "No account was selected." ;;
+  esac
+}
+
+initialise_profiles() {
+  mkdir -p "$PROFILE_ROOT"
+
+  if [[ -L "$ACTIVE_HOME" ]]; then
+    return
+  fi
+
+  if [[ ! -d "$ACTIVE_HOME" ]]; then
+    return
+  fi
+
+  local owner target
+  owner="$(choose_account "First-time setup: which account is currently signed in on this IRIV machine?")"
+  [[ "$owner" != "__CANCEL__" ]] || exit 0
+  target="$PROFILE_ROOT/$owner"
+  [[ ! -e "$target" ]] || fail "Profile '$owner' already exists; refusing to overwrite it."
+
+  # Preserve the current Codex installation exactly as the first profile.
+  mv "$ACTIVE_HOME" "$target"
+  ln -s "$target" "$ACTIVE_HOME"
+  printf '%s\n' "$owner" >"$ACTIVE_MARKER"
+}
+
+activate_profile() {
+  local profile="$1"
+  local target="$PROFILE_ROOT/$profile"
+  local current_target=""
+  local temporary_link="$HOME/.codex.switching.$$"
+
+  if [[ -L "$ACTIVE_HOME" ]]; then
+    current_target="$(readlink -f "$ACTIVE_HOME")"
+  elif [[ -e "$ACTIVE_HOME" ]]; then
+    fail "$ACTIVE_HOME is not a symbolic link. Run the script again to initialise profiles."
+  fi
+
+  if [[ ! -d "$target" ]]; then
+    mkdir -p "$target"
+    chmod 700 "$target"
+
+    # Start with familiar settings, but keep the new profile independent afterward.
+    if [[ -n "$current_target" && -f "$current_target/config.toml" ]]; then
+      cp "$current_target/config.toml" "$target/config.toml"
+    fi
+  fi
+
+  ln -s "$target" "$temporary_link"
+  mv -Tf "$temporary_link" "$ACTIVE_HOME"
+  printf '%s\n' "$profile" >"$ACTIVE_MARKER"
+}
+
+login_if_needed() {
+  local profile="$1"
+  if [[ -s "$ACTIVE_HOME/auth.json" ]]; then
+    return
+  fi
+
+  message "The ${ACCOUNT_EMAIL[$profile]} profile has not been signed in yet.\n\nCodex will now show a device-login link and code. Sign in with this exact account."
+
+  if command -v zenity >/dev/null 2>&1 && [[ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]]; then
+    x-terminal-emulator -T "Codex login: ${ACCOUNT_EMAIL[$profile]}" \
+      -e bash -lc "CODEX_HOME='$ACTIVE_HOME' codex login --device-auth; printf '\nLogin finished. You may close this window.\n'; read -r" || \
+      fail "Could not open the Codex login terminal."
+
+    # The terminal is asynchronous; wait briefly for auth.json to be created.
+    local attempts=0
+    while [[ ! -s "$ACTIVE_HOME/auth.json" && $attempts -lt 600 ]]; do
+      sleep 1
+      ((attempts += 1))
+    done
+    [[ -s "$ACTIVE_HOME/auth.json" ]] || fail "Login was not completed. Run UserChangeScript again to retry."
+  else
+    CODEX_HOME="$ACTIVE_HOME" codex login --device-auth || fail "Codex login failed."
+  fi
+}
+
+restart_codex_server() {
+  local control_dir="$ACTIVE_HOME/app-server-control"
+  mkdir -p "$control_dir"
+
+  # Restart only the IRIV-side listener so the Windows remote client reconnects
+  # using the newly selected profile.
+  pkill -9 -U "$(id -u)" -f 'codex.*[a]pp-server --listen unix://' 2>/dev/null || true
+  nohup codex -c features.code_mode_host=true app-server --listen unix:// \
+    >"$control_dir/app-server.log" 2>&1 &
+  disown || true
+}
+
+main() {
+  command -v codex >/dev/null 2>&1 || fail "The codex command was not found in PATH."
+  initialise_profiles
+
+  local selected
+  selected="$(choose_account)"
+  [[ "$selected" != "__CANCEL__" ]] || exit 0
+  activate_profile "$selected"
+  login_if_needed "$selected"
+  restart_codex_server
+
+  message "Codex on IRIV Production is now using:\n${ACCOUNT_EMAIL[$selected]}\n\nThe remote Codex window may disconnect briefly; reconnect or reopen it if needed."
+}
+
+trap 'fail "The account switch stopped unexpectedly (line $LINENO). No profile data was deleted."' ERR
+main "$@"

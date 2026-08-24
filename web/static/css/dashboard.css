@@ -570,7 +570,7 @@ body.is-pointing-view::before {
 
 .axis-monitor-grid {
   display: grid;
-  grid-template-columns: minmax(500px, 540px) minmax(0, 1fr);
+  grid-template-columns: minmax(800px, 840px) minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
   column-gap: 0;
   row-gap: 14px;
@@ -625,14 +625,32 @@ body.is-pointing-view::before {
 }
 
 .tab-list {
-  grid-template-columns: repeat(4, minmax(92px, 1fr));
+  grid-template-columns:
+    minmax(0, 1fr)
+    minmax(0, 1fr)
+    max-content
+    max-content
+    minmax(175px, 1.4fr);
   gap: 6px;
   padding: 5px;
 }
 
 .tab-button {
   min-width: 0;
-  padding-inline: 12px;
+  padding-inline: 8px;
+  white-space: nowrap;
+}
+
+.tab-button[data-tab-target="control"],
+.tab-button[data-tab-target="tuning"] {
+  padding-inline: 30px;
+}
+
+.tab-button[data-tab-target="motor-calibration"] {
+  min-width: 175px;
+  padding-inline: 16px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .chart-panel {
@@ -1450,6 +1468,182 @@ body.is-pointing-view::before {
   box-shadow: 0 10px 22px rgba(92, 124, 255, 0.16);
 }
 
+.camera-live-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 7px 13px;
+  border: 1px solid rgba(67, 213, 119, 0.32);
+  color: #c8f7d7;
+  background: rgba(30, 104, 59, 0.24);
+}
+
+.camera-live-button:hover,
+.camera-live-button.is-open {
+  border-color: rgba(67, 213, 119, 0.68);
+  background: rgba(38, 139, 74, 0.38);
+}
+
+.camera-live-icon {
+  width: 13px;
+  height: 10px;
+  border: 2px solid currentColor;
+  border-radius: 2px;
+  position: relative;
+}
+
+.camera-live-icon::after {
+  content: "";
+  position: absolute;
+  top: 1px;
+  right: -6px;
+  border-width: 3px 5px 3px 0;
+  border-style: solid;
+  border-color: currentColor transparent currentColor transparent;
+}
+
+.camera-live-window {
+  position: fixed;
+  z-index: 120;
+  top: 96px;
+  left: 50%;
+  width: min(1280px, calc(100vw - 32px));
+  max-height: calc(100vh - 112px);
+  overflow: hidden;
+  border: 1px solid rgba(88, 208, 128, 0.44);
+  border-radius: 12px;
+  background: rgba(5, 16, 17, 0.98);
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.68), 0 0 0 1px rgba(80, 239, 139, 0.06) inset;
+}
+
+.camera-live-window[hidden] { display: none; }
+
+.camera-live-header,
+.camera-live-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.camera-live-header {
+  min-height: 72px;
+  padding: 12px 18px;
+  cursor: move;
+  border-bottom: 1px solid rgba(111, 151, 132, 0.24);
+  background: linear-gradient(90deg, rgba(22, 66, 44, 0.48), rgba(8, 25, 23, 0.32));
+}
+
+.camera-live-title { flex: 0 1 auto; }
+.camera-live-header h2 { margin: 2px 0 0; font-size: 21px; }
+.camera-live-kicker { color: #79de9b; font-size: 10px; font-weight: 900; letter-spacing: .14em; text-transform: uppercase; }
+.camera-live-kicker i,
+.status-dot { display: inline-block; width: 7px; height: 7px; margin-right: 7px; border-radius: 50%; background: #4bdf7e; box-shadow: 0 0 10px #4bdf7e; }
+.camera-live-header-actions { display: flex; align-items: center; gap: 12px; }
+.camera-live-clock { color: #8fb3a0; font-family: monospace; font-size: 12px; }
+.camera-live-header-actions button { width: 34px; min-height: 34px; padding: 0; color: #b9cec1; background: rgba(255,255,255,.05); font-size: 24px; }
+.camera-source-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-width: 112px;
+  min-height: 34px;
+  margin-right: auto;
+  padding: 7px 13px;
+  border: 1px solid rgba(99, 221, 143, .34);
+  border-radius: 7px;
+  color: #bde9cb;
+  background: rgba(18, 72, 46, .45);
+  font: 800 10px/1 sans-serif;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.camera-source-toggle:hover { background: rgba(24, 91, 58, .58); }
+.camera-source-toggle:not(.is-simulation) {
+  border-color: rgba(100, 181, 255, .48);
+  color: #cce8ff;
+  background: rgba(21, 61, 94, .5);
+}
+.camera-source-toggle:not(.is-simulation):hover { background: rgba(27, 78, 119, .62); }
+.camera-source-status-dot {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: #5deb91;
+  box-shadow: 0 0 8px rgba(83, 236, 139, .7);
+}
+.camera-source-toggle:not(.is-simulation) .camera-source-status-dot {
+  background: #64b5ff;
+  box-shadow: 0 0 8px rgba(72, 165, 255, .7);
+}
+.camera-real-frame { position: absolute; inset: 0; }
+.camera-real-frame.is-stream-disconnected { opacity: 0; }
+
+.camera-live-grid {
+  display: grid;
+  grid-template-columns: minmax(0, .82fr) minmax(0, 1.18fr);
+  gap: 10px;
+  padding: 12px;
+}
+
+.camera-feed { min-width: 0; overflow: hidden; border: 1px solid rgba(120, 158, 143, .26); border-radius: 8px; background: #02090a; }
+.camera-feed > header { display: flex; justify-content: space-between; align-items: center; padding: 9px 12px; color: #7f9d91; font-size: 10px; letter-spacing: .08em; }
+.camera-feed > header div { display: flex; align-items: center; gap: 7px; }
+.camera-feed > header strong { color: #d8eee0; }
+.feed-dot { width: 6px; height: 6px; border-radius: 50%; background: #4bdf7e; box-shadow: 0 0 8px #4bdf7e; }
+.thermal-feed .feed-dot { background: #ff9e42; box-shadow: 0 0 8px #ff7a33; }
+.camera-viewport { position: relative; aspect-ratio: 16 / 9; overflow: hidden; background: #040a0b; }
+.thermal-feed .camera-viewport { aspect-ratio: 5 / 4; }
+.camera-viewport img,
+.camera-viewport video { width: 100%; height: 100%; display: block; object-fit: cover; }
+.camera-viewport [hidden] { display: none; }
+.camera-burnin {
+  position: absolute;
+  z-index: 4;
+  top: 10px;
+  left: 10px;
+  padding: 5px 7px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.36);
+  color: #fff;
+  font: 700 clamp(8px, 0.82vw, 11px)/1.18 "DejaVu Sans Mono", "Roboto Mono", monospace;
+  white-space: pre;
+  pointer-events: none;
+  text-shadow: 0 1px 1px #000;
+}
+.thermal-feed img,
+.thermal-feed video { filter: contrast(1.18) saturate(1.4); }
+.camera-reticle { position: absolute; inset: 50% auto auto 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); border: 1px solid rgba(92, 239, 141, .75); border-radius: 50%; }
+.camera-reticle::before, .camera-reticle::after { content: ""; position: absolute; background: rgba(92, 239, 141, .75); }
+.camera-reticle::before { width: 64px; height: 1px; left: -11px; top: 21px; }
+.camera-reticle::after { width: 1px; height: 64px; left: 21px; top: -11px; }
+.camera-overlay { position: absolute; left: 10px; right: 10px; bottom: 9px; display: flex; justify-content: space-between; color: #d5e8db; font: 10px monospace; text-shadow: 0 1px 3px #000; }
+.camera-overlay b { color: #67ef98; }
+.thermal-scale { position: absolute; right: 10px; top: 12px; bottom: 30px; display: grid; grid-template-rows: auto 1fr auto; gap: 4px; color: white; font: 9px monospace; text-shadow: 0 1px 2px #000; }
+.thermal-scale i { width: 8px; justify-self: center; background: linear-gradient(#fff, #ff4b1f, #ffca28, #251060, #000); border: 1px solid rgba(255,255,255,.35); }
+.camera-live-footer { min-height: 40px; padding: 8px 16px; border-top: 1px solid rgba(111,151,132,.2); color: #789588; font-size: 10px; }
+.camera-live-footer span:first-child { color: #b7d4c2; }
+.camera-record-controls { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.camera-record-button { display: inline-flex; align-items: center; gap: 8px; min-height: 30px; padding: 5px 11px; border: 1px solid rgba(255, 92, 92, .52); color: #ffd4d4; background: rgba(139, 32, 38, .28); font-size: 10px; text-transform: uppercase; letter-spacing: .06em; }
+.camera-record-button > i { width: 9px; height: 9px; border-radius: 50%; background: #ff5353; box-shadow: 0 0 8px rgba(255, 67, 67, .72); }
+.camera-record-button.is-recording { background: rgba(207, 39, 48, .55); }
+.camera-record-button.is-recording > i { border-radius: 1px; animation: camera-record-pulse 1s steps(1) infinite; }
+.camera-record-button:disabled { opacity: .58; cursor: wait; }
+.camera-record-timer { min-width: 42px; color: #f3f8f5; font: 700 12px monospace; }
+.camera-record-status { overflow: hidden; color: #a9c6b3; text-overflow: ellipsis; white-space: nowrap; }
+@keyframes camera-record-pulse { 50% { opacity: .25; } }
+
+@media (max-width: 820px) {
+  .camera-live-window { top: 72px; max-height: calc(100vh - 84px); overflow-y: auto; }
+  .camera-live-grid { grid-template-columns: 1fr; }
+  .camera-live-footer span:last-child { display: none; }
+  .camera-source-toggle-label { display: none; }
+}
+
 .server-uptime {
   display: grid;
   grid-template-columns: auto auto;
@@ -1732,12 +1926,38 @@ button {
   background: rgba(4, 7, 14, 0.90);
 }
 
-#pointingMapCanvas {
+#pointingMapCanvas,
+#pointingMap3DCanvas {
   display: block;
   width: 100%;
   height: 100%;
   min-height: 520px;
   cursor: crosshair;
+}
+
+#pointingMap3DCanvas {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  cursor: grab;
+}
+
+#pointingMap3DCanvas:active {
+  cursor: grabbing;
+}
+
+.pointing-map-stage.is-3d #pointingMapCanvas {
+  visibility: hidden;
+}
+
+.pointing-map-stage:not(.is-3d) #pointingMap3DCanvas {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.pointing-map-progress,
+.pointing-selection-card {
+  z-index: 9;
 }
 
 .pointing-map-progress {
@@ -1822,7 +2042,8 @@ button {
   box-shadow: 0 18px 38px rgba(0, 0, 0, 0.26);
 }
 
-.pointing-selection-card > strong {
+.pointing-selection-card > strong,
+.pointing-selection-header > strong {
   color: var(--text);
   font-size: 14px;
   font-weight: 900;
@@ -1837,11 +2058,14 @@ button {
 
 body.is-pointing-view .monitor-shell {
   --pointing-rail-left: 48px;
-  --pointing-rail-top: 34px;
+  --pointing-rail-top: 48px;
   --pointing-rail-width: min(560px, calc(100vw - 96px));
   --pointing-rail-gap: 14px;
   --pointing-title-panel-height: 70px;
-  --pointing-control-panel-height: 106px;
+  /* View tabs plus six controls wrap to three 38px rows in the 560px rail.
+     Include the two 10px row gaps and 20px vertical padding so the following
+     fixed panels start below the controls instead of underneath them. */
+  --pointing-control-panel-height: 154px;
   --pointing-summary-panel-height: 72px;
   position: relative;
   grid-template-rows: minmax(0, 1fr);
@@ -2538,7 +2762,7 @@ body.is-pointing-view .system-log-panel {
   position: relative;
   z-index: 1;
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 6px;
   margin-top: 18px;
   padding: 4px;
@@ -2561,24 +2785,7 @@ body.is-pointing-view .system-log-panel {
 }
 
 .tab-button[data-tab-target="tuning"] {
-  padding-right: 22px;
   cursor: context-menu;
-}
-
-.tab-button[data-tab-target="tuning"]::after {
-  content: "";
-  position: absolute;
-  top: 8px;
-  right: 7px;
-  width: 7px;
-  height: 7px;
-  border: 1.5px solid rgba(244, 246, 255, 0.46);
-  border-radius: 2px;
-}
-
-.tab-button[data-tab-target="tuning"]:hover::after,
-.tab-button[data-tab-target="tuning"].active::after {
-  border-color: rgba(244, 246, 255, 0.78);
 }
 
 .tab-button.active {
@@ -3267,6 +3474,88 @@ dd {
   color: var(--green);
 }
 
+.motor-calibration-form {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.motor-calibration-form label {
+  position: relative;
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.motor-calibration-form input {
+  width: 100%;
+  min-height: 38px;
+  padding: 8px 64px 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.055);
+  font: inherit;
+  font-weight: 800;
+  outline: none;
+}
+
+.motor-calibration-form input:focus {
+  border-color: rgba(73, 199, 217, 0.64);
+  box-shadow: 0 0 0 3px rgba(73, 199, 217, 0.15);
+}
+
+.motor-calibration-form em {
+  position: absolute;
+  right: 12px;
+  bottom: 10px;
+  color: var(--muted);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 900;
+  pointer-events: none;
+}
+
+.motor-calibration-actions {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.motor-calibration-actions button {
+  min-height: 38px;
+  font-weight: 900;
+}
+
+.motor-calibration-start {
+  color: #eafff2;
+  background: linear-gradient(135deg, rgba(87, 214, 141, 0.70), rgba(45, 171, 103, 0.74));
+}
+
+.motor-calibration-stop {
+  color: #fff1f3;
+  background: linear-gradient(135deg, rgba(255, 93, 115, 0.82), rgba(184, 56, 78, 0.76));
+}
+
+.motor-calibration-message {
+  grid-column: 1 / -1;
+  min-height: 18px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.motor-calibration-message.is-ok { color: var(--green); }
+.motor-calibration-message.is-error { color: var(--red); }
+.motor-calibration-message.is-warning { color: var(--orange); }
+
 .axis-control-message.is-error {
   color: var(--red);
 }
@@ -3724,7 +4013,7 @@ dd {
 .settings-actions {
   grid-column: 1 / -1;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
   margin-top: 2px;
 }
@@ -3737,6 +4026,18 @@ dd {
 #settingsReloadSerials {
   color: #dfe6ff;
   background: rgba(142, 152, 183, 0.20);
+}
+
+#settingsSimulationMode {
+  color: #d9e6ff;
+  border-color: rgba(102, 154, 255, .45);
+  background: rgba(66, 104, 190, .24);
+}
+
+#settingsSimulationMode.is-active {
+  color: #07130c;
+  border-color: rgba(94, 235, 144, .7);
+  background: #5edb8d;
 }
 
 .goto-panel[hidden] {
@@ -4044,6 +4345,11 @@ dd {
   background: rgba(90, 224, 154, 0.10);
 }
 
+.motion-readout.is-timeout {
+  border-color: rgba(255, 138, 42, 0.42);
+  background: rgba(255, 138, 42, 0.13);
+}
+
 .motion-readout strong {
   min-width: 0;
   overflow: hidden;
@@ -4066,6 +4372,7 @@ dd {
 .motion-readout.is-moving em { color: #ffb470; }
 .motion-readout.is-settling em { color: #75e8f7; }
 .motion-readout.is-reached em { color: #78f0b4; }
+.motion-readout.is-timeout em { color: #ffb470; }
 
 .sensor-strip {
   display: flex;
@@ -4887,8 +5194,9 @@ body.is-pointing-view::before {
 }
 
 .axis-monitor-grid {
+  --axis-panel-width: 690px;
   display: grid;
-  grid-template-columns: minmax(500px, 540px) minmax(0, 1fr);
+  grid-template-columns: minmax(650px, var(--axis-panel-width)) minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
   column-gap: 0;
   row-gap: 14px;
@@ -4943,14 +5251,69 @@ body.is-pointing-view::before {
 }
 
 .tab-list {
-  grid-template-columns: repeat(4, minmax(92px, 1fr));
+  grid-template-columns:
+    minmax(105px, 1fr)
+    minmax(110px, 1fr)
+    max-content
+    max-content
+    minmax(175px, 1.3fr);
   gap: 6px;
   padding: 5px;
 }
 
 .tab-button {
   min-width: 0;
-  padding-inline: 12px;
+  padding-inline: 8px;
+  white-space: nowrap;
+}
+
+.tab-button[data-tab-target="control"],
+.tab-button[data-tab-target="tuning"] {
+  padding-inline: 20px;
+}
+
+.tab-button[data-tab-target="motor-calibration"] {
+  min-width: 175px;
+  padding-inline: 16px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.axis-column-resizer {
+  position: absolute;
+  z-index: 12;
+  top: 14px;
+  bottom: 14px;
+  left: calc(14px + var(--axis-panel-width));
+  width: 12px;
+  transform: translateX(-6px);
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.axis-column-resizer::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 5px;
+  width: 2px;
+  border-radius: 999px;
+  background: rgba(116, 70, 205, 0.42);
+  transition: width 120ms ease, left 120ms ease, background 120ms ease;
+}
+
+.axis-column-resizer:hover::after,
+.axis-column-resizer:focus-visible::after,
+.axis-column-resizer.is-dragging::after {
+  left: 4px;
+  width: 4px;
+  background: rgba(136, 83, 236, 0.92);
+}
+
+body.is-axis-column-resizing {
+  cursor: col-resize;
+  user-select: none;
 }
 
 .chart-panel {
@@ -4970,6 +5333,10 @@ body.is-pointing-view::before {
 }
 
 @media (max-width: 1180px) {
+  .axis-column-resizer {
+    display: none;
+  }
+
   .axis-monitor-grid {
     grid-template-columns: 1fr;
     grid-template-rows: none;
@@ -5332,7 +5699,7 @@ body.is-pointing-view .pointing-map-header {
 /* Pointing rail alignment and spacing refinement */
 body.is-pointing-view .monitor-shell {
   --pointing-rail-gap: 16px;
-  --pointing-control-panel-height: 120px;
+  --pointing-control-panel-height: 154px;
 }
 
 body.is-pointing-view .monitor-header {
@@ -5344,4 +5711,3027 @@ body.is-pointing-view .monitor-header {
 body.is-pointing-view .motor-controls {
   min-height: var(--pointing-control-panel-height);
   align-content: start;
+}
+
+/* Keep live telemetry from resizing the status pills as digit counts change. */
+.actual-readouts {
+  grid-template-columns: 187.22px 263.12px 283.36px 245.41px;
+}
+
+.motion-readout {
+  width: 187.22px;
+}
+
+.actual-readout {
+  width: 100%;
+  min-width: 0;
+  grid-template-columns: max-content minmax(0, 1fr);
+}
+
+.actual-readout em,
+.motion-readout em {
+  justify-self: end;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 980px) {
+  .actual-readouts {
+    grid-template-columns: 187.22px 283.36px;
+  }
+
+  .actual-readout {
+    width: 283.36px;
+  }
+}
+.motor-controls .api-console-link {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  min-width: 92px;
+  min-height: 38px;
+  padding: 10px 14px;
+  border: 1px solid rgba(155, 181, 170, 0.14);
+  border-radius: 7px;
+  box-sizing: border-box;
+  color: rgba(224, 233, 228, 0.84);
+  background: rgba(132, 157, 145, 0.07);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+  font: inherit;
+  font-weight: 800;
+  line-height: 1;
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.motor-controls .api-console-link:hover {
+  border-color: rgba(116, 217, 130, 0.32);
+  background: rgba(99, 201, 120, 0.12);
+  color: #f8fff9;
+  filter: brightness(1.07);
+}
+
+.motor-controls .api-console-link:focus-visible {
+  outline: 2px solid rgba(99, 201, 120, 0.78);
+  outline-offset: 2px;
+}
+
+/* Unified interaction states: keep every dashboard button and tab responsive. */
+:where(
+  button,
+  .api-console-link,
+  .tab-button,
+  .goto-tab,
+  .settings-axis-tab
+) {
+  transition:
+    color 140ms ease,
+    background-color 140ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease,
+    filter 140ms ease,
+    transform 140ms ease;
+}
+
+button:hover:not(:disabled),
+.motor-controls .api-console-link:hover {
+  border-color: rgba(116, 217, 130, 0.44);
+  filter: brightness(1.14) saturate(1.08);
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 0 0 999px rgba(99, 201, 120, 0.055),
+    0 8px 20px rgba(41, 140, 82, 0.16);
+}
+
+:where(
+  .tab-button,
+  .goto-tab,
+  .settings-axis-tab,
+  .view-mode-toggle button
+):hover:not(:disabled):not(.active) {
+  color: #f4fff7;
+  border-color: rgba(116, 217, 130, 0.38);
+  background: rgba(99, 201, 120, 0.14);
+  box-shadow:
+    inset 0 0 0 1px rgba(99, 201, 120, 0.08),
+    0 7px 16px rgba(41, 140, 82, 0.12);
+}
+
+:where(
+  .tab-button,
+  .goto-tab,
+  .settings-axis-tab,
+  .view-mode-toggle button
+).active:hover {
+  filter: brightness(1.16) saturate(1.1);
+  box-shadow:
+    inset 3px 0 0 rgba(113, 231, 137, 0.98),
+    0 9px 20px rgba(41, 140, 82, 0.18);
+}
+
+/* Safety actions retain their red visual meaning while still showing hover. */
+:where(
+  .motor-stop,
+  .sky-stop-button,
+  .motor-calibration-stop,
+  [data-axis-jog="stop"],
+  [data-axis-sine="stop"],
+  [data-motor-calibration-stop],
+  [data-axis-action="disable"]
+):hover:not(:disabled) {
+  border-color: rgba(255, 109, 100, 0.62);
+  filter: brightness(1.18) saturate(1.1);
+  box-shadow:
+    inset 0 0 0 999px rgba(255, 85, 72, 0.08),
+    0 8px 20px rgba(180, 48, 42, 0.18);
+}
+
+button:active:not(:disabled),
+.motor-controls .api-console-link:active {
+  transform: translateY(0);
+  filter: brightness(0.98);
+}
+
+button:focus-visible,
+.motor-controls .api-console-link:focus-visible {
+  outline: 2px solid rgba(99, 201, 120, 0.82);
+  outline-offset: 2px;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  transform: none;
+  filter: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(button, .api-console-link, .tab-button, .goto-tab, .settings-axis-tab) {
+    transition: none;
+  }
+}
+
+/* Pointing Model 3D canvas shares the established full-stage layout. */
+.pointing-map-stage > #pointingMap3DCanvas {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 520px;
+}
+
+.pointing-map-stage.is-3d > #pointingMapCanvas {
+  visibility: hidden;
+}
+
+.pointing-map-stage:not(.is-3d) > #pointingMap3DCanvas {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.pointing-target-panel {
+  position: fixed;
+  z-index: 44;
+  display: grid;
+  gap: 10px;
+  width: min(310px, calc(100vw - 24px));
+  padding: 14px;
+  border: 1px solid rgba(255, 211, 105, 0.38);
+  border-radius: 10px;
+  color: #f4f6ff;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    rgba(17, 24, 42, 0.96);
+  background-size: 24px 24px, 24px 24px, auto;
+  box-shadow: 0 22px 54px rgba(0, 0, 0, 0.46);
+}
+
+.pointing-target-panel[hidden] {
+  display: none;
+}
+
+.pointing-target-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: move;
+  user-select: none;
+}
+
+.pointing-target-header > div {
+  display: grid;
+  gap: 2px;
+}
+
+.pointing-target-header strong {
+  color: #ffe36a;
+  font-size: 15px;
+}
+
+.pointing-target-header small,
+.pointing-target-coordinates,
+.pointing-target-panel p {
+  color: rgba(205, 215, 239, 0.74);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.pointing-target-header button {
+  width: 30px;
+  height: 30px;
+  border: 1px solid rgba(142, 152, 183, 0.25);
+  border-radius: 7px;
+  color: #d8def0;
+  background: rgba(6, 10, 20, 0.62);
+}
+
+.pointing-target-coordinates {
+  padding: 8px 9px;
+  border-radius: 7px;
+  background: rgba(5, 9, 18, 0.64);
+}
+
+.pointing-target-panel dl {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.pointing-target-panel dl div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 8px 9px;
+  border: 1px solid rgba(142, 152, 183, 0.16);
+  border-radius: 7px;
+  background: rgba(34, 43, 70, 0.62);
+}
+
+.pointing-target-panel dt {
+  color: rgba(186, 197, 224, 0.72);
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.pointing-target-panel dd {
+  margin: 0;
+  color: #f7f9ff;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.pointing-target-panel p {
+  margin: 0;
+  line-height: 1.4;
+}
+
+.pointing-target-panel p.is-warning {
+  color: #ffbd72;
+}
+
+#pointingTargetGoto {
+  min-height: 38px;
+  border: 1px solid rgba(255, 223, 69, 0.58);
+  border-radius: 8px;
+  color: #10150d;
+  font-weight: 900;
+  background: linear-gradient(135deg, #ffe36a, #75d889);
+}
+
+body.is-pointing-view .motor-toggle .toggle-track {
+  display: none;
+}
+
+body.is-pointing-view .motor-toggle {
+  justify-content: center;
+  gap: 0;
+  padding-inline: 8px;
+}
+
+/* Mobile-browser layout. Desktop rules above remain unchanged. */
+html.mobile-browser {
+  color-scheme: dark;
+  -webkit-text-size-adjust: 100%;
+}
+
+html.mobile-browser body {
+  min-width: 0;
+  overflow-x: hidden;
+  overscroll-behavior-y: contain;
+}
+
+html.mobile-browser .monitor-shell {
+  display: grid;
+  grid-template-rows: auto auto auto;
+  width: 100%;
+  height: auto;
+  min-height: 100dvh;
+  margin: 0;
+  padding:
+    env(safe-area-inset-top)
+    env(safe-area-inset-right)
+    env(safe-area-inset-bottom)
+    env(safe-area-inset-left);
+  overflow: visible;
+  border: 0;
+}
+
+html.mobile-browser .monitor-header {
+  position: sticky;
+  z-index: 40;
+  top: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  min-height: 0;
+  padding: 12px;
+  padding-top: max(12px, env(safe-area-inset-top));
+  background: rgba(6, 13, 15, 0.96);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+}
+
+html.mobile-browser .header-brand {
+  grid-template-columns: 38px 1px minmax(0, 1fr);
+  gap: 9px;
+}
+
+html.mobile-browser .brand-mark {
+  width: 38px;
+  height: 38px;
+}
+
+html.mobile-browser .brand-mark img {
+  width: 32px;
+  height: 32px;
+}
+
+html.mobile-browser .brand-divider {
+  height: 34px;
+}
+
+html.mobile-browser .header-copy h1,
+html.mobile-browser .brand-text h1 {
+  overflow: hidden;
+  font-size: 17px;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html.mobile-browser .brand-rule {
+  width: min(230px, 100%);
+  margin: 4px 0 3px;
+}
+
+html.mobile-browser .brand-text p {
+  font-size: 10px;
+}
+
+html.mobile-browser .motor-controls {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  column-gap: 7px;
+  row-gap: 12px;
+  width: 100%;
+}
+
+html.mobile-browser .view-mode-toggle {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: 1fr;
+  gap: 5px;
+  width: 100%;
+  padding: 5px;
+  border-color: rgba(95, 214, 157, 0.28);
+  background:
+    linear-gradient(135deg, rgba(25, 68, 57, 0.3), rgba(10, 24, 30, 0.64));
+}
+
+html.mobile-browser .view-mode-toggle button {
+  position: relative;
+  min-width: 0;
+  min-height: 48px;
+  padding: 8px 46px 8px 15px;
+  border: 1px solid rgba(130, 178, 168, 0.2);
+  border-radius: 9px;
+  background: rgba(18, 37, 41, 0.72);
+  color: rgba(229, 239, 238, 0.76);
+  font-size: 12px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+html.mobile-browser .view-mode-toggle button::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: 17px;
+  width: 9px;
+  height: 9px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: translateY(-65%) rotate(45deg);
+  transition: transform 160ms ease;
+}
+
+html.mobile-browser .view-mode-toggle button.active {
+  border-color: rgba(91, 224, 151, 0.48);
+  border-left: 4px solid #63df98;
+  background:
+    linear-gradient(90deg, rgba(45, 112, 75, 0.78), rgba(25, 65, 55, 0.58));
+  color: #f3fff8;
+}
+
+html.mobile-browser .view-mode-toggle button[aria-expanded="true"]::after {
+  transform: translateY(-30%) rotate(225deg);
+}
+
+html.mobile-browser.mobile-main-view-collapsed .view-mode-toggle button.active {
+  background:
+    linear-gradient(90deg, rgba(36, 79, 62, 0.58), rgba(20, 46, 43, 0.5));
+}
+
+html.mobile-browser .mobile-main-view-accordion {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: calc(100% - 10px);
+  margin-right: 5px;
+  margin-left: 5px;
+  margin-top: 10px;
+}
+
+html.mobile-browser .mobile-main-view-group {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid rgba(93, 170, 151, 0.24);
+  border-radius: 3px;
+  background:
+    linear-gradient(145deg, rgba(15, 41, 39, 0.44), rgba(5, 16, 23, 0.62));
+}
+
+html.mobile-browser .mobile-main-view-group.is-active {
+  border-color: rgba(92, 220, 151, 0.4);
+  box-shadow: inset 0 0 24px rgba(49, 161, 104, 0.06);
+}
+
+html.mobile-browser .mobile-main-view-toggle {
+  position: relative;
+  display: block;
+  width: 100%;
+  min-height: 52px;
+  margin: 0;
+  padding: 9px 48px 9px 16px;
+  border: 0;
+  border-radius: 3px;
+  background:
+    linear-gradient(90deg, rgba(23, 92, 67, 0.55), rgba(16, 57, 53, 0.48));
+  color: #ff9a46;
+  font: 700 13px/1.2 "Segoe UI", sans-serif;
+  text-align: left;
+}
+
+html.mobile-browser .mobile-main-view-toggle::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: 18px;
+  width: 10px;
+  height: 10px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: translateY(-65%) rotate(45deg);
+  transition: transform 160ms ease;
+}
+
+html.mobile-browser .mobile-main-view-toggle.active {
+  background:
+    linear-gradient(90deg, rgba(20, 126, 83, 0.9), rgba(18, 79, 65, 0.7));
+  color: #ffb067;
+  box-shadow: none;
+}
+
+html.mobile-browser .mobile-main-view-toggle[aria-expanded="true"] {
+  border-radius: 3px 3px 0 0;
+}
+
+html.mobile-browser .mobile-main-view-toggle[aria-expanded="true"]::after {
+  transform: translateY(-30%) rotate(225deg);
+}
+
+html.mobile-browser .mobile-main-view-content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding: 5px;
+  border-top: 1px solid rgba(91, 196, 144, 0.18);
+}
+
+html.mobile-browser .mobile-main-view-content[hidden] {
+  display: none !important;
+}
+
+html.mobile-browser .mobile-main-view-content > .axis-monitor-grid,
+html.mobile-browser .mobile-main-view-content > .sky-view-panel,
+html.mobile-browser .mobile-main-view-content > .pointing-view-panel,
+html.mobile-browser .mobile-main-view-content > .system-log-panel,
+html.mobile-browser .mobile-main-view-content > .camera-live-window {
+  width: 100%;
+  margin: 0 !important;
+}
+
+html.mobile-browser .mobile-main-view-camera .camera-live-button {
+  justify-content: flex-start;
+  gap: 0;
+}
+
+html.mobile-browser .mobile-main-view-camera .camera-live-icon {
+  display: none;
+}
+
+html.mobile-browser .mobile-camera-control-content {
+  padding: 0;
+}
+
+html.mobile-browser .mobile-main-view-camera .camera-live-window {
+  position: static !important;
+  inset: auto !important;
+  max-height: none;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  transform: none !important;
+}
+
+html.mobile-browser .mobile-main-view-camera .camera-live-header {
+  min-height: 58px;
+  padding: 10px 12px;
+  cursor: default;
+}
+
+html.mobile-browser .mobile-main-view-camera .camera-live-header h2 {
+  font-size: 16px;
+}
+
+html.mobile-browser .mobile-main-view-camera .camera-live-header-actions button {
+  display: none;
+}
+
+html.mobile-browser .mobile-main-view-camera .camera-live-grid {
+  grid-template-columns: minmax(0, 1fr);
+  padding: 8px;
+}
+
+html.mobile-browser .mobile-main-view-camera .camera-live-footer {
+  align-items: flex-start;
+  padding: 10px 12px;
+}
+
+html.mobile-browser .mobile-main-view-camera .camera-record-controls {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+html.mobile-browser .mobile-global-system-log {
+  width: 100%;
+  margin: 0 !important;
+}
+
+/* Axis View is one continuous parent panel; child panels share single separators. */
+html.mobile-browser .mobile-main-view-axis .mobile-main-view-content,
+html.mobile-browser .mobile-main-view-axis .axis-monitor-grid {
+  gap: 0 !important;
+  padding: 0;
+}
+
+html.mobile-browser .mobile-main-view-axis :is(
+  .status-card.azimuth,
+  .chart-panel.azimuth-chart,
+  .status-card.altitude,
+  .chart-panel.altitude-chart
+) {
+  margin: 0 !important;
+  padding: 0;
+  border: 0;
+  border-top: 1px solid rgba(93, 170, 151, 0.24);
+  border-radius: 0;
+}
+
+html.mobile-browser .mobile-main-view-axis .status-card.azimuth {
+  border-top: 0;
+}
+
+html.mobile-browser .mobile-main-view-axis :is(
+  .status-card-header,
+  .chart-panel-header
+) {
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0;
+  padding-right: 46px;
+  padding-left: 5px;
+  border: 0;
+  border-radius: 0;
+}
+
+html.mobile-browser .mobile-main-view-axis .mobile-panel-toggle {
+  right: 5px;
+}
+
+html.mobile-browser .mobile-main-view-axis .status-card-header .axis-chip {
+  max-width: calc(100% - 46px);
+}
+
+html.mobile-browser .mobile-main-view-axis .status-card:not(.is-mobile-collapsed) .status-card-header {
+  margin-bottom: 5px;
+}
+
+html.mobile-browser .mobile-main-view-axis :is(
+  .status-card,
+  .chart-panel
+) > :not(.status-card-header, .chart-panel-header) {
+  box-sizing: border-box;
+  width: calc(100% - 10px) !important;
+  max-width: calc(100% - 10px);
+  margin-right: 5px;
+  margin-left: 5px;
+}
+
+html.mobile-browser .server-uptime {
+  grid-column: 1 / 3;
+  min-width: 0;
+  min-height: 42px;
+}
+
+html.mobile-browser .motor-controls .api-console-link,
+html.mobile-browser .system-setting,
+html.mobile-browser .motor-toggle,
+html.mobile-browser .motor-stop,
+html.mobile-browser .motor-goto {
+  min-width: 0;
+  min-height: 44px;
+  padding: 8px 5px;
+  font-size: 11px;
+}
+
+html.mobile-browser .motor-controls .api-console-link {
+  grid-column: 3;
+}
+
+html.mobile-browser #systemSetting {
+  grid-column: 4;
+}
+
+html.mobile-browser .motor-toggle {
+  grid-column: 1 / 3;
+}
+
+html.mobile-browser .motor-stop,
+html.mobile-browser .motor-goto {
+  grid-column: auto;
+}
+
+html.mobile-browser .axis-monitor-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto;
+  gap: 12px;
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  padding: 12px;
+  overflow: visible;
+}
+
+html.mobile-browser .axis-status-column,
+html.mobile-browser .chart-column {
+  display: contents;
+}
+
+html.mobile-browser .status-card.azimuth {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+html.mobile-browser .chart-panel.azimuth-chart {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+html.mobile-browser .status-card.altitude {
+  grid-column: 1;
+  grid-row: 3;
+}
+
+html.mobile-browser .chart-panel.altitude-chart {
+  grid-column: 1;
+  grid-row: 4;
+}
+
+html.mobile-browser .status-card.azimuth,
+html.mobile-browser .status-card.altitude,
+html.mobile-browser .chart-panel.azimuth-chart,
+html.mobile-browser .chart-panel.altitude-chart {
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  border: 1px solid rgba(152, 183, 169, 0.22);
+  border-radius: 9px;
+}
+
+html.mobile-browser .status-card {
+  padding: 13px 12px;
+}
+
+html.mobile-browser .status-card-header {
+  margin-bottom: 10px;
+}
+
+html.mobile-browser .status-card-header h2 {
+  font-size: 17px;
+}
+
+html.mobile-browser .tab-list {
+  display: flex;
+  gap: 5px;
+  width: 100%;
+  padding: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+}
+
+html.mobile-browser .tab-list::-webkit-scrollbar {
+  display: none;
+}
+
+html.mobile-browser .tab-button,
+html.mobile-browser .tab-button[data-tab-target="control"],
+html.mobile-browser .tab-button[data-tab-target="tuning"],
+html.mobile-browser .tab-button[data-tab-target="motor-calibration"] {
+  flex: 0 0 auto;
+  min-width: 106px;
+  min-height: 42px;
+  padding: 8px 10px;
+  overflow: visible;
+  font-size: 11px;
+  text-overflow: clip;
+  scroll-snap-align: start;
+  touch-action: manipulation;
+}
+
+html.mobile-browser .tab-button[data-tab-target="motor-calibration"] {
+  min-width: 142px;
+}
+
+html.mobile-browser .status-readings div {
+  min-height: 39px;
+  padding: 9px 2px;
+}
+
+html.mobile-browser .status-readings dt,
+html.mobile-browser .status-readings dd {
+  font-size: 12px;
+}
+
+html.mobile-browser .axis-control-form label,
+html.mobile-browser .motor-calibration-form label,
+html.mobile-browser .tuning-form label {
+  grid-template-columns: minmax(90px, 1fr) minmax(110px, 1.2fr) auto;
+}
+
+html.mobile-browser input,
+html.mobile-browser select,
+html.mobile-browser textarea {
+  min-height: 44px;
+  font-size: 16px;
+}
+
+html.mobile-browser .axis-jog-actions,
+html.mobile-browser .motor-calibration-actions,
+html.mobile-browser .sine-velocity-actions {
+  gap: 7px;
+}
+
+html.mobile-browser .axis-jog-actions button,
+html.mobile-browser .axis-command-apply,
+html.mobile-browser .motor-calibration-actions button,
+html.mobile-browser .sine-velocity-actions button {
+  min-height: 44px;
+}
+
+html.mobile-browser .chart-panel {
+  grid-template-rows: auto 240px auto;
+  padding: 12px 10px 10px;
+}
+
+html.mobile-browser .chart-panel-header {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+}
+
+html.mobile-browser .chart-controls {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: minmax(0, 1fr) 104px;
+  gap: 7px;
+}
+
+html.mobile-browser .actual-readouts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  width: 100%;
+}
+
+html.mobile-browser .actual-readout,
+html.mobile-browser .motion-readout {
+  width: auto;
+  min-width: 0;
+  min-height: 40px;
+  padding: 6px 7px;
+}
+
+html.mobile-browser .actual-readout strong,
+html.mobile-browser .motion-readout strong {
+  font-size: 8px;
+}
+
+html.mobile-browser .actual-readout em,
+html.mobile-browser .motion-readout em {
+  overflow: hidden;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html.mobile-browser .chart-controls select {
+  width: 104px;
+  min-width: 0;
+}
+
+html.mobile-browser .chart-panel canvas {
+  width: 100% !important;
+  height: 240px !important;
+  min-height: 240px;
+}
+
+html.mobile-browser .legend-row {
+  flex-wrap: wrap;
+}
+
+html.mobile-browser .system-log-panel {
+  width: auto;
+  height: 190px;
+  min-height: 190px;
+  max-height: 190px;
+  margin: 0 12px 12px;
+  border: 1px solid rgba(152, 183, 169, 0.22);
+  border-radius: 9px;
+}
+
+html.mobile-browser .system-log-entries {
+  padding: 10px 12px;
+  overflow-x: auto;
+  font-size: 10px;
+}
+
+html.mobile-browser .axis-column-resizer {
+  display: none;
+}
+
+html.mobile-browser .sky-view-panel {
+  height: auto;
+  min-height: 0;
+  margin: 12px;
+}
+
+html.mobile-browser .sky-view-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto auto auto;
+  gap: 12px;
+  overflow: visible;
+}
+
+html.mobile-browser .sky-status-panel,
+html.mobile-browser .sky-command-panel {
+  width: 100%;
+}
+
+html.mobile-browser .sky-stop-rail {
+  width: 100%;
+}
+
+html.mobile-browser .sky-stop-button {
+  width: 100%;
+  min-height: 48px;
+}
+
+html.mobile-browser .sky-sphere-wrap {
+  width: min(100%, 460px);
+  min-height: 320px;
+  margin-inline: auto;
+}
+
+html.mobile-browser .pointing-view-panel {
+  position: relative;
+  height: auto;
+  min-height: 680px;
+  margin: 12px;
+}
+
+html.mobile-browser body.is-pointing-view .monitor-header,
+html.mobile-browser body.is-pointing-view .pointing-map-header {
+  position: static;
+  width: auto;
+}
+
+html.mobile-browser .pointing-map-header {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+html.mobile-browser .pointing-map-summary,
+html.mobile-browser .pointing-layer-controls {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+html.mobile-browser .pointing-map-stage,
+html.mobile-browser .pointing-map-stage > #pointingMap3DCanvas,
+html.mobile-browser .pointing-map-stage > #pointingMapCanvas {
+  min-height: 520px;
+}
+
+html.mobile-browser .pointing-selection-card {
+  right: 8px;
+  bottom: 8px;
+  left: 8px;
+  width: auto;
+}
+
+html.mobile-browser .goto-panel,
+html.mobile-browser .settings-panel,
+html.mobile-browser .floating-tuning-panel,
+html.mobile-browser .auto-tune-panel,
+html.mobile-browser .pointing-target-panel {
+  position: fixed;
+  top: max(10px, env(safe-area-inset-top)) !important;
+  right: 10px !important;
+  bottom: max(10px, env(safe-area-inset-bottom)) !important;
+  left: 10px !important;
+  width: auto !important;
+  max-width: none;
+  max-height: none;
+  overflow: auto;
+}
+
+@media (max-width: 380px) {
+  html.mobile-browser .monitor-header,
+  html.mobile-browser .axis-monitor-grid {
+    padding-inline: 8px;
+  }
+
+  html.mobile-browser .motor-controls {
+    column-gap: 5px;
+    row-gap: 10px;
+  }
+
+  html.mobile-browser .chart-controls {
+    grid-template-columns: 1fr;
+  }
+
+  html.mobile-browser .chart-controls select {
+    width: 100%;
+  }
+}
+
+/* Mobile panels use page scrolling and remember their collapsed state. */
+html.mobile-browser .status-card,
+html.mobile-browser .chart-panel,
+html.mobile-browser .system-log-panel,
+html.mobile-browser .tab-panel,
+html.mobile-browser .axis-control-form,
+html.mobile-browser .tuning-form,
+html.mobile-browser .motor-calibration-form,
+html.mobile-browser .system-log-entries {
+  height: auto;
+  max-height: none;
+  overflow: visible;
+}
+
+html.mobile-browser .system-log-panel {
+  min-height: 0;
+}
+
+html.mobile-browser .system-log-header {
+  display: flex;
+  align-items: center;
+  min-height: 48px;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(152, 183, 169, 0.16);
+}
+
+html.mobile-browser .system-log-header .eyebrow {
+  margin: 0;
+}
+
+html.mobile-browser .status-card-header,
+html.mobile-browser .chart-panel-header,
+html.mobile-browser .system-log-header {
+  position: relative;
+  padding-right: 48px;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html.mobile-browser .status-card-header:focus-visible,
+html.mobile-browser .chart-panel-header:focus-visible,
+html.mobile-browser .system-log-header:focus-visible {
+  outline: 2px solid rgba(99, 201, 120, 0.82);
+  outline-offset: 2px;
+}
+
+html.mobile-browser .mobile-panel-toggle {
+  position: absolute;
+  z-index: 3;
+  top: 50%;
+  right: 4px;
+  display: grid;
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  min-height: 40px;
+  padding: 0;
+  place-items: center;
+  border: 1px solid rgba(152, 183, 169, 0.22);
+  border-radius: 8px;
+  color: #dff5e4;
+  background: rgba(99, 201, 120, 0.08);
+  transform: translateY(-50%);
+}
+
+html.mobile-browser .mobile-panel-toggle::before {
+  content: "";
+  width: 9px;
+  height: 9px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: translateY(-2px) rotate(45deg);
+  transition: transform 160ms ease;
+}
+
+html.mobile-browser .mobile-collapsible.is-mobile-collapsed .mobile-panel-toggle::before {
+  transform: translateY(2px) rotate(-135deg);
+}
+
+html.mobile-browser .mobile-collapsible.is-mobile-collapsed {
+  min-height: 0;
+}
+
+html.mobile-browser .status-card.is-mobile-collapsed > :not(.status-card-header),
+html.mobile-browser .chart-panel.is-mobile-collapsed > canvas,
+html.mobile-browser .chart-panel.is-mobile-collapsed > .legend-row,
+html.mobile-browser .chart-panel.is-mobile-collapsed .chart-controls,
+html.mobile-browser .system-log-panel.is-mobile-collapsed > :not(.system-log-header) {
+  display: none !important;
+}
+
+html.mobile-browser .status-card.is-mobile-collapsed,
+html.mobile-browser .chart-panel.is-mobile-collapsed {
+  display: block;
+  padding-block: 12px;
+}
+
+html.mobile-browser .status-card.is-mobile-collapsed .status-card-header,
+html.mobile-browser .chart-panel.is-mobile-collapsed .chart-panel-header {
+  min-height: 44px;
+  margin: 0;
+}
+
+html.mobile-browser .chart-panel.is-mobile-collapsed .chart-panel-header {
+  display: flex;
+  align-items: center;
+}
+
+html.mobile-browser .chart-panel.is-mobile-collapsed .sensor-strip {
+  margin-left: auto;
+  margin-right: 0;
+}
+
+html.mobile-browser .system-log-panel:not(.is-mobile-collapsed) .system-log-entries {
+  min-height: 140px;
+  padding-bottom: 16px;
+}
+
+html.mobile-browser .mobile-collapsible {
+  scroll-margin-top: 190px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.mobile-browser .mobile-panel-toggle::before {
+    transition: none;
+  }
+}
+
+/* The desktop shell locks the document to one viewport. Undo that lock on mobile. */
+html.mobile-browser {
+  height: auto;
+  min-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: auto;
+  touch-action: pan-y;
+}
+
+html.mobile-browser body {
+  position: relative;
+  width: 100%;
+  height: auto;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  overflow-y: visible;
+  overscroll-behavior-y: auto;
+  touch-action: pan-y;
+}
+
+html.mobile-browser .monitor-shell,
+html.mobile-browser #axisView,
+html.mobile-browser .status-card,
+html.mobile-browser .chart-panel,
+html.mobile-browser .system-log-panel {
+  touch-action: pan-y;
+}
+
+html.mobile-browser .tab-list {
+  touch-action: pan-x pan-y;
+}
+
+/* Keep chart telemetry legible in narrow mobile cards. */
+html.mobile-browser .chart-panel-header {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+}
+
+html.mobile-browser .chart-controls {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  padding-right: 0;
+}
+
+html.mobile-browser .actual-readouts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+}
+
+html.mobile-browser .actual-readout,
+html.mobile-browser .motion-readout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  align-content: center;
+  align-items: start;
+  gap: 5px;
+  width: 100%;
+  min-width: 0;
+  min-height: 58px;
+  padding: 9px 10px;
+  text-align: left;
+  white-space: normal;
+}
+
+html.mobile-browser .actual-readout strong,
+html.mobile-browser .motion-readout strong {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  color: rgba(196, 212, 204, 0.72);
+  font-size: 9px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html.mobile-browser .actual-readout em,
+html.mobile-browser .motion-readout em {
+  display: block;
+  justify-self: stretch;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 12px;
+  line-height: 1.25;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html.mobile-browser .chart-controls select {
+  grid-column: 1 / -1;
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  padding-right: 48px;
+}
+
+html.mobile-browser .chart-panel:not(.is-mobile-collapsed) .chart-panel-header {
+  padding-right: 48px;
+}
+
+@media (max-width: 360px) {
+  html.mobile-browser .actual-readouts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Match the collapse control to the other controls in its header row. */
+html.mobile-browser .status-card-header,
+html.mobile-browser .chart-panel-header,
+html.mobile-browser .system-log-header,
+html.mobile-browser .chart-panel:not(.is-mobile-collapsed) .chart-panel-header {
+  padding-right: 42px;
+}
+
+html.mobile-browser .mobile-panel-toggle {
+  right: 2px;
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  min-height: 36px;
+  border-radius: 8px;
+}
+
+html.mobile-browser .mobile-panel-toggle::before {
+  width: 8px;
+  height: 8px;
+}
+
+/* Pin header controls to one top-aligned row at exactly the same height. */
+html.mobile-browser .status-card-header,
+html.mobile-browser .chart-panel-header {
+  align-items: flex-start;
+}
+
+html.mobile-browser .status-card-header .axis-chip,
+html.mobile-browser .chart-panel-header .sensor-pill,
+html.mobile-browser .mobile-panel-toggle {
+  box-sizing: border-box;
+  height: 36px;
+  min-height: 36px;
+}
+
+html.mobile-browser .status-card-header .axis-chip {
+  display: inline-flex;
+  align-items: center;
+  padding-block: 0;
+}
+
+html.mobile-browser .mobile-panel-toggle {
+  top: 0;
+  right: 2px;
+  transform: none;
+}
+
+html.mobile-browser .mobile-panel-toggle:hover:not(:disabled),
+html.mobile-browser .mobile-panel-toggle:active:not(:disabled) {
+  transform: none;
+}
+
+/* Let telemetry use the complete chart width; reserve button space only up top. */
+html.mobile-browser .chart-panel-header,
+html.mobile-browser .chart-panel:not(.is-mobile-collapsed) .chart-panel-header {
+  grid-template-columns: minmax(0, 1fr) auto 42px;
+  padding-right: 0;
+}
+
+html.mobile-browser .chart-panel-header > :first-child {
+  grid-column: 1;
+}
+
+html.mobile-browser .chart-panel-header > .sensor-strip {
+  grid-column: 2;
+}
+
+html.mobile-browser .chart-panel-header > .chart-controls {
+  grid-column: 1 / -1;
+}
+
+html.mobile-browser .chart-panel-header .mobile-panel-toggle {
+  right: 0;
+}
+
+html.mobile-browser .actual-readout,
+html.mobile-browser .motion-readout {
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 54px;
+}
+
+html.mobile-browser .actual-readout strong,
+html.mobile-browser .motion-readout strong {
+  width: auto;
+  font-size: 10px;
+}
+
+html.mobile-browser .actual-readout em,
+html.mobile-browser .motion-readout em {
+  justify-self: end;
+  width: auto;
+  font-size: 12px;
+  text-align: right;
+}
+
+/* One spacing rhythm for both mobile axis panels and their chart content. */
+html.mobile-browser {
+  --mobile-panel-gap: 10px;
+  --mobile-content-gap: 12px;
+  --mobile-panel-inset: 14px;
+}
+
+html.mobile-browser .axis-monitor-grid {
+  gap: var(--mobile-panel-gap);
+  padding: var(--mobile-panel-gap);
+}
+
+html.mobile-browser .status-card,
+html.mobile-browser .chart-panel {
+  padding: var(--mobile-panel-inset);
+}
+
+html.mobile-browser .status-card-header {
+  margin-bottom: var(--mobile-content-gap);
+}
+
+html.mobile-browser .status-card.is-mobile-collapsed .status-card-header,
+html.mobile-browser .chart-panel.is-mobile-collapsed .chart-panel-header {
+  margin-bottom: 0;
+}
+
+html.mobile-browser .chart-panel {
+  row-gap: var(--mobile-content-gap);
+}
+
+html.mobile-browser .chart-panel-header {
+  column-gap: var(--mobile-content-gap);
+  row-gap: var(--mobile-content-gap);
+}
+
+html.mobile-browser .chart-controls,
+html.mobile-browser .actual-readouts {
+  gap: var(--mobile-content-gap);
+}
+
+html.mobile-browser .actual-readout,
+html.mobile-browser .motion-readout {
+  gap: 8px;
+  padding: 10px 12px;
+}
+
+html.mobile-browser .sensor-strip {
+  gap: var(--mobile-content-gap);
+}
+
+html.mobile-browser .chart-controls select {
+  margin: 0;
+}
+
+html.mobile-browser .legend-row {
+  gap: var(--mobile-content-gap);
+  margin: 0;
+}
+
+html.mobile-browser .system-log-panel {
+  margin:
+    0
+    var(--mobile-panel-gap)
+    var(--mobile-panel-gap);
+}
+
+@media (max-width: 380px) {
+  html.mobile-browser {
+    --mobile-panel-gap: 10px;
+    --mobile-content-gap: 10px;
+    --mobile-panel-inset: 12px;
+  }
+}
+
+/* Spacing trial: tighten only the Azimuth chart panel. */
+html.mobile-browser .chart-panel.azimuth-chart,
+html.mobile-browser .chart-panel.azimuth-chart .chart-panel-header,
+html.mobile-browser .chart-panel.azimuth-chart .chart-controls,
+html.mobile-browser .chart-panel.azimuth-chart .actual-readouts,
+html.mobile-browser .chart-panel.azimuth-chart .sensor-strip,
+html.mobile-browser .chart-panel.azimuth-chart .legend-row {
+  gap: 5px;
+}
+
+html.mobile-browser .chart-panel.azimuth-chart .chart-panel-header {
+  grid-template-columns: minmax(0, 1fr) auto 36px;
+  column-gap: 5px;
+}
+
+/* Match the Altitude chart spacing to the 5px Azimuth trial. */
+html.mobile-browser .chart-panel.altitude-chart,
+html.mobile-browser .chart-panel.altitude-chart .chart-panel-header,
+html.mobile-browser .chart-panel.altitude-chart .chart-controls,
+html.mobile-browser .chart-panel.altitude-chart .actual-readouts,
+html.mobile-browser .chart-panel.altitude-chart .legend-row {
+  gap: 5px;
+}
+
+html.mobile-browser .chart-panel.altitude-chart .chart-panel-header {
+  grid-template-columns: minmax(0, 1fr) 36px;
+  column-gap: 5px;
+}
+
+/* Keep the 36px collapse button entirely inside its own header row. */
+html.mobile-browser .chart-panel-header {
+  grid-template-rows: 36px auto;
+}
+
+html.mobile-browser .chart-panel-header > :first-child,
+html.mobile-browser .chart-panel-header > .sensor-strip {
+  grid-row: 1;
+  align-self: center;
+}
+
+html.mobile-browser .chart-panel-header > .chart-controls {
+  grid-row: 2;
+  align-self: stretch;
+}
+
+/* Replace horizontal status tabs with stacked mobile accordions. */
+html.mobile-browser .status-card.mobile-status-accordion > .tab-list {
+  display: none;
+}
+
+html.mobile-browser .mobile-accordion-list {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 5px;
+  margin-top: 5px;
+}
+
+html.mobile-browser .mobile-accordion-section {
+  overflow: hidden;
+  border: 1px solid rgba(152, 183, 169, 0.18);
+  border-radius: 8px;
+  background: rgba(105, 132, 121, 0.045);
+}
+
+html.mobile-browser .mobile-accordion-section > .tab-button {
+  position: relative;
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  min-height: 46px;
+  align-items: center;
+  padding: 10px 44px 10px 13px;
+  border: 0;
+  border-radius: 0;
+  color: rgba(224, 233, 228, 0.82);
+  background: rgba(105, 132, 121, 0.055);
+  box-shadow: none;
+  font-size: 12px;
+  text-align: left;
+  scroll-snap-align: none;
+}
+
+html.mobile-browser .mobile-accordion-section > .tab-button::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: 16px;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: translateY(-65%) rotate(45deg);
+  transition: transform 160ms ease;
+}
+
+html.mobile-browser .mobile-accordion-section.is-expanded > .tab-button {
+  color: #f6fff7;
+  background:
+    linear-gradient(135deg, rgba(99, 201, 120, 0.30), rgba(54, 116, 78, 0.18)),
+    rgba(99, 201, 120, 0.06);
+  box-shadow: inset 3px 0 0 rgba(113, 231, 137, 0.94);
+}
+
+html.mobile-browser .mobile-accordion-section.is-expanded > .tab-button::after {
+  transform: translateY(-35%) rotate(-135deg);
+}
+
+html.mobile-browser .mobile-accordion-section > .tab-panel,
+html.mobile-browser .mobile-accordion-section > .tab-panel.active {
+  display: none !important;
+}
+
+html.mobile-browser .mobile-accordion-section.is-expanded > .tab-panel {
+  display: block !important;
+  height: auto;
+  max-height: none;
+  padding: 12px;
+  overflow: visible;
+  border-top: 1px solid rgba(152, 183, 169, 0.14);
+}
+
+html.mobile-browser .mobile-accordion-section .status-readings {
+  margin: 0;
+}
+
+html.mobile-browser .mobile-accordion-section .axis-control-form,
+html.mobile-browser .mobile-accordion-section .tuning-form,
+html.mobile-browser .mobile-accordion-section .motor-calibration-form {
+  margin: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.mobile-browser .mobile-accordion-section > .tab-button::after {
+    transition: none;
+  }
+}
+
+/* Rebuild axis Control forms for narrow mobile accordion panels. */
+html.mobile-browser .mobile-accordion-section .axis-control-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  width: 100%;
+}
+
+html.mobile-browser .mobile-accordion-section .axis-control-form > label {
+  position: relative;
+  display: grid;
+  grid-column: 1;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 7px;
+  width: 100%;
+  min-width: 0;
+}
+
+html.mobile-browser .mobile-accordion-section .axis-control-form label > span {
+  display: block;
+  min-width: 0;
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+html.mobile-browser .mobile-accordion-section .axis-control-form input {
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  padding: 10px 78px 10px 12px;
+  font-size: 16px;
+  line-height: 1.2;
+}
+
+html.mobile-browser .mobile-accordion-section .axis-control-form label > em {
+  right: 12px;
+  bottom: 15px;
+  max-width: 68px;
+  overflow: hidden;
+  font-size: 11px;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html.mobile-browser .mobile-accordion-section .axis-control-actions,
+html.mobile-browser .mobile-accordion-section .axis-jog-actions,
+html.mobile-browser .mobile-accordion-section .axis-command-apply,
+html.mobile-browser .mobile-accordion-section .sine-velocity-panel,
+html.mobile-browser .mobile-accordion-section .axis-control-message {
+  grid-column: 1;
+  width: 100%;
+  min-width: 0;
+}
+
+html.mobile-browser .mobile-accordion-section .axis-control-actions button,
+html.mobile-browser .mobile-accordion-section .axis-command-apply {
+  min-height: 50px;
+}
+
+html.mobile-browser .mobile-accordion-section .axis-jog-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+html.mobile-browser .mobile-accordion-section .axis-jog-actions button {
+  min-width: 0;
+  min-height: 54px;
+  padding: 8px 6px;
+  font-size: 12px;
+  line-height: 1.25;
+  white-space: normal;
+}
+
+html.mobile-browser .mobile-accordion-section .sine-velocity-panel {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 2px;
+  padding: 14px 12px 12px;
+}
+
+html.mobile-browser .mobile-accordion-section .sine-velocity-panel legend {
+  padding-inline: 6px;
+  font-size: 10px;
+}
+
+html.mobile-browser .mobile-accordion-section .sine-velocity-panel > label {
+  position: relative;
+  display: grid;
+  grid-column: auto;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+}
+
+html.mobile-browser .mobile-accordion-section .sine-velocity-panel input {
+  min-height: 48px;
+  padding-right: 64px;
+}
+
+html.mobile-browser .mobile-accordion-section .sine-velocity-panel label > em {
+  right: 10px;
+  bottom: 15px;
+  max-width: 54px;
+  font-size: 10px;
+}
+
+html.mobile-browser .mobile-accordion-section .sine-velocity-actions {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  width: 100%;
+}
+
+html.mobile-browser .mobile-accordion-section .sine-velocity-actions button {
+  min-width: 0;
+  min-height: 48px;
+}
+
+html.mobile-browser .mobile-accordion-section .axis-control-message:empty {
+  display: none;
+}
+
+@media (max-width: 380px) {
+  html.mobile-browser .mobile-accordion-section .sine-velocity-panel {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  html.mobile-browser .mobile-accordion-section .axis-jog-actions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Group the long Tuning form into compact, persistent mobile sections. */
+html.mobile-browser .mobile-tuning-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+  width: 100%;
+}
+
+html.mobile-browser .mobile-tuning-groups {
+  display: grid;
+  grid-column: 1;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+}
+
+html.mobile-browser .mobile-tuning-group {
+  overflow: hidden;
+  border: 1px solid rgba(152, 183, 169, 0.18);
+  border-radius: 8px;
+  background: rgba(105, 132, 121, 0.045);
+}
+
+html.mobile-browser .mobile-tuning-group-toggle {
+  position: relative;
+  display: flex;
+  width: 100%;
+  min-height: 46px;
+  align-items: center;
+  padding: 10px 44px 10px 13px;
+  border: 0;
+  border-radius: 0;
+  color: rgba(224, 233, 228, 0.84);
+  background: rgba(105, 132, 121, 0.055);
+  box-shadow: none;
+  font-size: 12px;
+  text-align: left;
+}
+
+html.mobile-browser .mobile-tuning-group-toggle::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: 16px;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: translateY(-65%) rotate(45deg);
+  transition: transform 160ms ease;
+}
+
+html.mobile-browser .mobile-tuning-group.is-expanded > .mobile-tuning-group-toggle {
+  color: #f6fff7;
+  background:
+    linear-gradient(135deg, rgba(99, 201, 120, 0.24), rgba(54, 116, 78, 0.16)),
+    rgba(99, 201, 120, 0.05);
+  box-shadow: inset 3px 0 0 rgba(113, 231, 137, 0.88);
+}
+
+html.mobile-browser .mobile-tuning-group.is-expanded > .mobile-tuning-group-toggle::after {
+  transform: translateY(-35%) rotate(-135deg);
+}
+
+html.mobile-browser .mobile-tuning-group-fields {
+  display: none;
+}
+
+html.mobile-browser .mobile-tuning-group.is-expanded > .mobile-tuning-group-fields {
+  display: grid;
+  gap: 0;
+  padding: 4px 12px 8px;
+  border-top: 1px solid rgba(152, 183, 169, 0.14);
+}
+
+html.mobile-browser .mobile-tuning-group-fields > label {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 132px;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  padding: 9px 0;
+  border-bottom: 1px solid rgba(152, 183, 169, 0.10);
+}
+
+html.mobile-browser .mobile-tuning-group-fields > label:last-child {
+  border-bottom: 0;
+}
+
+html.mobile-browser .mobile-tuning-group-fields label > span {
+  min-width: 0;
+  color: rgba(206, 219, 212, 0.78);
+  font-size: 11px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+html.mobile-browser .mobile-tuning-group-fields input {
+  width: 132px;
+  min-width: 0;
+  min-height: 44px;
+  padding: 9px 10px;
+  font-size: 15px;
+}
+
+html.mobile-browser .mobile-tuning-form > .tuning-auto,
+html.mobile-browser .mobile-tuning-form > .tuning-apply,
+html.mobile-browser .mobile-tuning-form > .tuning-save,
+html.mobile-browser .mobile-tuning-form > .tuning-message {
+  grid-column: 1;
+  width: 100%;
+  min-height: 48px;
+  margin: 0;
+}
+
+html.mobile-browser .mobile-tuning-form > .tuning-message:empty {
+  display: none;
+}
+
+@media (max-width: 380px) {
+  html.mobile-browser .mobile-tuning-group-fields > label {
+    grid-template-columns: minmax(0, 1fr) 112px;
+    gap: 8px;
+  }
+
+  html.mobile-browser .mobile-tuning-group-fields input {
+    width: 112px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.mobile-browser .mobile-tuning-group-toggle::after {
+    transition: none;
+  }
+}
+
+/* Present nested Tuning groups as a linked tree instead of nested cards. */
+html.mobile-browser .mobile-tuning-groups {
+  position: relative;
+  gap: 0;
+  padding: 4px 0 4px 14px;
+}
+
+html.mobile-browser .mobile-tuning-groups::before {
+  content: "";
+  position: absolute;
+  top: 26px;
+  bottom: 26px;
+  left: 7px;
+  width: 1px;
+  background: linear-gradient(
+    180deg,
+    rgba(99, 201, 120, 0.70),
+    rgba(99, 201, 120, 0.24)
+  );
+}
+
+html.mobile-browser .mobile-tuning-group {
+  position: relative;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+html.mobile-browser .mobile-tuning-group::before {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  top: 23px;
+  left: -7px;
+  width: 16px;
+  height: 1px;
+  background: rgba(99, 201, 120, 0.46);
+}
+
+html.mobile-browser .mobile-tuning-group::after {
+  content: "";
+  position: absolute;
+  z-index: 2;
+  top: 19px;
+  left: 7px;
+  width: 7px;
+  height: 7px;
+  border: 1px solid rgba(99, 201, 120, 0.70);
+  border-radius: 50%;
+  background: #101b1c;
+}
+
+html.mobile-browser .mobile-tuning-group.is-expanded::after {
+  background: #63c978;
+  box-shadow: 0 0 10px rgba(99, 201, 120, 0.34);
+}
+
+html.mobile-browser .mobile-tuning-group-toggle {
+  min-height: 46px;
+  padding: 9px 38px 9px 25px;
+  border: 0;
+  border-radius: 0;
+  color: rgba(218, 231, 223, 0.82);
+  background: transparent;
+  box-shadow: none;
+}
+
+html.mobile-browser .mobile-tuning-group-toggle:hover:not(:disabled),
+html.mobile-browser .mobile-tuning-group-toggle:active:not(:disabled) {
+  border: 0;
+  background: rgba(99, 201, 120, 0.055);
+  box-shadow: none;
+  transform: none;
+}
+
+html.mobile-browser .mobile-tuning-group.is-expanded > .mobile-tuning-group-toggle {
+  color: #f2fff5;
+  background: rgba(99, 201, 120, 0.07);
+  box-shadow: none;
+}
+
+html.mobile-browser .mobile-tuning-group-toggle::after {
+  right: 14px;
+}
+
+html.mobile-browser .mobile-tuning-group.is-expanded > .mobile-tuning-group-fields {
+  position: relative;
+  display: grid;
+  gap: 0;
+  margin: 0 0 5px 25px;
+  padding: 0 0 4px 15px;
+  border: 0;
+  border-left: 1px solid rgba(99, 201, 120, 0.22);
+  background: transparent;
+}
+
+html.mobile-browser .mobile-tuning-group-fields > label {
+  position: relative;
+  padding: 8px 0 8px 8px;
+}
+
+html.mobile-browser .mobile-tuning-group-fields > label::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: -15px;
+  width: 11px;
+  height: 1px;
+  background: rgba(99, 201, 120, 0.22);
+}
+
+html.mobile-browser .mobile-tuning-group-fields > label:last-child::after {
+  content: "";
+  position: absolute;
+  bottom: -9px;
+  left: -16px;
+  width: 2px;
+  height: 50%;
+  background: #111d1e;
+}
+
+html.mobile-browser .mobile-tuning-form > .tuning-auto {
+  margin-top: 8px;
+}
+
+/* Rebuild Motor Calibration fields for both mobile axis accordions. */
+html.mobile-browser .mobile-accordion-section .motor-calibration-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+}
+
+html.mobile-browser .mobile-accordion-section .motor-calibration-form > label {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 7px;
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+}
+
+html.mobile-browser .mobile-accordion-section .motor-calibration-form label > span {
+  display: block;
+  min-width: 0;
+  color: rgba(206, 219, 212, 0.78);
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+html.mobile-browser .mobile-accordion-section .motor-calibration-form input {
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  padding: 10px 62px 10px 12px;
+  font-size: 16px;
+  line-height: 1.2;
+}
+
+html.mobile-browser .mobile-accordion-section .motor-calibration-form label > em {
+  right: 10px;
+  bottom: 15px;
+  max-width: 52px;
+  overflow: hidden;
+  font-size: 10px;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html.mobile-browser .mobile-accordion-section .motor-calibration-actions {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  width: 100%;
+}
+
+html.mobile-browser .mobile-accordion-section .motor-calibration-actions button {
+  min-width: 0;
+  min-height: 50px;
+}
+
+html.mobile-browser .mobile-accordion-section .motor-calibration-message {
+  grid-column: 1 / -1;
+  min-height: 38px;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(152, 183, 169, 0.12);
+  border-radius: 7px;
+  color: rgba(218, 231, 223, 0.76);
+  background: rgba(105, 132, 121, 0.045);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+@media (max-width: 380px) {
+  html.mobile-browser .mobile-accordion-section .motor-calibration-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  html.mobile-browser .mobile-accordion-section .motor-calibration-actions,
+  html.mobile-browser .mobile-accordion-section .motor-calibration-message {
+    grid-column: 1;
+  }
+}
+
+/* Preserve a dedicated 36px button lane in collapsed chart headers. */
+html.mobile-browser .chart-panel.is-mobile-collapsed .chart-panel-header {
+  display: flex;
+  gap: 5px;
+  width: 100%;
+  padding-right: 41px;
+}
+
+html.mobile-browser .chart-panel.is-mobile-collapsed .chart-panel-header > :first-child {
+  flex: 0 1 auto;
+}
+
+html.mobile-browser .chart-panel.is-mobile-collapsed .sensor-strip {
+  flex: 0 0 auto;
+  gap: 5px;
+  margin-left: auto;
+  margin-right: 0;
+}
+
+html.mobile-browser .chart-panel.is-mobile-collapsed .mobile-panel-toggle {
+  right: 0;
+}
+
+/* One compact height and vertical rhythm for every collapsed mobile panel. */
+html.mobile-browser .status-card.mobile-collapsible.is-mobile-collapsed,
+html.mobile-browser .chart-panel.mobile-collapsible.is-mobile-collapsed,
+html.mobile-browser .system-log-panel.mobile-collapsible.is-mobile-collapsed {
+  box-sizing: border-box;
+  height: 48px;
+  min-height: 48px;
+  max-height: 48px;
+  padding: 5px 5px 5px 14px;
+  overflow: hidden;
+}
+
+html.mobile-browser .status-card.is-mobile-collapsed .status-card-header,
+html.mobile-browser .chart-panel.is-mobile-collapsed .chart-panel-header,
+html.mobile-browser .system-log-panel.is-mobile-collapsed .system-log-header {
+  box-sizing: border-box;
+  width: 100%;
+  height: 36px;
+  min-height: 36px;
+  max-height: 36px;
+  margin: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  border-bottom: 0;
+  align-items: center;
+}
+
+html.mobile-browser .system-log-panel.is-mobile-collapsed .system-log-header {
+  padding-right: 41px;
+  padding-left: 0;
+}
+
+html.mobile-browser .status-card.is-mobile-collapsed .mobile-panel-toggle,
+html.mobile-browser .chart-panel.is-mobile-collapsed .mobile-panel-toggle,
+html.mobile-browser .system-log-panel.is-mobile-collapsed .mobile-panel-toggle {
+  top: 0;
+}
+
+/* Remove legacy spacing layers and make the visible panel gap unambiguously tight. */
+html.mobile-browser .axis-monitor-grid {
+  gap: 2px !important;
+  row-gap: 2px !important;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+html.mobile-browser .status-card.azimuth,
+html.mobile-browser .chart-panel.azimuth-chart,
+html.mobile-browser .status-card.altitude,
+html.mobile-browser .chart-panel.altitude-chart {
+  margin: 0 !important;
+}
+
+html.mobile-browser .system-log-panel {
+  margin:
+    2px
+    var(--mobile-panel-gap)
+    2px !important;
+}
+
+/* Flex avoids inherited desktop grid tracks adding invisible vertical space. */
+html.mobile-browser .axis-monitor-grid {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px !important;
+}
+
+html.mobile-browser .status-card.azimuth {
+  order: 1;
+}
+
+html.mobile-browser .chart-panel.azimuth-chart {
+  order: 2;
+}
+
+html.mobile-browser .status-card.altitude {
+  order: 3;
+}
+
+html.mobile-browser .chart-panel.altitude-chart {
+  order: 4;
+}
+
+/* Balanced 10px outer and inter-panel spacing after the flex conversion. */
+html.mobile-browser .monitor-header {
+  width: auto;
+  margin: 10px 10px 0;
+  border: 1px solid rgba(152, 183, 169, 0.22);
+  border-radius: 9px;
+}
+
+html.mobile-browser .axis-monitor-grid {
+  padding-top: 10px;
+  padding-right: 10px;
+  padding-bottom: 0;
+  padding-left: 10px;
+}
+
+html.mobile-browser .system-log-panel {
+  margin:
+    10px
+    10px
+    10px !important;
+}
+
+/* Do not stretch the Axis row to fill the viewport above System Log. */
+html.mobile-browser .monitor-shell {
+  align-content: start;
+  grid-auto-rows: max-content;
+}
+
+/* Tight, even inner edge around the mobile dashboard header. */
+html.mobile-browser .monitor-header {
+  padding: 5px;
+  padding-top: max(5px, env(safe-area-inset-top));
+}
+
+/* Standard 5px inset from every mobile panel edge to its inner content. */
+html.mobile-browser {
+  --mobile-panel-inset: 5px;
+}
+
+html.mobile-browser .status-card,
+html.mobile-browser .chart-panel {
+  padding: 5px;
+}
+
+html.mobile-browser .status-card:not(.is-mobile-collapsed) .status-card-header {
+  margin-bottom: 5px;
+}
+
+html.mobile-browser .mobile-accordion-section.is-expanded > .tab-panel {
+  padding: 5px;
+}
+
+html.mobile-browser .system-log-panel:not(.is-mobile-collapsed) .system-log-entries {
+  padding: 5px;
+}
+
+html.mobile-browser .sky-view-panel,
+html.mobile-browser .sky-status-panel,
+html.mobile-browser .sky-command-panel,
+html.mobile-browser .pointing-view-panel {
+  padding: 5px;
+}
+
+/* Align AZM sensor controls with the two telemetry columns below. */
+html.mobile-browser .chart-panel.azimuth-chart:not(.is-mobile-collapsed) .chart-panel-header {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 5px;
+}
+
+html.mobile-browser .chart-panel.azimuth-chart:not(.is-mobile-collapsed) .sensor-strip {
+  display: grid;
+  grid-column: 2;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding-right: 41px;
+}
+
+html.mobile-browser .chart-panel.azimuth-chart:not(.is-mobile-collapsed) .sensor-pill {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  grid-template-columns: auto auto;
+  justify-content: center;
+  padding-right: 8px;
+  padding-left: 8px;
+}
+
+/* Restore an explicit dropdown chevron for mobile chart selectors. */
+html.mobile-browser .chart-controls select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 44px;
+  background-color: rgba(18, 31, 32, 0.92);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='M3 6l5 5 5-5' stroke='%23dff5e4' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 14px center !important;
+  background-size: 16px 16px !important;
+}
+
+/* Mobile floating windows become consistent, top-layer modal sheets. */
+html.mobile-browser :is(
+  .settings-panel,
+  .goto-panel,
+  .floating-tuning-panel,
+  .auto-tune-panel,
+  .tuning-step-panel,
+  .pointing-target-panel
+) {
+  position: fixed;
+  z-index: 1200;
+  top: max(8px, env(safe-area-inset-top)) !important;
+  right: 8px !important;
+  bottom: max(8px, env(safe-area-inset-bottom)) !important;
+  left: 8px !important;
+  display: flex;
+  width: auto !important;
+  height: auto !important;
+  min-height: 0;
+  max-width: none !important;
+  max-height: none !important;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid rgba(126, 197, 151, 0.34);
+  border-radius: 14px;
+  color: #f3f8f4;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(15, 27, 29, 0.99), rgba(7, 15, 17, 0.995));
+  background-size: 28px 28px, 28px 28px, auto;
+  box-shadow:
+    0 0 0 100vmax rgba(1, 6, 8, 0.76),
+    0 24px 64px rgba(0, 0, 0, 0.56);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  overscroll-behavior: contain;
+}
+
+html.mobile-browser :is(
+  .settings-panel,
+  .goto-panel,
+  .floating-tuning-panel,
+  .auto-tune-panel,
+  .tuning-step-panel,
+  .pointing-target-panel
+)[hidden] {
+  display: none;
+}
+
+html.mobile-browser :is(
+  .settings-panel-header,
+  .goto-panel-header,
+  .floating-tuning-panel-header,
+  .tuning-step-panel-header,
+  .pointing-target-header
+) {
+  position: sticky;
+  z-index: 3;
+  top: 0;
+  display: flex;
+  min-height: 56px;
+  flex: 0 0 56px;
+  align-items: center;
+  padding: 8px 10px 8px 14px;
+  border-bottom: 1px solid rgba(152, 183, 169, 0.20);
+  color: #f5fff7;
+  background:
+    linear-gradient(90deg, rgba(99, 201, 120, 0.18), transparent 72%),
+    rgba(10, 20, 22, 0.98);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.20);
+  cursor: default;
+  touch-action: pan-y;
+}
+
+html.mobile-browser :is(
+  .settings-panel-header,
+  .goto-panel-header,
+  .floating-tuning-panel-header,
+  .tuning-step-panel-header,
+  .pointing-target-header
+) button {
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  min-height: 40px;
+  padding: 0;
+  border-radius: 9px;
+  color: #eefaf1;
+  background: rgba(152, 183, 169, 0.10);
+  box-shadow: none;
+  font-size: 18px;
+}
+
+html.mobile-browser :is(
+  .settings-form,
+  .goto-form,
+  .floating-tuning-form,
+  .auto-tune-form
+) {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 14px;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+}
+
+html.mobile-browser .settings-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  gap: 12px;
+}
+
+html.mobile-browser .settings-axis-tabs {
+  position: sticky;
+  z-index: 2;
+  top: -14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+  padding: 5px;
+  background: rgba(10, 20, 22, 0.97);
+}
+
+html.mobile-browser .settings-axis-panel,
+html.mobile-browser .settings-axis-panel.active {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+}
+
+html.mobile-browser .settings-axis-panel > *,
+html.mobile-browser .settings-axis-panel[data-settings-panel="general"] label:first-child,
+html.mobile-browser .settings-axis-panel[data-settings-panel="general"] label:nth-child(5) {
+  grid-column: 1;
+}
+
+html.mobile-browser .settings-form label {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 7px;
+  width: 100%;
+  min-width: 0;
+}
+
+html.mobile-browser .settings-form label > span {
+  white-space: normal;
+}
+
+html.mobile-browser .settings-form input,
+html.mobile-browser .settings-form select {
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  font-size: 16px;
+}
+
+html.mobile-browser .settings-actions {
+  position: sticky;
+  z-index: 2;
+  bottom: -14px;
+  grid-template-columns: minmax(0, 1fr);
+  margin: 4px -14px -14px;
+  padding: 12px 14px max(12px, env(safe-area-inset-bottom));
+  background: rgba(8, 17, 19, 0.98);
+  box-shadow: 0 -10px 24px rgba(0, 0, 0, 0.22);
+}
+
+html.mobile-browser .settings-actions button {
+  min-width: 0;
+  min-height: 50px;
+}
+
+html.mobile-browser .system-info-grid,
+html.mobile-browser .serial-map {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+html.mobile-browser .goto-panel {
+  bottom: auto !important;
+  max-height: calc(100dvh - 16px) !important;
+}
+
+html.mobile-browser .goto-form {
+  flex: 0 1 auto;
+}
+
+html.mobile-browser .tuning-step-panel {
+  bottom: auto !important;
+  max-height: calc(100dvh - 16px) !important;
+}
+
+html.mobile-browser .tuning-step-panel > label,
+html.mobile-browser .tuning-step-panel > p {
+  margin-inline: 14px;
+}
+
+html.mobile-browser .tuning-step-panel > label {
+  margin-top: 14px;
+}
+
+html.mobile-browser .pointing-target-panel {
+  padding-bottom: max(14px, env(safe-area-inset-bottom));
+}
+
+html.mobile-browser .pointing-target-panel > :not(.pointing-target-header) {
+  margin-right: 14px;
+  margin-left: 14px;
+}
+
+html.mobile-browser .pointing-target-panel > :nth-child(2) {
+  margin-top: 14px;
+}
+
+html.mobile-browser .floating-tuning-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  gap: 10px;
+}
+
+html.mobile-browser .floating-tuning-form label {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+html.mobile-browser .auto-tune-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  gap: 12px;
+}
+
+html.mobile-browser .auto-tune-settings-panel {
+  grid-template-columns: minmax(0, 1fr);
+  height: auto;
+  max-height: none;
+  overflow: visible;
+}
+
+html.mobile-browser .auto-tune-form > * {
+  grid-column: 1;
+}
+
+html.mobile-browser .auto-tune-step-log {
+  min-height: 240px;
+}
+
+html.mobile-browser .auto-tune-actions {
+  position: sticky;
+  z-index: 2;
+  bottom: -14px;
+  margin: 0 -14px -14px;
+  padding: 12px 14px max(12px, env(safe-area-inset-bottom));
+  background: rgba(8, 17, 19, 0.98);
+}
+
+@media (max-width: 380px) {
+  html.mobile-browser .settings-actions,
+  html.mobile-browser .auto-tune-actions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Final Axis View edge alignment: every child header uses the same 5px control gutter. */
+html.mobile-browser .mobile-main-view-axis :is(
+  .status-card.azimuth,
+  .chart-panel.azimuth-chart,
+  .status-card.altitude,
+  .chart-panel.altitude-chart
+) {
+  padding: 0 !important;
+}
+
+html.mobile-browser .mobile-main-view-axis :is(
+  .status-card-header,
+  .chart-panel-header
+) {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 48px;
+  padding-right: 48px !important;
+  padding-left: 10px !important;
+  align-items: center !important;
+}
+
+html.mobile-browser .mobile-main-view-axis .mobile-panel-toggle {
+  right: 7px !important;
+  top: 50% !important;
+  bottom: auto !important;
+  transform: translateY(-50%) !important;
+}
+
+html.mobile-browser .mobile-main-view-axis :is(
+  .status-card,
+  .chart-panel
+).is-mobile-collapsed :is(
+  .status-card-header,
+  .chart-panel-header
+) {
+  height: 48px;
+  min-height: 48px;
+  max-height: 48px;
+}
+
+html.mobile-browser .mobile-main-view-axis .status-card-header h2,
+html.mobile-browser .mobile-main-view-axis .chart-panel-header .eyebrow {
+  margin: 0 !important;
+  color: rgba(214, 226, 220, 0.84) !important;
+  font-family: "Segoe UI", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  line-height: 1.2 !important;
+  letter-spacing: 0 !important;
+}
+
+html.mobile-browser .mobile-main-view-axis .axis-enable-meter {
+  display: none !important;
+}
+
+/* Use one right-side status column width across collapsed Axis View headers. */
+html.mobile-browser .mobile-main-view-axis {
+  --mobile-axis-status-width: clamp(130px, 34vw, 190px);
+}
+
+html.mobile-browser .mobile-main-view-axis .status-card-header .axis-chip {
+  box-sizing: border-box;
+  flex: 0 0 var(--mobile-axis-status-width);
+  width: var(--mobile-axis-status-width);
+  min-width: var(--mobile-axis-status-width);
+  max-width: var(--mobile-axis-status-width);
+  justify-content: center;
+  text-align: center;
+}
+
+html.mobile-browser .mobile-main-view-axis .chart-panel.azimuth-chart.is-mobile-collapsed .sensor-strip {
+  display: grid !important;
+  flex: 0 0 var(--mobile-axis-status-width);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+  width: var(--mobile-axis-status-width);
+  min-width: var(--mobile-axis-status-width);
+  max-width: var(--mobile-axis-status-width);
+  margin-left: auto;
+  padding: 0;
+}
+
+html.mobile-browser .mobile-main-view-axis .chart-panel.azimuth-chart.is-mobile-collapsed .sensor-pill {
+  width: 100%;
+  min-width: 0;
+  justify-content: center;
+}
+
+/* One 5px corner system for framed elements across the mobile page. */
+html.mobile-browser {
+  --mobile-frame-radius: 5px;
+}
+
+html.mobile-browser :is(
+  .monitor-header,
+  .mobile-main-view-group,
+  .mobile-main-view-toggle,
+  .system-log-panel,
+  .mobile-accordion-section,
+  .tab-list,
+  .tab-panel,
+  .actual-readout,
+  .motion-readout,
+  .chart-controls select,
+  .sensor-pill,
+  .axis-chip,
+  .server-uptime,
+  .motor-toggle,
+  .motor-stop,
+  .motor-goto,
+  .system-setting,
+  .api-console-link
+) {
+  border-radius: var(--mobile-frame-radius) !important;
+}
+
+html.mobile-browser .mobile-main-view-toggle[aria-expanded="true"] {
+  border-radius: var(--mobile-frame-radius) var(--mobile-frame-radius) 0 0 !important;
+}
+
+/* Present the global System Log as a fourth top-level mobile panel header. */
+html.mobile-browser .mobile-global-system-log {
+  padding: 0 !important;
+  overflow: hidden;
+  border-color: rgba(93, 170, 151, 0.24);
+  background:
+    linear-gradient(145deg, rgba(15, 41, 39, 0.44), rgba(5, 16, 23, 0.62));
+}
+
+html.mobile-browser .mobile-global-system-log .system-log-header {
+  box-sizing: border-box;
+  width: 100%;
+  height: 52px;
+  min-height: 52px;
+  max-height: 52px;
+  margin: 0;
+  padding: 9px 48px 9px 16px;
+  border: 0;
+  border-radius: var(--mobile-frame-radius);
+  align-items: center;
+  background:
+    linear-gradient(90deg, rgba(23, 92, 67, 0.55), rgba(16, 57, 53, 0.48));
+}
+
+html.mobile-browser .mobile-global-system-log:not(.is-mobile-collapsed) .system-log-header {
+  border-radius: var(--mobile-frame-radius) var(--mobile-frame-radius) 0 0;
+  border-bottom: 1px solid rgba(91, 196, 144, 0.18);
+}
+
+html.mobile-browser .mobile-global-system-log .system-log-header .eyebrow {
+  color: #ff9a46;
+  font-family: "Segoe UI", sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0;
+}
+
+html.mobile-browser .mobile-global-system-log .mobile-panel-toggle {
+  top: 50% !important;
+  right: 12px !important;
+  width: 28px;
+  min-width: 28px;
+  height: 28px;
+  min-height: 28px;
+  border: 0;
+  color: #ff9a46;
+  background: transparent;
+  transform: translateY(-50%) !important;
+}
+
+html.mobile-browser .mobile-global-system-log.is-mobile-collapsed {
+  height: 52px;
+  min-height: 52px;
+  max-height: 52px;
+}
+
+html.mobile-browser .mobile-global-system-log.is-mobile-collapsed .system-log-header {
+  box-sizing: border-box;
+  width: 100%;
+  height: 52px;
+  min-height: 52px;
+  max-height: 52px;
+  margin: 0;
+  padding: 9px 48px 9px 16px;
+  align-items: center;
+}
+
+/* Override legacy System Log outer spacing so it matches sibling main panels exactly. */
+html.mobile-browser .mobile-main-view-accordion > .system-log-panel.mobile-global-system-log {
+  box-sizing: border-box;
+  position: static;
+  inset: auto;
+  align-self: stretch;
+  width: 100% !important;
+  min-width: 0;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+html.mobile-browser .mobile-main-view-accordion > .system-log-panel.mobile-global-system-log > .system-log-header {
+  box-sizing: border-box;
+  width: 100% !important;
+  margin: 0 !important;
+}
+
+/* Match the dashboard header's outer gutter to the 5px main-panel gutter. */
+html.mobile-browser .monitor-header {
+  width: auto;
+  margin: 5px 5px 0 !important;
+}
+
+/* Let the mobile Pointing Model control panel end below its two control rows. */
+html.mobile-browser body.is-pointing-view .motor-controls {
+  min-height: 0;
+  height: auto;
+}
+
+html.mobile-browser .mobile-main-view-accordion {
+  margin-top: 5px;
+}
+
+/* Expanded chart headers are tall; pin the toggle to the 48px title/sensor row. */
+html.mobile-browser .mobile-main-view-axis .chart-panel:not(.is-mobile-collapsed) .mobile-panel-toggle {
+  top: 24px !important;
+  bottom: auto !important;
+  transform: translateY(-50%) !important;
+}
+
+html.mobile-browser .mobile-main-view-axis .chart-panel.azimuth-chart:not(.is-mobile-collapsed) .sensor-strip {
+  box-sizing: border-box;
+  padding-right: 0 !important;
+}
+
+html.mobile-browser .mobile-main-view-axis .chart-panel:not(.is-mobile-collapsed) .chart-panel-header {
+  grid-template-rows: 48px auto;
+  row-gap: 0 !important;
+}
+
+html.mobile-browser .mobile-main-view-axis .status-card:not(.is-mobile-collapsed) {
+  box-sizing: border-box;
+  padding-bottom: 5px !important;
+}
+
+html.mobile-browser .mobile-main-view-axis .chart-panel:not(.is-mobile-collapsed) .chart-panel-header > :first-child,
+html.mobile-browser .mobile-main-view-axis .chart-panel:not(.is-mobile-collapsed) .chart-panel-header > .sensor-strip {
+  align-self: center;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+}
+
+/* Keep desktop chart titles and controls aligned on one row. */
+html:not(.mobile-browser) .chart-panel-header {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  align-items: center;
+  position: relative;
+}
+
+html:not(.mobile-browser) .chart-panel-header .eyebrow {
+  white-space: nowrap;
+}
+
+html:not(.mobile-browser) .chart-controls {
+  min-width: 0;
+  justify-content: flex-end;
+  margin-left: auto;
+}
+
+html:not(.mobile-browser) .actual-readouts {
+  grid-template-columns: 135.7px 166.75px 189.75px 166.75px;
+  gap: 5px;
+}
+
+html:not(.mobile-browser) .motion-readout {
+  width: 135.7px;
+}
+
+.mobile-chart-label {
+  display: none;
+}
+
+html.mobile-browser .desktop-chart-label {
+  display: none;
+}
+
+html.mobile-browser .mobile-chart-label {
+  display: inline;
+}
+
+html:not(.mobile-browser) .azimuth-chart .sensor-strip {
+  position: static;
+  grid-column: 2;
+  justify-self: end;
+  margin: 0;
+}
+
+html:not(.mobile-browser) .azimuth-chart .chart-panel-header {
+  grid-template-columns: max-content minmax(0, 1fr) auto;
+  column-gap: 5px;
+}
+
+html:not(.mobile-browser) .azimuth-chart .chart-controls {
+  grid-column: 3;
+  gap: 5px;
+}
+
+/* Restore the dropdown indicator after the dashboard theme background override. */
+html:not(.mobile-browser) .chart-controls select {
+  padding-right: 34px;
+  appearance: none;
+  -webkit-appearance: none;
+  background-color: rgba(132, 157, 145, 0.07);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5 6 6.5 11 1.5' fill='none' stroke='%23dff5e4' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 12px 8px;
+}
+
+/* The desktop log keeps the compact headerless presentation. */
+html:not(.mobile-browser) .system-log-header {
+  display: none;
+}
+
+/* Desktop Pointing Model floating cards. */
+html:not(.mobile-browser) body.is-pointing-view .pointing-selection-card {
+  position: fixed;
+  width: min(310px, calc(100vw - 24px));
+}
+
+html:not(.mobile-browser) .pointing-selection-header {
+  display: flex;
+  min-height: 24px;
+  align-items: center;
+  cursor: move;
+  user-select: none;
+}
+
+html:not(.mobile-browser) .pointing-selection-header strong {
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 900;
+}
+
+html:not(.mobile-browser) .pointing-target-header button {
+  display: inline-flex;
+  flex: 0 0 30px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  overflow: hidden;
+  color: transparent;
+  font-size: 0;
+  line-height: 1;
+  cursor: pointer;
+}
+
+html:not(.mobile-browser) .pointing-target-header button::before {
+  content: "\00d7";
+  color: #e7ecf8;
+  font-family: Arial, sans-serif;
+  font-size: 20px;
+  font-weight: 400;
+  line-height: 1;
+}
+
+html:not(.mobile-browser) .pointing-target-header button:hover {
+  border-color: rgba(255, 211, 105, 0.52);
+  color: transparent;
+  background: rgba(255, 211, 105, 0.12);
+}
+
+/* Keep Pointing Model information and actions below the 3D map on mobile. */
+html.mobile-browser body.is-pointing-view .pointing-view-panel {
+  height: auto;
+  grid-template-rows: auto auto auto;
+  overflow: visible;
+}
+
+html.mobile-browser body.is-pointing-view .pointing-map-stage {
+  grid-row: auto;
+  height: auto;
+  min-height: 520px;
+}
+
+html.mobile-browser .pointing-static-panels {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 5px;
+  min-width: 0;
+}
+
+html.mobile-browser .pointing-static-panels .pointing-map-controls-panel {
+  gap: 5px;
+}
+
+html.mobile-browser .pointing-static-panels .pointing-static-panel {
+  position: static !important;
+  inset: auto !important;
+  z-index: auto;
+  display: grid;
+  width: 100% !important;
+  height: auto !important;
+  min-height: 0;
+  max-width: none !important;
+  max-height: none !important;
+  margin: 0;
+  padding: 5px;
+  overflow: visible;
+  border: 1px solid rgba(152, 183, 169, 0.22);
+  border-radius: 8px;
+  background:
+    linear-gradient(90deg, rgba(31, 81, 63, 0.22), rgba(9, 24, 27, 0.72));
+  box-shadow: none;
+  transform: none !important;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+html.mobile-browser .pointing-static-panels .pointing-static-panel[hidden] {
+  display: none;
+}
+
+html.mobile-browser .pointing-static-panels .pointing-selection-header,
+html.mobile-browser .pointing-static-panels .pointing-target-header {
+  position: static;
+  min-height: 48px;
+  padding: 5px 7px;
+  border-bottom: 1px solid rgba(152, 183, 169, 0.16);
+  background: transparent;
+  box-shadow: none;
+  cursor: default;
+}
+
+html.mobile-browser .pointing-static-panels .pointing-selection-card {
+  gap: 5px;
+}
+
+html.mobile-browser .pointing-static-panels .pointing-target-panel {
+  gap: 8px;
+  padding-bottom: 10px;
+}
+
+html.mobile-browser .pointing-static-panels .pointing-target-panel > :not(.pointing-target-header) {
+  margin-right: 5px;
+  margin-left: 5px;
+}
+
+html.mobile-browser .pointing-static-panels .pointing-target-panel > :nth-child(2) {
+  margin-top: 5px;
+}
+
+/* The Pointing Model summary and layer controls are part of the normal flow. */
+html.mobile-browser body.is-pointing-view .pointing-map-header {
+  position: static;
+  display: grid;
+  width: 100%;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 5px;
+  padding: 0;
+  pointer-events: auto;
+}
+
+html.mobile-browser body.is-pointing-view .pointing-map-header > div:first-child,
+html.mobile-browser body.is-pointing-view .pointing-map-summary,
+html.mobile-browser body.is-pointing-view .pointing-layer-controls {
+  position: static !important;
+  inset: auto !important;
+  width: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: 10px;
+  border-color: rgba(152, 183, 169, 0.22);
+  background:
+    linear-gradient(90deg, rgba(31, 81, 63, 0.22), rgba(9, 24, 27, 0.72));
+  box-shadow: none;
+}
+
+html.mobile-browser body.is-pointing-view .pointing-map-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 5px;
+}
+
+html.mobile-browser body.is-pointing-view .pointing-layer-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+}
+
+html.mobile-browser body.is-pointing-view .pointing-layer-controls label {
+  width: 100%;
+  min-width: 0;
+}
+
+html.mobile-browser body.is-pointing-view .pointing-layer-controls small {
+  grid-column: 1 / -1;
 }

@@ -1,0 +1,81 @@
+/*
+ * Canonical tab appearance for the dashboard and supporting consoles.
+ * Component-specific styles may control only layout (columns/width/height).
+ */
+:root {
+  --system-tab-text: #a4b0b6;
+  --system-tab-text-hover: #d8e1e4;
+  --system-tab-text-active: #ffffff;
+  --system-tab-line: #34424a;
+  --system-tab-accent: #60d889;
+  --system-tab-hover: rgba(139, 169, 181, 0.06);
+  --system-tab-height: 44px;
+}
+
+body [role="tablist"].system-tabs {
+  min-height: var(--system-tab-height);
+  margin: 0;
+  padding: 0;
+  gap: 0;
+  border: 0;
+  border-bottom: 1px solid var(--system-tab-line);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+body [role="tablist"].system-tabs > [role="tab"].system-tab {
+  min-height: var(--system-tab-height);
+  margin: 0;
+  padding: 0 10px;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  border-radius: 0;
+  outline-offset: -2px;
+  color: var(--system-tab-text);
+  background: transparent;
+  box-shadow: none;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 620;
+  cursor: pointer;
+}
+
+body [role="tablist"].system-tabs > [role="tab"].system-tab:hover:not(:disabled) {
+  color: var(--system-tab-text-hover);
+  background: var(--system-tab-hover);
+}
+
+body [role="tablist"].system-tabs > [role="tab"].system-tab.active,
+body [role="tablist"].system-tabs > [role="tab"].system-tab[aria-selected="true"] {
+  border-bottom-color: var(--system-tab-accent);
+  color: var(--system-tab-text-active);
+  background: transparent;
+  box-shadow: none;
+}
+
+body [role="tablist"].system-tabs > [role="tab"].system-tab:disabled {
+  color: #59676e;
+  cursor: not-allowed;
+}
+
+body [role="tablist"].system-tabs > [role="tab"].system-tab > span,
+body [role="tablist"].system-tabs > [role="tab"].system-tab > em {
+  display: block;
+}
+
+body [role="tablist"].system-tabs > [role="tab"].system-tab > em {
+  margin-top: 2px;
+  overflow: hidden;
+  color: #718088;
+  font-size: 8px;
+  font-style: normal;
+  font-weight: 560;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body [role="tablist"].system-tabs > [role="tab"].system-tab.active > em,
+body [role="tablist"].system-tabs > [role="tab"].system-tab[aria-selected="true"] > em {
+  color: #829299;
+}

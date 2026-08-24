@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <title>คู่มือ Mount TCP/IP JSON API — Draft v0.1</title>
+  <style>
+    @font-face { font-family: ThaiDoc; src: url("file:///usr/share/fonts/truetype/freefont/FreeSerif.ttf"); }
+    @font-face { font-family: ThaiDoc; src: url("file:///usr/share/fonts/truetype/freefont/FreeSerifBold.ttf"); font-weight: 700; }
+    @page { size: A4; margin: 17mm 16mm 18mm; @bottom-right { content: "หน้า " counter(page) " / " counter(pages); font: 9pt ThaiDoc; color: #64748b; } }
+    * { box-sizing: border-box; }
+    body { margin: 0; color: #172033; font: 11pt/1.48 ThaiDoc, serif; }
+    h1, h2, h3 { color: #12372a; line-height: 1.2; page-break-after: avoid; }
+    h1 { margin: 0 0 8px; font-size: 28pt; }
+    h2 { margin: 24px 0 8px; padding-bottom: 5px; border-bottom: 1.5px solid #80c99a; font-size: 18pt; }
+    h3 { margin: 17px 0 6px; font-size: 13.5pt; }
+    p { margin: 5px 0 10px; }
+    ul, ol { margin: 6px 0 12px; padding-left: 24px; }
+    li { margin: 3px 0; }
+    code, pre { font-family: "DejaVu Sans Mono", monospace; }
+    code { color: #174a35; font-size: 8.5pt; }
+    pre { margin: 7px 0 13px; padding: 11px 12px; border-left: 4px solid #53ad75; border-radius: 4px; background: #f1f7f3; color: #172033; font-size: 7.5pt; line-height: 1.42; white-space: pre-wrap; overflow-wrap: anywhere; page-break-inside: avoid; }
+    table { width: 100%; margin: 8px 0 15px; border-collapse: collapse; font-size: 9.5pt; page-break-inside: avoid; }
+    th, td { padding: 6px 7px; border: 1px solid #c9d8cf; vertical-align: top; }
+    th { background: #dff0e5; color: #12372a; text-align: left; }
+    tr:nth-child(even) td { background: #f8fbf9; }
+    .cover { min-height: 245mm; display: flex; flex-direction: column; justify-content: center; page-break-after: always; }
+    .cover .tag { width: max-content; margin-bottom: 20px; padding: 5px 12px; border-radius: 99px; background: #dff0e5; color: #17613a; font-weight: 700; }
+    .cover .subtitle { max-width: 145mm; color: #526277; font-size: 15pt; }
+    .cover .meta { margin-top: 40px; padding-top: 15px; border-top: 1px solid #c9d8cf; color: #526277; }
+    .notice { margin: 12px 0; padding: 10px 12px; border: 1px solid #edc768; border-radius: 5px; background: #fff8e6; }
+    .danger { border-color: #e79b9b; background: #fff1f1; }
+    .good { border-color: #8bcaa0; background: #eff9f2; }
+    .page-break { page-break-before: always; }
+    .toc a { color: inherit; text-decoration: none; }
+    .small { color: #64748b; font-size: 9pt; }
+    .badge { display: inline-block; padding: 1px 6px; border-radius: 3px; background: #e7eef6; font-size: 8pt; font-weight: 700; }
+  </style>
+</head>
+<body>
+  <section class="cover">
+    <div class="tag">DRAFT — สำหรับตรวจสอบแนวทาง</div>
+    <h1>คู่มือการใช้งาน<br>Mount TCP/IP JSON API</h1>
+    <p class="subtitle">ข้อกำหนดเบื้องต้นสำหรับควบคุมแกน Azimuth/Altitude และรับข้อมูล Telemetry ผ่านเครือข่าย TCP/IP</p>
+    <div class="meta">
+      <p><b>เอกสาร:</b> API Specification &amp; User Guide</p>
+      <p><b>เวอร์ชัน:</b> 0.1 Draft</p>
+      <p><b>วันที่:</b> 22 กรกฎาคม 2026</p>
+      <p><b>พอร์ตที่เสนอ:</b> TCP 7624</p>
+    </div>
+  </section>
+
+  <section class="toc">
+    <h2>สารบัญ</h2>
+    <ol>
+      <li>สถานะของเอกสารและขอบเขต</li>
+      <li>ภาพรวมการเชื่อมต่อ</li>
+      <li>โครงสร้างข้อความ JSON</li>
+      <li>ลำดับการใช้งานมาตรฐาน</li>
+      <li>รายการคำสั่ง</li>
+      <li>ระบบ Subscribe และข้อมูลที่ Mount ส่งออก</li>
+      <li>Error codes และความปลอดภัย</li>
+      <li>ตัวอย่าง Client ด้วย Python</li>
+      <li>Checklist สำหรับทดสอบ</li>
+    </ol>
+
+    <div class="notice danger"><b>สำคัญ:</b> เอกสารนี้เป็นข้อเสนอ v0.1 สำหรับพิจารณารูปแบบการใช้งาน TCP API เท่านั้น ตัว TCP server และคำสั่งในเอกสารยังไม่ได้ถูกเปิดใช้งานบน Mount จนกว่าจะอนุมัติ specification และนำไปพัฒนา</div>
+  </section>
+
+  <h2>1. ขอบเขตและหลักการออกแบบ</h2>
+  <p>API นี้ออกแบบให้โปรแกรมภายนอกควบคุม Mount แบบสองแกน ได้แก่ <b>Azimuth</b> และ <b>Altitude</b> รวมถึงรับข้อมูลสถานะอย่างต่อเนื่อง โดยเน้นหลักดังต่อไปนี้</p>
+  <ul>
+    <li>ใช้ TCP/IP เพื่อรับประกันลำดับของข้อความและตรวจพบการตัดการเชื่อมต่อ</li>
+    <li>ใช้ JSON เพื่ออ่านง่ายและรองรับหลายภาษาโปรแกรม</li>
+    <li>คำสั่งทุกชุดมี <code>id</code> เพื่อจับคู่ Response</li>
+    <li>ข้อมูล Telemetry ใช้ระบบ Subscribe แยกตามหัวข้อ</li>
+    <li>คำสั่งเคลื่อนที่ต้องผ่าน motion limits และ safety guard ของ Mount</li>
+    <li>มีผู้ครอบครองสิทธิ์ควบคุมการเคลื่อนที่ได้ครั้งละหนึ่ง Client</li>
+  </ul>
+
+  <h2>2. ภาพรวมการเชื่อมต่อ</h2>
+  <table>
+    <tr><th>รายการ</th><th>ค่าที่เสนอ</th></tr>
+    <tr><td>Transport</td><td>TCP/IP</td></tr>
+    <tr><td>Default port</td><td>7624</td></tr>
+    <tr><td>Message framing</td><td>NDJSON — JSON หนึ่ง Object ต่อหนึ่งบรรทัด ปิดท้ายด้วย LF (<code>\n</code>)</td></tr>
+    <tr><td>Character encoding</td><td>UTF-8</td></tr>
+    <tr><td>API version</td><td>1.0</td></tr>
+    <tr><td>Recommended heartbeat</td><td>ทุก 1 วินาที</td></tr>
+    <tr><td>Maximum message size</td><td>64 KiB ต่อข้อความ</td></tr>
+  </table>
+
+  <h3>2.1 เหตุผลที่ใช้ NDJSON</h3>
+  <p>TCP เป็น byte stream และไม่มีขอบเขตข้อความในตัวเอง การกำหนดให้ JSON ทุกชุดปิดท้ายด้วย newline ทำให้ Client อ่านทีละบรรทัดและแยกข้อความได้ง่าย ห้ามส่ง JSON ที่จัดรูปแบบหลายบรรทัดผ่านสาย TCP</p>
+
+  <pre>{"version":"1.0","type":"command","id":"cmd-1","action":"system.hello","params":{}}\n</pre>
+
+  <h2>3. โครงสร้างข้อความ</h2>
+  <h3>3.1 Command จาก Client</h3>
+  <pre>{
+  "version": "1.0",
+  "type": "command",
+  "id": "cmd-000123",
+  "action": "mount.goto",
+  "timestamp": "2026-07-22T13:30:00.000+07:00",
+  "params": {
+    "azimuth_deg": -120.5,
+    "altitude_deg": 35.25,
+    "max_velocity_deg_per_sec": 10
+  }
+}</pre>
+  <table>
+    <tr><th>Field</th><th>Required</th><th>ความหมาย</th></tr>
+    <tr><td><code>version</code></td><td>ใช่</td><td>เวอร์ชัน Protocol</td></tr>
+    <tr><td><code>type</code></td><td>ใช่</td><td>ต้องเป็น <code>command</code></td></tr>
+    <tr><td><code>id</code></td><td>ใช่</td><td>รหัสที่ไม่ซ้ำภายใน Connection</td></tr>
+    <tr><td><code>action</code></td><td>ใช่</td><td>ชื่อคำสั่ง</td></tr>
+    <tr><td><code>timestamp</code></td><td>แนะนำ</td><td>ISO 8601 พร้อม timezone</td></tr>
+    <tr><td><code>params</code></td><td>ใช่</td><td>Object ของ Parameter; ใช้ <code>{}</code> หากไม่มี</td></tr>
+  </table>
+
+  <h3>3.2 Response จาก Mount</h3>
+  <pre>{
+  "version": "1.0",
+  "type": "response",
+  "id": "cmd-000123",
+  "action": "mount.goto",
+  "ok": true,
+  "timestamp": "2026-07-22T13:30:00.020+07:00",
+  "result": {"accepted": true}
+}</pre>
+  <p><code>ok: true</code> หมายถึง Mount รับคำสั่งแล้ว ไม่ได้หมายความว่าเคลื่อนที่ถึงเป้าหมายแล้ว ให้ติดตามผลผ่านหัวข้อ <code>motion.state</code></p>
+
+  <h3>3.3 Error Response</h3>
+  <pre>{
+  "version": "1.0",
+  "type": "response",
+  "id": "cmd-000123",
+  "action": "mount.goto",
+  "ok": false,
+  "error": {
+    "code": "TARGET_OUT_OF_RANGE",
+    "message": "Altitude target exceeds the configured upper limit.",
+    "details": {"requested_deg": 110, "maximum_deg": 100}
+  }
+}</pre>
+
+  <h3>3.4 Event จาก Mount</h3>
+  <pre>{
+  "version": "1.0",
+  "type": "event",
+  "topic": "mount.status",
+  "sequence": 1024,
+  "timestamp": "2026-07-22T13:30:01.100+07:00",
+  "data": {"connected": true, "enabled": false, "moving": false}
+}</pre>
+
+  <div class="page-break"></div>
+  <h2>4. ลำดับการใช้งานมาตรฐาน</h2>
+  <ol>
+    <li>เปิด TCP connection ไปยัง IP ของ Mount ที่ port 7624</li>
+    <li>ส่ง <code>system.hello</code> เพื่อตรวจ API version และ capabilities</li>
+    <li>ส่ง <code>subscribe</code> เพื่อรับสถานะที่ต้องการ</li>
+    <li>ส่ง <code>control.acquire</code> ก่อนคำสั่งที่ทำให้ Mount เคลื่อนที่</li>
+    <li>ตรวจว่า Drive พร้อมและไม่มี Fault ผ่าน <code>mount.status</code></li>
+    <li>ส่ง <code>mount.enable</code></li>
+    <li>ส่งคำสั่ง <code>mount.goto</code> หรือ <code>axis.set_velocity</code></li>
+    <li>ติดตาม <code>motion.state</code> จนถึง <code>target_reached</code></li>
+    <li>เมื่อเลิกใช้งานให้ส่ง <code>mount.stop</code>, <code>mount.disable</code> และ <code>control.release</code></li>
+  </ol>
+
+  <div class="notice good"><b>ข้อแนะนำ:</b> โปรแกรมควร Subscribe หัวข้อ <code>fault</code> เสมอ และต้องเตรียมส่ง <code>mount.stop</code> ได้ทันทีโดยไม่รอคำสั่งก่อนหน้าจบ</div>
+
+  <h2>5. รายการคำสั่ง</h2>
+  <h3>5.1 System และ Connection</h3>
+  <table>
+    <tr><th>Action</th><th>หน้าที่</th><th>สิทธิ์ควบคุม</th></tr>
+    <tr><td><code>system.hello</code></td><td>อ่าน protocol version และ capabilities</td><td>ไม่ต้องมี</td></tr>
+    <tr><td><code>system.ping</code></td><td>ตรวจ Connection/latency</td><td>ไม่ต้องมี</td></tr>
+    <tr><td><code>system.get_info</code></td><td>อ่านรุ่น, software version, device ID, uptime</td><td>ไม่ต้องมี</td></tr>
+    <tr><td><code>system.get_health</code></td><td>อ่านสุขภาพ Drive และ Fault ปัจจุบัน</td><td>ไม่ต้องมี</td></tr>
+    <tr><td><code>system.get_capabilities</code></td><td>อ่านคำสั่งและ Topic ที่รองรับ</td><td>ไม่ต้องมี</td></tr>
+  </table>
+
+  <h3>5.2 Control lease</h3>
+  <table>
+    <tr><th>Action</th><th>Parameter สำคัญ</th><th>หน้าที่</th></tr>
+    <tr><td><code>control.acquire</code></td><td><code>client_name</code>, <code>lease_ms</code></td><td>ขอสิทธิ์ควบคุม Mount</td></tr>
+    <tr><td><code>control.renew</code></td><td><code>lease_id</code></td><td>ต่ออายุสิทธิ์</td></tr>
+    <tr><td><code>control.release</code></td><td><code>lease_id</code></td><td>คืนสิทธิ์</td></tr>
+  </table>
+  <pre>{
+  "version":"1.0", "type":"command", "id":"lease-1",
+  "action":"control.acquire",
+  "params":{"client_name":"Telescope Controller","lease_ms":5000}
+}</pre>
+
+  <h3>5.3 เปิด ปิด และหยุด</h3>
+  <table>
+    <tr><th>Action</th><th>Parameter</th><th>รายละเอียด</th></tr>
+    <tr><td><code>mount.enable</code></td><td>—</td><td>Enable ทั้งสองแกนที่พร้อมใช้งาน</td></tr>
+    <tr><td><code>mount.disable</code></td><td>—</td><td>Disable ทั้งสองแกน</td></tr>
+    <tr><td><code>mount.stop</code></td><td>—</td><td>ยกเลิก Goto, Velocity, Tracking และ Calibration</td></tr>
+    <tr><td><code>axis.enable</code></td><td><code>axis</code></td><td>Enable แกนเดียว</td></tr>
+    <tr><td><code>axis.disable</code></td><td><code>axis</code></td><td>Disable แกนเดียว</td></tr>
+    <tr><td><code>axis.stop</code></td><td><code>axis</code></td><td>หยุดแกนเดียว</td></tr>
+  </table>
+
+  <h3>5.4 Goto Position</h3>
+  <pre>{
+  "version":"1.0", "type":"command", "id":"goto-1",
+  "action":"mount.goto",
+  "params":{
+    "azimuth_deg":-120.5,
+    "altitude_deg":35.25,
+    "max_velocity_deg_per_sec":10
+  }
+}</pre>
+  <p>สามารถส่งเป้าหมายเพียงแกนเดียวผ่าน <code>axis.goto</code>:</p>
+  <pre>{
+  "version":"1.0", "type":"command", "id":"goto-2",
+  "action":"axis.goto",
+  "params":{"axis":"altitude","position_deg":45,"max_velocity_deg_per_sec":5}
+}</pre>
+
+  <h3>5.5 Velocity และ Jog</h3>
+  <pre>{
+  "version":"1.0", "type":"command", "id":"vel-1",
+  "action":"axis.set_velocity",
+  "params":{
+    "axis":"azimuth",
+    "velocity_deg_per_sec":-5,
+    "command_timeout_ms":1000
+  }
+}</pre>
+  <div class="notice danger"><b>Safety watchdog:</b> คำสั่ง Velocity/Jog ต้องมี timeout หาก Client ไม่ต่ออายุคำสั่งภายในเวลาที่กำหนด Mount ต้องสั่งความเร็วเป็นศูนย์โดยอัตโนมัติ</div>
+
+  <h3>5.6 Motor Calibration</h3>
+  <pre>{
+  "version":"1.0", "type":"command", "id":"cal-1",
+  "action":"calibration.start",
+  "params":{
+    "axis":"altitude",
+    "minimum_position_deg":0,
+    "maximum_position_deg":45,
+    "current_amp":10,
+    "velocity_deg_per_sec":5
+  }
+}</pre>
+  <p>หยุดด้วย <code>calibration.stop</code> หรือ <code>mount.stop</code> ค่า current limit ที่ใช้ทดสอบต้องไม่เกินขีดจำกัดที่ตั้งไว้ใน Mount</p>
+
+  <div class="page-break"></div>
+  <h2>6. Subscribe และ Telemetry</h2>
+  <h3>6.1 เริ่ม Subscribe</h3>
+  <pre>{
+  "version":"1.0", "type":"command", "id":"sub-1",
+  "action":"subscribe",
+  "params":{
+    "topics":["mount.status","axis.telemetry","motion.state","sensor.status","fault"],
+    "interval_ms":100
+  }
+}</pre>
+  <p>Mount อาจปรับ <code>interval_ms</code> ให้เข้ากับช่วงที่รองรับ และต้องส่งค่าที่ใช้จริงกลับใน Response การยกเลิกใช้ <code>unsubscribe</code> พร้อม <code>subscription_id</code></p>
+
+  <table>
+    <tr><th>Topic</th><th>ข้อมูล</th><th>อัตราที่แนะนำ</th></tr>
+    <tr><td><code>mount.status</code></td><td>สถานะรวม, enable, moving, tracking, health, bus voltage</td><td>2–5 Hz และเมื่อเปลี่ยน</td></tr>
+    <tr><td><code>axis.telemetry</code></td><td>ตำแหน่ง, ความเร็ว, กระแส, target, state, error แยกแกน</td><td>1–40 Hz ตามที่ขอ</td></tr>
+    <tr><td><code>motion.state</code></td><td>โหมดเคลื่อนที่, target, error, progress</td><td>เมื่อเปลี่ยน + ระหว่างเคลื่อนที่</td></tr>
+    <tr><td><code>sensor.status</code></td><td>CCW/CW absolute-encoder region sensors (ไม่ใช่ limit switch)</td><td>เมื่อเปลี่ยน</td></tr>
+    <tr><td><code>drive.status</code></td><td>serial, firmware, voltage, errors, disarm reason</td><td>1 Hz และเมื่อเปลี่ยน</td></tr>
+    <tr><td><code>calibration.status</code></td><td>phase, target, position, current, peak current</td><td>5–10 Hz ขณะทำงาน</td></tr>
+    <tr><td><code>fault</code></td><td>เหตุผิดปกติและการตอบสนองด้านความปลอดภัย</td><td>ส่งทันที</td></tr>
+  </table>
+
+  <h3>6.2 ตัวอย่าง Axis Telemetry</h3>
+  <pre>{
+  "version":"1.0", "type":"event", "topic":"axis.telemetry",
+  "sequence":1025, "timestamp":"2026-07-22T13:30:01.120+07:00",
+  "data":{
+    "axes":{
+      "azimuth":{
+        "available":true, "enabled":false,
+        "position_deg":-155.85, "velocity_deg_per_sec":0.002,
+        "current_amp":0, "target_position_deg":null,
+        "state":1, "errors":0
+      },
+      "altitude":{
+        "available":true, "enabled":false,
+        "position_deg":0.064, "velocity_deg_per_sec":0,
+        "current_amp":0, "target_position_deg":null,
+        "state":1, "errors":0
+      }
+    }
+  }
+}</pre>
+
+  <h3>6.3 ตัวอย่าง Motion State</h3>
+  <pre>{
+  "version":"1.0", "type":"event", "topic":"motion.state",
+  "sequence":1026, "timestamp":"2026-07-22T13:30:02.000+07:00",
+  "data":{
+    "state":"moving", "command_id":"goto-1", "mode":"goto",
+    "progress":{"azimuth_error_deg":12.4,"altitude_error_deg":3.1}
+  }
+}</pre>
+  <p>ค่าที่เสนอสำหรับ <code>state</code>: <code>idle</code>, <code>moving</code>, <code>target_reached</code>, <code>tracking</code>, <code>stopping</code>, <code>stopped</code>, <code>calibrating</code>, <code>fault</code></p>
+
+  <h3>6.4 ตัวอย่าง Fault</h3>
+  <pre>{
+  "version":"1.0", "type":"event", "topic":"fault",
+  "sequence":1027, "timestamp":"2026-07-22T13:30:03.000+07:00",
+  "data":{
+    "severity":"critical",
+    "code":"AZIMUTH_CW_LIMIT_ACTIVE",
+    "axis":"azimuth",
+    "message":"Azimuth CW limit is active.",
+    "motion_stopped":true,
+    "requires_acknowledgement":true
+  }
+}</pre>
+
+  <h2>7. Error Codes</h2>
+  <table>
+    <tr><th>Code</th><th>ความหมาย</th><th>แนวทาง Client</th></tr>
+    <tr><td><code>INVALID_JSON</code></td><td>JSON ไม่ถูกต้อง</td><td>ตรวจ syntax และ newline framing</td></tr>
+    <tr><td><code>UNSUPPORTED_VERSION</code></td><td>API version ไม่รองรับ</td><td>เรียก system.hello ใหม่ด้วย version ที่รองรับ</td></tr>
+    <tr><td><code>UNKNOWN_ACTION</code></td><td>ไม่พบคำสั่ง</td><td>ตรวจ capabilities</td></tr>
+    <tr><td><code>INVALID_PARAMETER</code></td><td>Parameter ขาดหรือชนิดผิด</td><td>แก้ params ตาม details</td></tr>
+    <tr><td><code>CONTROL_LEASE_REQUIRED</code></td><td>ยังไม่ได้สิทธิ์ควบคุม</td><td>เรียก control.acquire</td></tr>
+    <tr><td><code>CONTROL_LEASE_BUSY</code></td><td>Client อื่นควบคุมอยู่</td><td>รอหรือทำงานแบบ read-only</td></tr>
+    <tr><td><code>DRIVE_NOT_CONNECTED</code></td><td>ไม่พบ Drive ของแกน</td><td>หยุดคำสั่งและแจ้งผู้ดูแล</td></tr>
+    <tr><td><code>AXIS_NOT_ENABLED</code></td><td>แกนยังไม่ Enable</td><td>ตรวจ health แล้วเรียก axis.enable</td></tr>
+    <tr><td><code>TARGET_OUT_OF_RANGE</code></td><td>ตำแหน่งเกิน limit</td><td>ใช้ค่าขอบเขตจาก error details</td></tr>
+    <tr><td><code>VELOCITY_LIMIT_EXCEEDED</code></td><td>ความเร็วสูงเกินกำหนด</td><td>ลดความเร็ว</td></tr>
+    <tr><td><code>CURRENT_LIMIT_EXCEEDED</code></td><td>ค่ากระแสสูงเกินกำหนด</td><td>ลดกระแส</td></tr>
+    <tr><td><code>MOUNT_FAULT</code></td><td>Mount อยู่ใน Fault</td><td>ส่ง stop และตรวจ fault topic</td></tr>
+    <tr><td><code>COMMAND_TIMEOUT</code></td><td>คำสั่งหมดเวลา</td><td>ตรวจ Connection และสถานะ Mount</td></tr>
+  </table>
+
+  <h2>8. Safety และ Security</h2>
+  <ul>
+    <li><code>mount.stop</code> ต้องเรียกได้เสมอ แม้ไม่มี control lease หรือ Mount อยู่ใน Fault</li>
+    <li>TCP หลุดต้องยกเลิก Velocity/Jog/Calibration ที่ Connection นั้นเป็นผู้เริ่ม</li>
+    <li>Goto ทุกครั้งต้องตรวจ software limits จาก absolute encoder; CCW/CW region sensors ใช้เลือก encoder branch และไม่ใช่ limit switch</li>
+    <li>Mount ต้องจำกัดความเร็วและกระแสอีกชั้น ไม่เชื่อค่าจาก Client โดยตรง</li>
+    <li>Control lease ต้องหมดอายุเองหาก Client ไม่ Renew</li>
+    <li>หากใช้นอก LAN ควรใช้ TLS และ API token หรือ VPN</li>
+    <li>จำกัด message size, connection count และ command rate</li>
+    <li>บันทึก audit log ของคำสั่งเคลื่อนที่พร้อม Client identity</li>
+  </ul>
+
+  <div class="page-break"></div>
+  <h2>9. ตัวอย่าง Python Client</h2>
+  <pre>import json
+import socket
+
+HOST = "192.168.1.50"
+PORT = 7624
+
+def send_message(stream, message):
+    wire = json.dumps(message, separators=(",", ":")) + "\n"
+    stream.write(wire.encode("utf-8"))
+    stream.flush()
+
+with socket.create_connection((HOST, PORT), timeout=5) as sock:
+    stream = sock.makefile("rwb")
+
+    send_message(stream, {
+        "version": "1.0",
+        "type": "command",
+        "id": "hello-1",
+        "action": "system.hello",
+        "params": {}
+    })
+
+    send_message(stream, {
+        "version": "1.0",
+        "type": "command",
+        "id": "sub-1",
+        "action": "subscribe",
+        "params": {
+            "topics": ["mount.status", "axis.telemetry", "fault"],
+            "interval_ms": 200
+        }
+    })
+
+    while True:
+        line = stream.readline()
+        if not line:
+            raise ConnectionError("Mount disconnected")
+        message = json.loads(line)
+        print(message)</pre>
+
+  <h3>9.1 ตัวอย่าง Goto</h3>
+  <pre>send_message(stream, {
+    "version": "1.0",
+    "type": "command",
+    "id": "goto-1",
+    "action": "mount.goto",
+    "params": {
+        "azimuth_deg": -120.5,
+        "altitude_deg": 35.25,
+        "max_velocity_deg_per_sec": 5
+    }
+})</pre>
+
+  <h2>10. Checklist ก่อนใช้งานจริง</h2>
+  <ol>
+    <li>ยืนยัน serial mapping ของ Azimuth และ Altitude</li>
+    <li>ยืนยัน position offset และทิศทางบวก/ลบของแต่ละแกน</li>
+    <li>ทดสอบ CCW/CW sensors และ software limits</li>
+    <li>ทดสอบ <code>mount.stop</code> ระหว่าง Goto, Velocity และ Calibration</li>
+    <li>ทดสอบถอดสาย LAN ระหว่าง Velocity command</li>
+    <li>ทดสอบ control lease หมดอายุ</li>
+    <li>ทดสอบ Client สองตัวขอสิทธิ์พร้อมกัน</li>
+    <li>ทดสอบ JSON ไม่ถูกต้องและข้อความขนาดเกินกำหนด</li>
+    <li>ทดสอบ Subscribe หลายอัตราและ sequence gap</li>
+    <li>ยืนยันว่า Fault ถูกส่งทันทีและ Mount หยุดตามเงื่อนไข</li>
+  </ol>
+
+  <h2>11. ประเด็นที่ต้องตัดสินใจก่อนพัฒนา</h2>
+  <ul>
+    <li>ต้องรองรับ RA/Dec และ Tracking ใน API รุ่นแรกหรือไม่</li>
+    <li>ต้องการ Authentication แบบ token, TLS หรือจำกัดเฉพาะ LAN</li>
+    <li>อัตรา Telemetry สูงสุดที่ต้องรองรับ</li>
+    <li>พฤติกรรมเมื่อ Client ผู้ควบคุมหลุด: Stop, Hold หรือ Disable</li>
+    <li>อนุญาตให้แก้ Tuning/Settings ผ่าน TCP หรือให้เป็น read-only</li>
+    <li>ต้องการรองรับ compatibility กับ ASCOM/INDI ในอนาคตหรือไม่</li>
+  </ul>
+
+  <p class="small">จบเอกสาร — Mount TCP/IP JSON API, Draft v0.1</p>
+</body>
+</html>

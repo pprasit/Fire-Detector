@@ -1,0 +1,17 @@
+[Unit]
+Description=Fire Detector IRIV telemetry health beacon
+Requires=fire-detector.service
+After=fire-detector.service
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/Public/Fire-Detector
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/usr/bin/python3 /home/pi/Public/Fire-Detector/scripts/health_beacon.py
+Restart=always
+RestartSec=1
+
+[Install]
+WantedBy=multi-user.target

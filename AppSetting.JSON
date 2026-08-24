@@ -1,11 +1,40 @@
 {
   "azimuth_sensors": {
-    "ccw_active_high": false,
-    "ccw_pin": 22,
-    "ccw_pull": "up",
-    "cw_active_high": false,
-    "cw_pin": 27,
-    "cw_pull": "up"
+    "ccw_active_high": true,
+    "ccw_pin": 17,
+    "ccw_pull": "down",
+    "cw_active_high": true,
+    "cw_pin": 13,
+    "cw_pull": "down"
+  },
+  "camera_metadata": {
+    "thermal_camera": {
+      "digital_zoom_max_x": 8.0,
+      "digital_zoom_min_x": 1.0,
+      "focal_length_max_mm": 155.0,
+      "focal_length_min_mm": 31.0,
+      "frame_rate_hz": 50.0,
+      "horizontal_fov_max_deg": 14.2,
+      "horizontal_fov_min_deg": 2.8,
+      "native_height": 512,
+      "native_width": 640,
+      "optical_zoom_x": 5.0,
+      "palette_count": 16,
+      "radiometric": false,
+      "spectral_range_max_um": 14.0,
+      "spectral_range_min_um": 7.5,
+      "temperature_measurement": "min_max",
+      "vertical_fov_max_deg": 11.4,
+      "vertical_fov_min_deg": 2.3
+    },
+    "visible_camera": {
+      "horizontal_fov_max_deg": 62.0,
+      "horizontal_fov_min_deg": 2.0,
+      "native_height": 1080,
+      "native_width": 1920,
+      "vertical_fov_max_deg": 36.0,
+      "vertical_fov_min_deg": 1.1
+    }
   },
   "drive_serials": {
     "altitude_serial": "59812575523890",
@@ -13,23 +42,59 @@
   },
   "motion_limits": {
     "altitude_current_limit_amp": 20.0,
-    "altitude_lower_limit_deg": -100.0,
-    "altitude_position_offset_deg": -0.064,
-    "altitude_upper_limit_deg": 100.0,
-    "azimuth_ccw_limit_deg": -100.0,
+    "altitude_lower_limit_deg": -45.0,
+    "altitude_position_offset_deg": 178.0,
+    "altitude_position_scale": 1.0,
+    "altitude_upper_limit_deg": 155.0,
+    "azimuth_ccw_limit_deg": -300.0,
     "azimuth_current_limit_amp": 20.0,
-    "azimuth_cw_limit_deg": 100.0,
-    "azimuth_position_offset_deg": 0.0,
+    "azimuth_cw_limit_deg": 300.0,
+    "azimuth_position_offset_deg": 125.0,
+    "azimuth_position_scale": -1.0,
     "slew_rate_deg_per_sec": 20.0
   },
+  "mount_agent": {
+    "local": {
+      "enabled": true,
+      "mode": "660",
+      "socket_path": "/run/fire-detector/mount-agent.sock"
+    },
+    "remote": {
+      "allowed_commands": [
+        "mount.get_status",
+        "system.get_health",
+        "system.get_info",
+        "system.hello"
+      ],
+      "ca_file": "/etc/fire-detector/receiver-ca.crt",
+      "client_cert_file": "",
+      "client_key_file": "",
+      "device_id": "iriv-production",
+      "enabled": true,
+      "heartbeat_sec": 15.0,
+      "host": "100.102.91.123",
+      "media_upload_url": "https://100.102.91.123:8443/api/v1/media/upload",
+      "port": 15001,
+      "secret_env": "",
+      "secret_file": "/etc/fire-detector/remote.secret",
+      "server_name": "100.102.91.123",
+      "telemetry_sec": 0.2
+    }
+  },
+  "simulation_mode": {
+    "enabled": false
+  },
   "station": {
+    "azimuth_north_offset_deg": 90.0,
     "elevation_above_ground_m": 40.0,
     "latitude": 18.853,
     "longitude": 98.958,
     "name": "NARIT#1"
   },
   "tuning_steps": {
-    "Altitude": {},
+    "Altitude": {
+      "position_gain": 1.0
+    },
     "Azimuth": {
       "position_gain": 1.0
     }

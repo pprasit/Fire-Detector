@@ -1,3 +1,138 @@
+function installMissionControlSelects(root = document) {
+  root.querySelectorAll("select").forEach((select) => select.classList.add("mc-select"));
+}
+
+installMissionControlSelects();
+
+function installIndustrialDeckLayout() {
+  if (document.documentElement.classList.contains("mobile-browser")) return;
+
+  document.body.classList.add("industrial-deck-layout");
+
+  const sidebar = document.querySelector(".mission-sidebar");
+  if (sidebar) {
+    sidebar.innerHTML = `
+      <div class="industrial-sidebar-brand">
+        <img src="/static/img/narit-smart-wildfire-mark.png" alt="NARIT Fire Detector">
+        <span><strong>NARIT</strong><small>FIRE DETECTOR</small></span>
+      </div>
+      <section class="industrial-active-mount" aria-label="Active mount">
+        <small>ACTIVE MOUNT</small>
+        <strong id="stationTitle">NARIT #1</strong>
+        <span id="industrialMountStatus"><i></i> ONLINE</span>
+      </section>
+      <nav class="industrial-sidebar-nav" aria-label="Dashboard views">
+        <small>VIEWS</small>
+        <button class="active" type="button" data-view-mode="axis" role="tab" aria-selected="true">
+          <i aria-hidden="true"><svg><use href="/static/img/mission-nav-icons.svg#dashboard"></use></svg></i><span>Dashboard</span><kbd>01</kbd>
+        </button>
+        <button type="button" data-view-mode="sky" role="tab" aria-selected="false">
+          <i aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"></circle><path d="M4 12h16M7 15c2-2 8-2 10 0"></path></svg></i><span>Horizon View</span><kbd>02</kbd>
+        </button>
+        <button type="button" data-view-mode="pointing" role="tab" aria-selected="false">
+          <i aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"></circle><circle cx="12" cy="12" r="3"></circle><path d="M12 2v3M12 19v3M2 12h3M19 12h3"></path></svg></i><span>Pointing Model</span><kbd>03</kbd>
+        </button>
+        <a href="/api-console">
+          <i aria-hidden="true"><svg><use href="/static/img/mission-nav-icons.svg#api"></use></svg></i><span>API</span><kbd>04</kbd>
+        </a>
+        <button type="button" data-view-mode="camera" role="tab" aria-selected="false">
+          <i aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="12" rx="2"></rect><path d="m16 10 5-3v10l-5-3z"></path></svg></i><span>Camera View</span><kbd>05</kbd>
+        </button>
+        <small>INSIGHTS</small>
+        <button type="button" data-view-mode="report" role="tab" aria-selected="false"><i aria-hidden="true"><svg><use href="/static/img/mission-nav-icons.svg#reports"></use></svg></i><span>Reports</span><kbd>06</kbd></button>
+        <button type="button" data-mission-nav="settings">
+          <i aria-hidden="true"><svg><use href="/static/img/mission-nav-icons.svg#settings"></use></svg></i><span>Settings</span><kbd>07</kbd>
+        </button>
+      </nav>
+      <div class="industrial-sidebar-health">
+        <small>SYSTEM HEALTH</small>
+        <div><i></i><span><strong id="industrialHealthStatus">All systems nominal</strong><em>Updated just now</em></span></div>
+      </div>`;
+  }
+
+  const headerCopy = document.querySelector(".monitor-header .header-copy");
+  if (headerCopy) {
+    headerCopy.innerHTML = `
+      <div class="industrial-header-context">
+        <small>MOUNT CONTROL /</small>
+        <strong id="industrialSectionTitle">DASHBOARD</strong>
+        <span id="pageTitle" hidden>Narit Fire Detector Mount</span>
+      </div>`;
+  }
+
+  document.querySelector(".monitor-header .view-mode-toggle")?.remove();
+  document.querySelector(".monitor-header .api-console-link")?.remove();
+  document.querySelector(".monitor-header .camera-live-button")?.remove();
+
+  const axisView = document.getElementById("axisView");
+  if (axisView && !document.getElementById("industrialSummary")) {
+    const summary = document.createElement("section");
+    summary.className = "industrial-summary";
+    summary.id = "industrialSummary";
+    summary.setAttribute("aria-label", "Mount telemetry summary");
+    summary.innerHTML = `
+      <article><small>AZ POSITION</small><strong id="industrialAzimuthSummary">--</strong><span><i></i> TRACKING</span></article>
+      <article><small>ALT POSITION</small><strong id="industrialAltitudeSummary">--</strong><span><i></i> TRACKING</span></article>
+      <article><small>COMBINED CURRENT</small><strong class="is-blue" id="industrialCombinedCurrent">--</strong><span>WITHIN LIMITS</span></article>
+      <article><small>AVERAGE VELOCITY</small><strong class="is-amber" id="industrialAverageVelocity">--</strong><span>NOMINAL</span></article>
+      <article><small>LINK QUALITY</small><strong id="industrialLinkQuality">--</strong><span>LOCAL CONTROL</span></article>`;
+    axisView.prepend(summary);
+  }
+
+  const cameraLiveWindow = document.getElementById("cameraLiveWindow");
+  if (axisView && cameraLiveWindow && !cameraLiveWindow.classList.contains("is-docked")) {
+    cameraLiveWindow.classList.add("is-docked");
+    cameraLiveWindow.removeAttribute("data-floating-window");
+    cameraLiveWindow.removeAttribute("role");
+    cameraLiveWindow.removeAttribute("aria-modal");
+    cameraLiveWindow.style.removeProperty("left");
+    cameraLiveWindow.style.removeProperty("right");
+    cameraLiveWindow.style.removeProperty("top");
+    cameraLiveWindow.style.removeProperty("bottom");
+    cameraLiveWindow.style.removeProperty("transform");
+    cameraLiveWindow.querySelector("[data-floating-window-handle]")?.removeAttribute("data-floating-window-handle");
+    axisView.append(cameraLiveWindow);
+  }
+
+  const chartHeadings = [
+    [".azimuth-chart .chart-panel-header > div:first-child", "AXIS 01 / AZIMUTH"],
+    [".altitude-chart .chart-panel-header > div:first-child", "AXIS 02 / ALTITUDE"],
+  ];
+  chartHeadings.forEach(([selector, label]) => {
+    const heading = document.querySelector(selector);
+    if (heading) heading.innerHTML = `<p class="industrial-axis-kicker">${label}</p><h2>Position Telemetry</h2>`;
+  });
+
+  document.querySelectorAll('.tab-button[data-tab-target="axis"]').forEach((button) => { button.textContent = "Status"; });
+  document.querySelectorAll('.tab-button[data-tab-target="drive"]').forEach((button) => { button.textContent = "Drive"; });
+
+  const pointingView = document.getElementById("pointingView");
+  const pointingSelectionCard = document.getElementById("pointingSelectionCard");
+  const pointingTargetPanel = document.getElementById("pointingTargetPanel");
+  if (pointingView && pointingSelectionCard && pointingTargetPanel && !document.getElementById("industrialPointingInspector")) {
+    const inspector = document.createElement("aside");
+    inspector.className = "industrial-pointing-inspector";
+    inspector.id = "industrialPointingInspector";
+    inspector.setAttribute("aria-label", "Pointing model inspector");
+
+    [pointingSelectionCard, pointingTargetPanel].forEach((panel) => {
+      panel.classList.add("is-docked");
+      panel.removeAttribute("data-floating-window");
+      panel.removeAttribute("data-floating-window-desktop-only");
+      panel.style.removeProperty("left");
+      panel.style.removeProperty("right");
+      panel.style.removeProperty("top");
+      panel.style.removeProperty("bottom");
+      panel.querySelector("[data-floating-window-handle]")?.removeAttribute("data-floating-window-handle");
+      inspector.append(panel);
+    });
+
+    pointingView.append(inspector);
+  }
+}
+
+installIndustrialDeckLayout();
+
 const fields = {
   pageTitle: document.getElementById("pageTitle"),
   stationTitle: document.getElementById("stationTitle"),
@@ -15,6 +150,32 @@ const fields = {
   skyStop: document.getElementById("skyStop"),
   motorGoto: document.getElementById("motorGoto"),
   serverUptime: document.getElementById("serverUptime"),
+  industrialSectionTitle: document.getElementById("industrialSectionTitle"),
+  industrialMountStatus: document.getElementById("industrialMountStatus"),
+  industrialHealthStatus: document.getElementById("industrialHealthStatus"),
+  industrialAzimuthSummary: document.getElementById("industrialAzimuthSummary"),
+  industrialAltitudeSummary: document.getElementById("industrialAltitudeSummary"),
+  industrialCombinedCurrent: document.getElementById("industrialCombinedCurrent"),
+  industrialAverageVelocity: document.getElementById("industrialAverageVelocity"),
+  industrialLinkQuality: document.getElementById("industrialLinkQuality"),
+  cameraLiveOpen: document.getElementById("cameraLiveOpen"),
+  cameraLiveWindow: document.getElementById("cameraLiveWindow"),
+  cameraLiveClose: document.getElementById("cameraLiveClose"),
+  cameraLiveClock: document.getElementById("cameraLiveClock"),
+  cameraSourceToggle: document.getElementById("cameraSourceToggle"),
+  cameraSourceToggleLabel: document.getElementById("cameraSourceToggleLabel"),
+  thermalLiveImage: document.getElementById("thermalLiveImage"),
+  visibleLiveImage: document.getElementById("visibleLiveImage"),
+  thermalRealImage: document.getElementById("thermalRealImage"),
+  visibleRealImage: document.getElementById("visibleRealImage"),
+  thermalLiveBurnin: document.getElementById("thermalLiveBurnin"),
+  visibleLiveBurnin: document.getElementById("visibleLiveBurnin"),
+  thermalLiveZoom: document.getElementById("thermalLiveZoom"),
+  visibleLiveZoom: document.getElementById("visibleLiveZoom"),
+  cameraRecordButton: document.getElementById("cameraRecordButton"),
+  cameraRecordTimer: document.getElementById("cameraRecordTimer"),
+  cameraRecordStatus: document.getElementById("cameraRecordStatus"),
+  cameraRecordEvent: document.getElementById("cameraRecordEvent"),
   systemSetting: document.getElementById("systemSetting"),
   logEntries: document.getElementById("systemLogEntries"),
   updateProgress: document.getElementById("updateProgress"),
@@ -106,13 +267,16 @@ const fields = {
   systemUpdateCheck: document.getElementById("systemUpdateCheck"),
   systemUpdateMessage: document.getElementById("systemUpdateMessage"),
   settingsReloadSerials: document.getElementById("settingsReloadSerials"),
+  settingsSimulationMode: document.getElementById("settingsSimulationMode"),
   settingsSave: document.getElementById("settingsSave"),
   azimuthCcwSensor: document.getElementById("azimuthCcwSensor"),
   azimuthCwSensor: document.getElementById("azimuthCwSensor"),
   axisView: document.getElementById("axisView"),
+  reportView: document.getElementById("reportView"),
   skyView: document.getElementById("skyView"),
   skySphereCanvas: document.getElementById("skySphereCanvas"),
   pointingView: document.getElementById("pointingView"),
+  pointingMap3DCanvas: document.getElementById("pointingMap3DCanvas"),
   pointingMapCanvas: document.getElementById("pointingMapCanvas"),
   pointingMapProgress: document.getElementById("pointingMapProgress"),
   pointingProgressTitle: document.getElementById("pointingProgressTitle"),
@@ -126,6 +290,7 @@ const fields = {
   pointingStationValue: document.getElementById("pointingStationValue"),
   pointingRangeValue: document.getElementById("pointingRangeValue"),
   pointingDemValue: document.getElementById("pointingDemValue"),
+  pointingSelectionCard: document.getElementById("pointingSelectionCard"),
   pointingSelectionTitle: document.getElementById("pointingSelectionTitle"),
   pointingDistanceValue: document.getElementById("pointingDistanceValue"),
   pointingAzimuthValue: document.getElementById("pointingAzimuthValue"),
@@ -134,6 +299,18 @@ const fields = {
   pointingVisibilityValue: document.getElementById("pointingVisibilityValue"),
   pointingBlockerValue: document.getElementById("pointingBlockerValue"),
   pointingCoordinateValue: document.getElementById("pointingCoordinateValue"),
+  pointingTargetPanel: document.getElementById("pointingTargetPanel"),
+  pointingTargetClose: document.getElementById("pointingTargetClose"),
+  pointingTargetGrid: document.getElementById("pointingTargetGrid"),
+  pointingTargetCoordinates: document.getElementById("pointingTargetCoordinates"),
+  pointingTargetDistance: document.getElementById("pointingTargetDistance"),
+  pointingTargetTrueAzimuth: document.getElementById("pointingTargetTrueAzimuth"),
+  pointingTargetMountAzimuth: document.getElementById("pointingTargetMountAzimuth"),
+  pointingTargetAltitude: document.getElementById("pointingTargetAltitude"),
+  pointingTargetElevation: document.getElementById("pointingTargetElevation"),
+  pointingTargetVisibility: document.getElementById("pointingTargetVisibility"),
+  pointingTargetMessage: document.getElementById("pointingTargetMessage"),
+  pointingTargetGoto: document.getElementById("pointingTargetGoto"),
   skyAzimuthPositionValue: document.getElementById("skyAzimuthPositionValue"),
   skyAzimuthVelocityValue: document.getElementById("skyAzimuthVelocityValue"),
   skyAzimuthCurrentValue: document.getElementById("skyAzimuthCurrentValue"),
@@ -182,6 +359,7 @@ const axisFields = {
     spinoutMechanicalPowerThreshold: document.getElementById("azimuthSpinoutMechanicalPowerThreshold"),
     spinoutElectricalPowerBandwidth: document.getElementById("azimuthSpinoutElectricalPowerBandwidth"),
     spinoutMechanicalPowerBandwidth: document.getElementById("azimuthSpinoutMechanicalPowerBandwidth"),
+    encoderBandwidth: document.getElementById("azimuthEncoderBandwidth"),
     inputFilterBandwidth: document.getElementById("azimuthInputFilterBandwidth"),
     inertia: document.getElementById("azimuthInertia"),
     trapVelocityLimit: document.getElementById("azimuthTrapVelocityLimit"),
@@ -224,6 +402,7 @@ const axisFields = {
     spinoutMechanicalPowerThreshold: document.getElementById("altitudeSpinoutMechanicalPowerThreshold"),
     spinoutElectricalPowerBandwidth: document.getElementById("altitudeSpinoutElectricalPowerBandwidth"),
     spinoutMechanicalPowerBandwidth: document.getElementById("altitudeSpinoutMechanicalPowerBandwidth"),
+    encoderBandwidth: document.getElementById("altitudeEncoderBandwidth"),
     inputFilterBandwidth: document.getElementById("altitudeInputFilterBandwidth"),
     inertia: document.getElementById("altitudeInertia"),
     trapVelocityLimit: document.getElementById("altitudeTrapVelocityLimit"),
@@ -243,21 +422,48 @@ const history = {
   Azimuth: [],
   Altitude: [],
 };
+let lastStreamTelemetrySequence = null;
 
 const historyWindowMs = 60000;
+let reportRequestInFlight = false;
+const PLOT_REFRESH_INTERVAL_MS = 25;
 const STATUS_FALLBACK_REFRESH_MS = 500;
 const STATUS_WS_RECONNECT_MS = 1200;
-const JOG_COMMAND_INTERVAL_MS = 250;
+const ODRIVE_AXIS_STATE_LABELS = new Map([
+  [0, "Undefined"],
+  [1, "Idle"],
+  [2, "Startup Sequence"],
+  [3, "Full Calibration"],
+  [4, "Motor Calibration"],
+  [6, "Encoder Index Search"],
+  [7, "Encoder Offset Calibration"],
+  [8, "Closed Loop Control"],
+  [9, "Lock-in Spin"],
+  [10, "Encoder Direction Find"],
+  [11, "Homing"],
+  [12, "Hall Polarity Calibration"],
+  [13, "Hall Phase Calibration"],
+  [14, "Anticogging Calibration"],
+  [15, "Harmonic Calibration"],
+  [16, "Harmonic Commutation Calibration"],
+]);
 const POSITION_REACHED_TOLERANCE_DEG = 0.2;
 const VELOCITY_REACHED_TOLERANCE_DEG_PER_SEC = 0.2;
+const motionClientId = globalThis.crypto?.randomUUID?.()
+  || `dashboard-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+const JOG_HEARTBEAT_MS = 200;
+let motionCommandSequence = 0;
 let refreshInFlight = false;
 let statusSocket = null;
 let statusFallbackTimer = null;
 let statusReconnectTimer = null;
 let statusStreamConnected = false;
+let pendingStreamStatus = null;
+let statusRenderTimer = null;
 let lastServerStartedAt = null;
 const activeAxisJogs = new Map();
 const lastDriveErrorLogKeys = new Map();
+const lastAxisArmedStates = new Map();
 let driveErrorEventsSupported = false;
 let lastDriveErrorEventId = 0;
 
@@ -309,6 +515,7 @@ const tuningBindings = [
   ["spinoutMechanicalPowerThreshold", "spinout_mechanical_power_threshold"],
   ["spinoutElectricalPowerBandwidth", "spinout_electrical_power_bandwidth"],
   ["spinoutMechanicalPowerBandwidth", "spinout_mechanical_power_bandwidth"],
+  ["encoderBandwidth", "encoder_bandwidth"],
   ["inputFilterBandwidth", "input_filter_bandwidth"],
   ["inertia", "inertia"],
   ["trapVelocityLimit", "trap_velocity_limit"],
@@ -325,10 +532,14 @@ let appSettings = {
 };
 let activeStepTarget = null;
 const autoApplyTimers = new WeakMap();
+const pendingTuningEdits = new Map();
 let settingsSaveTimer = null;
 let latestStatus = null;
 let motorCommandInFlight = false;
+let emergencyStopInFlight = false;
 let logSequence = 0;
+let systemLogPaused = false;
+const loggedPositionTimeouts = new Set();
 let selectedSkyTarget = null;
 const pendingAutoTuneTuning = { Azimuth: null, Altitude: null };
 let autoTuneRunState = {
@@ -337,7 +548,12 @@ let autoTuneRunState = {
 };
 let pointingModel = null;
 let selectedPointingSample = null;
+let hoverPointingSample = null;
 let pointingModelLoading = false;
+let pointing3DLoading = false;
+let pointing3DReady = false;
+let pointingHoverTimer = null;
+let pointingHoverRequest = null;
 const pointingRasterImages = new Map();
 let updatePollTimer = null;
 let lastUpdateStatusKey = "";
@@ -459,10 +675,10 @@ const driveEnableDiagnostics = new DriveEnableDiagnostics();
 
 function readStoredViewMode() {
   const queryMode = new URLSearchParams(window.location.search).get("view");
-  if (["axis", "sky", "pointing"].includes(queryMode)) return queryMode;
+  if (["axis", "sky", "pointing", "camera", "report"].includes(queryMode)) return queryMode;
   try {
     const stored = localStorage.getItem(viewModeStorageKey);
-    return ["axis", "sky", "pointing"].includes(stored) ? stored : "axis";
+    return ["axis", "sky", "pointing", "camera", "report"].includes(stored) ? stored : "axis";
   } catch (error) {
     return "axis";
   }
@@ -538,6 +754,7 @@ function initializeFloatingWindows() {
     if (!handle) return;
 
     handle.addEventListener("pointerdown", (event) => {
+      if (document.documentElement.classList.contains("mobile-browser")) return;
       if (event.button !== 0) return;
       if (event.target.closest("button, input, select, textarea, a, label")) return;
       event.preventDefault();
@@ -573,6 +790,77 @@ function initializeFloatingWindows() {
       window.addEventListener("pointercancel", stopDragging, { once: true });
     });
   });
+}
+
+function hideFloatingWindowsOutsideView(viewMode) {
+  document.querySelectorAll("[data-floating-window-view]").forEach((panel) => {
+    if (panel.dataset.floatingWindowView !== viewMode) panel.hidden = true;
+  });
+}
+
+const axisColumnWidthStorageKey = "fireDetector.axisPanelWidth.v3";
+const AXIS_COLUMN_DEFAULT_WIDTH = 500;
+const AXIS_COLUMN_MIN_WIDTH = 440;
+const AXIS_COLUMN_MAX_WIDTH = 620;
+const CHART_COLUMN_MIN_WIDTH = 360;
+
+function initializeAxisColumnResizer() {
+  const grid = document.getElementById("axisView");
+  const resizer = document.getElementById("axisColumnResizer");
+  if (!grid || !resizer) return;
+
+  const storedWidth = Number.parseFloat(localStorage.getItem(axisColumnWidthStorageKey));
+  let currentWidth = Number.isFinite(storedWidth) ? storedWidth : AXIS_COLUMN_DEFAULT_WIDTH;
+
+  const clampWidth = (width) => {
+    const horizontalPadding = 36;
+    const available = grid.clientWidth > 0
+      ? grid.clientWidth - horizontalPadding - CHART_COLUMN_MIN_WIDTH
+      : AXIS_COLUMN_MAX_WIDTH;
+    const maximum = Math.max(AXIS_COLUMN_MIN_WIDTH, Math.min(AXIS_COLUMN_MAX_WIDTH, available));
+    return Math.round(Math.max(AXIS_COLUMN_MIN_WIDTH, Math.min(width, maximum)));
+  };
+
+  const applyWidth = (width, persist = false) => {
+    currentWidth = clampWidth(width);
+    grid.style.setProperty("--axis-panel-width", `${currentWidth}px`);
+    resizer.setAttribute("aria-valuenow", String(currentWidth));
+    if (persist) localStorage.setItem(axisColumnWidthStorageKey, String(currentWidth));
+  };
+
+  applyWidth(currentWidth);
+
+  resizer.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    resizer.setPointerCapture(event.pointerId);
+    resizer.classList.add("is-dragging");
+    document.body.classList.add("is-axis-column-resizing");
+  });
+
+  resizer.addEventListener("pointermove", (event) => {
+    if (!resizer.hasPointerCapture(event.pointerId)) return;
+    const rect = grid.getBoundingClientRect();
+    applyWidth(event.clientX - rect.left - 12);
+  });
+
+  const finishResize = (event) => {
+    if (resizer.hasPointerCapture(event.pointerId)) resizer.releasePointerCapture(event.pointerId);
+    resizer.classList.remove("is-dragging");
+    document.body.classList.remove("is-axis-column-resizing");
+    applyWidth(currentWidth, true);
+  };
+  resizer.addEventListener("pointerup", finishResize);
+  resizer.addEventListener("pointercancel", finishResize);
+
+  resizer.addEventListener("keydown", (event) => {
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+    event.preventDefault();
+    const direction = event.key === "ArrowRight" ? 1 : -1;
+    applyWidth(currentWidth + direction * (event.shiftKey ? 50 : 10), true);
+  });
+
+  window.addEventListener("resize", () => applyWidth(currentWidth));
 }
 
 async function refreshStatus() {
@@ -636,7 +924,7 @@ function connectStatusStream() {
   });
   statusSocket.addEventListener("message", (event) => {
     try {
-      renderStatus(JSON.parse(event.data));
+      queueStreamStatusRender(JSON.parse(event.data));
     } catch (error) {
       addLog("error", `Telemetry stream payload invalid: ${error.message}`);
     }
@@ -654,6 +942,20 @@ function connectStatusStream() {
   });
 }
 
+function queueStreamStatusRender(data) {
+  const sequence = Number(data?.telemetry_source?.sequence);
+  if (Number.isFinite(sequence) && sequence === lastStreamTelemetrySequence) return;
+  if (Number.isFinite(sequence)) lastStreamTelemetrySequence = sequence;
+  pendingStreamStatus = data;
+  if (statusRenderTimer) return;
+  statusRenderTimer = setTimeout(() => {
+    statusRenderTimer = null;
+    const latest = pendingStreamStatus;
+    pendingStreamStatus = null;
+    if (latest) renderStatus(latest);
+  }, PLOT_REFRESH_INTERVAL_MS);
+}
+
 function renderStatus(data) {
   latestStatus = data;
   const timestamp = data.timestamp ? new Date(data.timestamp) : new Date();
@@ -661,10 +963,12 @@ function renderStatus(data) {
   renderDriveErrorEvents(data.drive_error_events);
   renderAutoTuneProgress(data.auto_tune_progress);
   renderAutoTuneStepEvents(data.auto_tune_step_events);
+  renderMotorCalibration(data.motor_calibration);
   if (fields.lastUpdated) {
     fields.lastUpdated.textContent = `Updated ${timestamp.toLocaleTimeString()}`;
   }
   renderDeviceUptime(data.server_started_at, data.timestamp);
+  renderIndustrialSummary(data);
   if (fields.navDot) {
     setLight(fields.navDot, data.connected, data.has_bus_power);
   }
@@ -694,6 +998,50 @@ function renderStatus(data) {
   renderSkySphere(data);
   if (fields.settingsPanel && !fields.settingsPanel.hidden) {
     populateDriveSerialOptions();
+  }
+}
+
+function renderIndustrialSummary(data) {
+  const axes = Array.isArray(data?.axes) ? data.axes : [];
+  const azimuth = axes.find((axis) => axis.label === "Azimuth" && axis.available);
+  const altitude = axes.find((axis) => axis.label === "Altitude" && axis.available);
+  const connected = Boolean(data?.connected && azimuth && altitude);
+
+  if (fields.industrialAzimuthSummary) {
+    fields.industrialAzimuthSummary.textContent = azimuth
+      ? `${formatSignedNumber(azimuth.position_deg)}°`
+      : "--";
+  }
+  if (fields.industrialAltitudeSummary) {
+    fields.industrialAltitudeSummary.textContent = altitude
+      ? `${formatSignedNumber(altitude.position_deg)}°`
+      : "--";
+  }
+
+  const currents = [azimuth?.current, altitude?.current].map(toNumber).filter(Number.isFinite);
+  if (fields.industrialCombinedCurrent) {
+    fields.industrialCombinedCurrent.textContent = currents.length === 2
+      ? `${formatNumber(currents[0] + currents[1])} A`
+      : "--";
+  }
+
+  const velocities = [azimuth?.velocity_deg_per_sec, altitude?.velocity_deg_per_sec]
+    .map(toNumber)
+    .filter(Number.isFinite);
+  if (fields.industrialAverageVelocity) {
+    fields.industrialAverageVelocity.textContent = velocities.length === 2
+      ? `${formatNumber((Math.abs(velocities[0]) + Math.abs(velocities[1])) / 2)} °/s`
+      : "--";
+  }
+  if (fields.industrialLinkQuality) {
+    fields.industrialLinkQuality.textContent = connected ? "100.0%" : "--";
+  }
+  if (fields.industrialMountStatus) {
+    fields.industrialMountStatus.classList.toggle("is-offline", !connected);
+    fields.industrialMountStatus.lastChild.textContent = connected ? " ONLINE" : " OFFLINE";
+  }
+  if (fields.industrialHealthStatus) {
+    fields.industrialHealthStatus.textContent = connected ? "All systems nominal" : "Mount connection offline";
   }
 }
 
@@ -804,6 +1152,7 @@ function resetHistoryWhenServerRestarts(serverStartedAt) {
   lastServerStartedAt = serverStartedAt;
   history.Azimuth = [];
   history.Altitude = [];
+  lastAxisArmedStates.clear();
 }
 
 function renderAxis(label, axis, timestamp) {
@@ -818,6 +1167,7 @@ function renderAxis(label, axis, timestamp) {
     ui.velocity.textContent = "--";
     ui.current.textContent = "--";
     ui.state.textContent = "--";
+    ui.state.title = "";
     ui.errors.textContent = "--";
     ui.armed.textContent = "--";
     ui.driveSerial.textContent = "--";
@@ -846,14 +1196,18 @@ function renderAxis(label, axis, timestamp) {
     current: toNumber(axis.current),
     currentSetpoint: toNumber(axis.current_setpoint),
   };
-  history[label].push(sample);
+  const previousSample = history[label][history[label].length - 1];
+  if (!previousSample || previousSample.timeMs !== sample.timeMs) {
+    history[label].push(sample);
+  }
   pruneHistory(label, timestamp);
 
   ui.status.textContent = "Connected";
   ui.position.textContent = `${formatNumber(axis.position_deg)} Deg`;
   ui.velocity.textContent = `${formatNumber(axis.velocity_deg_per_sec)} Deg/Sec`;
   ui.current.textContent = `${formatNumber(axis.current)} Amp`;
-  ui.state.textContent = valueOrDash(axis.current_state);
+  ui.state.textContent = formatAxisState(axis.current_state);
+  ui.state.title = axisStateTitle(axis.current_state);
   ui.errors.textContent = valueOrDash(axis.active_errors);
   ui.armed.textContent = axis.is_armed ? "Yes" : "No";
   ui.driveSerial.textContent = valueOrDash(axis.drive_serial);
@@ -867,13 +1221,43 @@ function renderAxis(label, axis, timestamp) {
   ui.armed.title = Number(axis.disarm_reason) > 0
     ? `Disarm reason: ${formatDriveErrorBits(axis.disarm_reason)}`
     : "";
+  logAxisArmedTransition(label, axis);
   setAxisEnableMeter(ui.enableMeter, Boolean(axis.is_armed), true);
   setTuningInputs(label, axis);
   renderActualReadouts(ui.chartValue, axis);
   renderMotionStatus(ui.motionStatus, axis);
+  logPositionTimeout(label, axis);
   logAxisDriveErrors(label, axis);
   ui.card.classList.add("axis-ready");
   drawChart(label, timestamp);
+}
+
+function logAxisArmedTransition(label, axis) {
+  if (!axis?.available) {
+    lastAxisArmedStates.delete(label);
+    return;
+  }
+  const armed = Boolean(axis.is_armed);
+  const previous = lastAxisArmedStates.get(label);
+  lastAxisArmedStates.set(label, armed);
+  if (previous === undefined || previous === armed) return;
+
+  const form = document.querySelector(`[data-axis-control="${label}"]`);
+  if (armed) {
+    const message = `${label} enabled (Closed Loop).`;
+    addLog("success", message);
+    setAxisControlMessage(form, message, "is-ok");
+    return;
+  }
+
+  const activeErrors = Number(axis.active_errors) || 0;
+  const disarmReason = Number(axis.disarm_reason) || 0;
+  const reason = activeErrors > 0 || disarmReason > 0
+    ? `active_errors=${activeErrors}, disarm_reason=${disarmReason} (${formatDriveErrorBits(activeErrors | disarmReason)})`
+    : `state=${valueOrDash(axis.current_state)}, no Drive fault reported`;
+  const message = `${label} disabled: ${reason}.`;
+  addLog("warning", message);
+  setAxisControlMessage(form, message, "is-warning");
 }
 
 function setAxisEnableMeter(element, enabled, available = true) {
@@ -894,7 +1278,9 @@ function axisPositionSetpoint(axis) {
   const rawSetpoint = toNumber(axis?.pos_setpoint) ?? toNumber(axis?.input_pos);
   if (rawSetpoint === null) return null;
   const offset = toNumber(axis?.position_offset_deg) ?? 0;
-  return axis?.label === "Azimuth" ? rawSetpoint + offset : normalizeDegrees(rawSetpoint + offset);
+  const scale = toNumber(axis?.position_scale) ?? 1;
+  const target = (rawSetpoint * scale) - offset;
+  return axis?.label === "Azimuth" ? target : normalizeDegrees(target);
 }
 
 function axisVelocitySetpoint(axis) {
@@ -914,21 +1300,126 @@ function pruneHistory(label, now) {
   history[label] = history[label].filter((sample) => sample.timeMs >= cutoff);
 }
 
+async function renderCurrentReport() {
+  if (reportRequestInFlight || !fields.reportView || fields.reportView.hidden) return;
+  reportRequestInFlight = true;
+  try {
+    const response = await fetch("/api/reports/current-using?hours=24&buckets=288", { cache: "no-store" });
+    if (!response.ok) throw new Error(`Report request failed (${response.status})`);
+    const report = await response.json();
+    ["Azimuth", "Altitude"].forEach((label) => {
+      const axis = report.axes?.[label] || {};
+      drawCurrentReportChart(label, axis.points || [], report.from_ms, report.to_ms);
+      const prefix = label === "Azimuth" ? "reportAzimuth" : "reportAltitude";
+      const averageCurrent = document.getElementById(`${prefix}Avg`);
+      const averageSpeed = document.getElementById(`${prefix}AvgSpeed`);
+      const peakCurrent = document.getElementById(`${prefix}Peak`);
+      const peakPosition = document.getElementById(`${prefix}PeakPosition`);
+      if (averageCurrent) averageCurrent.textContent = formatReportValue(axis.average_current_a, "A");
+      if (averageSpeed) averageSpeed.textContent = `Avg speed ${formatReportValue(axis.average_velocity_deg_per_sec, "Deg/Sec")}`;
+      if (peakCurrent) peakCurrent.textContent = formatReportValue(axis.peak?.current_a, "A");
+      if (peakPosition) peakPosition.textContent = `At position ${formatReportValue(axis.peak?.position_deg, "Deg")}`;
+    });
+    const updated = document.getElementById("reportUpdatedAt");
+    if (updated) updated.textContent = `Updated ${new Date(report.to_ms).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`;
+  } catch (error) {
+    const updated = document.getElementById("reportUpdatedAt");
+    if (updated) updated.textContent = error.message;
+  } finally {
+    reportRequestInFlight = false;
+  }
+}
+
+function formatReportValue(value, unit) {
+  return Number.isFinite(Number(value)) ? `${Number(value).toFixed(2)} ${unit}` : `-- ${unit}`;
+}
+
+function drawCurrentReportChart(label, points, fromMs, toMs) {
+  const canvas = document.getElementById(label === "Azimuth" ? "reportAzimuthChart" : "reportAltitudeChart");
+  const chart = canvas ? prepareChartCanvas(canvas) : null;
+  if (!chart) return;
+  const { ctx, width, height } = chart;
+  const pad = { left: 54, right: 58, top: 18, bottom: 34 };
+  ctx.clearRect(0, 0, width, height);
+  ctx.fillStyle = "#0b1217";
+  ctx.fillRect(0, 0, width, height);
+  ctx.strokeStyle = "rgba(133, 153, 164, .13)";
+  ctx.lineWidth = 1;
+  for (let index = 0; index <= 6; index += 1) {
+    const x = pad.left + (index / 6) * (width - pad.left - pad.right);
+    ctx.beginPath(); ctx.moveTo(x, pad.top); ctx.lineTo(x, height - pad.bottom); ctx.stroke();
+    const tick = new Date(fromMs + (index / 6) * (toMs - fromMs));
+    ctx.fillStyle = "#75858e"; ctx.font = "10px Inter, Segoe UI, sans-serif"; ctx.textAlign = "center";
+    ctx.fillText(tick.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }), x, height - 10);
+  }
+  for (let index = 0; index <= 4; index += 1) {
+    const y = pad.top + (index / 4) * (height - pad.top - pad.bottom);
+    ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(width - pad.right, y); ctx.stroke();
+  }
+  if (points.length < 1) {
+    ctx.fillStyle = "#7f9098"; ctx.font = "12px Inter, Segoe UI, sans-serif"; ctx.textAlign = "center";
+    ctx.fillText("Collecting 100 ms telemetry samples…", width / 2, height / 2);
+    return;
+  }
+  const currentMax = Math.max(1, ...points.map((point) => Number(point.current_a) || 0));
+  const velocityMax = Math.max(1, ...points.map((point) => Number(point.velocity_deg_per_sec) || 0));
+  const draw = (key, max, color) => {
+    ctx.beginPath(); ctx.strokeStyle = color; ctx.lineWidth = 2; let started = false;
+    let lastPoint = null;
+    points.forEach((point) => {
+      const value = Number(point[key]); if (!Number.isFinite(value)) return;
+      const x = pad.left + ((point.time_ms - fromMs) / Math.max(1, toMs - fromMs)) * (width - pad.left - pad.right);
+      const y = height - pad.bottom - (value / max) * (height - pad.top - pad.bottom);
+      if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
+      lastPoint = { x, y };
+    });
+    ctx.stroke();
+    if (points.length === 1 && lastPoint) {
+      ctx.beginPath(); ctx.fillStyle = color; ctx.arc(lastPoint.x, lastPoint.y, 3.5, 0, Math.PI * 2); ctx.fill();
+    }
+  };
+  draw("velocity_deg_per_sec", velocityMax, "#f3a84b");
+  draw("current_a", currentMax, "#58c4df");
+  ctx.font = "10px Inter, Segoe UI, sans-serif";
+  ctx.fillStyle = "#58c4df"; ctx.textAlign = "right"; ctx.fillText(`${currentMax.toFixed(1)} A`, pad.left - 7, pad.top + 4); ctx.fillText("0 A", pad.left - 7, height - pad.bottom);
+  ctx.fillStyle = "#f3a84b"; ctx.textAlign = "left"; ctx.fillText(`${velocityMax.toFixed(1)} °/s`, width - pad.right + 7, pad.top + 4); ctx.fillText("0 °/s", width - pad.right + 7, height - pad.bottom);
+}
+
+function prepareChartCanvas(canvas) {
+  const rect = canvas.getBoundingClientRect();
+  const width = Math.round(rect.width || canvas.clientWidth);
+  const height = Math.round(rect.height || canvas.clientHeight);
+  if (width < 80 || height < 80) return null;
+
+  const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+  const pixelWidth = Math.round(width * pixelRatio);
+  const pixelHeight = Math.round(height * pixelRatio);
+  if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
+    canvas.width = pixelWidth;
+    canvas.height = pixelHeight;
+  }
+
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+  return { ctx, width, height };
+}
+
 function drawChart(label, now = new Date()) {
   const ui = axisFields[label];
   const canvas = ui.canvas;
-  const ctx = canvas.getContext("2d");
-  const width = canvas.width;
-  const height = canvas.height;
-  const padLeft = 58;
-  const padRight = 42;
-  const padTop = 28;
-  const padBottom = 42;
+  const chart = prepareChartCanvas(canvas);
+  if (!chart) return;
+  const { ctx, width, height } = chart;
+  const compact = width < 640;
+  const padLeft = compact ? 46 : 58;
+  const padRight = compact ? 12 : 42;
+  const padTop = compact ? 16 : 28;
+  const padBottom = compact ? 32 : 42;
   const samples = history[label];
   const nowMs = now.getTime();
 
   ctx.clearRect(0, 0, width, height);
-  ctx.fillStyle = "rgba(7, 10, 18, 0.34)";
+  ctx.fillStyle = "#0a1116";
   ctx.fillRect(0, 0, width, height);
   drawGrid(ctx, width, height, padLeft, padRight, padTop, padBottom);
   drawTimeLabels(ctx, width, height, padLeft, padRight, padBottom);
@@ -940,8 +1431,9 @@ function drawChart(label, now = new Date()) {
 
   if (samples.length < 2) {
     ctx.fillStyle = "rgba(244, 246, 255, 0.55)";
-    ctx.font = "24px Segoe UI";
-    ctx.fillText("Waiting for telemetry samples", padLeft, height / 2);
+    ctx.font = "12px Inter, Segoe UI, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("Waiting for telemetry samples", width / 2, height / 2);
     return;
   }
 
@@ -1011,7 +1503,7 @@ function drawGrid(ctx, width, height, padLeft, padRight, padTop, padBottom) {
 
 function drawTimeLabels(ctx, width, height, padLeft, padRight, padBottom) {
   ctx.fillStyle = "rgba(244, 246, 255, 0.48)";
-  ctx.font = "10.5px Segoe UI";
+  ctx.font = "11px Segoe UI";
   ctx.textAlign = "center";
   ctx.textBaseline = "top";
 
@@ -1025,7 +1517,7 @@ function drawTimeLabels(ctx, width, height, padLeft, padRight, padBottom) {
 
 function drawValueLabels(ctx, min, max, width, height, padLeft, padTop, padBottom) {
   ctx.fillStyle = "rgba(244, 246, 255, 0.50)";
-  ctx.font = "11.5px Segoe UI";
+  ctx.font = "12px Segoe UI";
   ctx.textAlign = "right";
   ctx.textBaseline = "middle";
 
@@ -1048,7 +1540,11 @@ function renderSkySphere(data) {
   const axes = Array.isArray(data?.axes) ? data.axes : [];
   const azimuth = axes.find((axis) => axis.label === "Azimuth");
   const altitude = axes.find((axis) => axis.label === "Altitude");
-  const azimuthDeg = toNumber(azimuth?.absolute_position_deg ?? azimuth?.position_deg);
+  // Horizon commands and the displayed axis readout both use the configured
+  // mount coordinate (direction and position offset already applied). Using
+  // the encoder's absolute/raw coordinate here puts the actual marker in a
+  // different quadrant even though the numeric readout is correct.
+  const azimuthDeg = toNumber(azimuth?.position_deg);
   const altitudeDeg = toNumber(altitude?.position_deg);
 
   renderSkyAxisActuals("Azimuth", azimuth);
@@ -1517,6 +2013,11 @@ function normalizeDegrees(value) {
   return ((value % 360) + 360) % 360;
 }
 
+function normalizeSignedDegrees(value) {
+  const normalized = normalizeDegrees(value);
+  return normalized > 180 ? normalized - 360 : normalized;
+}
+
 function selectedSeries(label) {
   const value = axisFields[label]?.plotSelect?.value || "position";
   return seriesConfig[value] || seriesConfig.position;
@@ -1543,13 +2044,23 @@ function renderMotionStatus(element, axis) {
   const value = element.querySelector("em");
   if (value) value.textContent = state.label;
   element.title = state.detail;
-  element.classList.remove("is-moving", "is-settling", "is-reached");
+  element.classList.remove("is-moving", "is-settling", "is-reached", "is-timeout");
   if (state.className) element.classList.add(state.className);
 }
 
 function axisMotionState(axis) {
   if (!axis || !axis.available) {
     return { label: "--", className: "", detail: "Axis is not available." };
+  }
+  const softwarePosition = axis.software_position;
+  if (softwarePosition?.phase === "timeout") {
+    const target = toNumber(softwarePosition.target_deg);
+    const error = Math.abs(toNumber(softwarePosition.error_deg) ?? 0);
+    return {
+      label: "Timeout",
+      className: "is-timeout",
+      detail: `Position command timed out before reaching ${formatNumber(target)} Deg. Error ${formatNumber(error)} Deg. Check axis tuning and the mechanical system.`,
+    };
   }
   if (!axis.is_armed) {
     return { label: "Idle", className: "", detail: "Axis is not in closed loop." };
@@ -1571,7 +2082,6 @@ function axisMotionState(axis) {
   const commandVelocity = Math.abs(toNumber(axis.input_vel) ?? 0);
   const setpointVelocity = Math.abs(toNumber(axis.vel_setpoint) ?? 0);
   const velocityMode = Number(axis.control_mode) === 2;
-  const softwarePosition = axis.software_position;
   if (softwarePosition && typeof softwarePosition === "object") {
     const phase = softwarePosition.phase || "";
     const target = toNumber(softwarePosition.target_deg);
@@ -1589,13 +2099,6 @@ function axisMotionState(axis) {
         label: "Reached",
         className: "is-reached",
         detail: `Python position loop reached target. Error ${formatNumber(error)} Deg.`,
-      };
-    }
-    if (phase === "timeout") {
-      return {
-        label: "Settling",
-        className: "is-settling",
-        detail: `Python position loop timed out before reaching ${formatNumber(target)} Deg. Error ${formatNumber(error)} Deg.`,
       };
     }
   }
@@ -1622,11 +2125,12 @@ function axisMotionState(axis) {
   const position = toNumber(axis.position_deg);
   const rawTarget = toNumber(axis.input_pos);
   const offset = toNumber(axis.position_offset_deg) ?? 0;
+  const scale = toNumber(axis.position_scale) ?? 1;
   const target = rawTarget === null
     ? null
     : axis.label === "Azimuth"
-      ? rawTarget + offset
-      : normalizeDegrees(rawTarget + offset);
+      ? (rawTarget * scale) - offset
+      : normalizeDegrees((rawTarget * scale) - offset);
   const trajectoryDone = axis.trajectory_done === true;
   const hasTarget = target !== null && position !== null;
   const error = hasTarget
@@ -1662,6 +2166,21 @@ function axisMotionState(axis) {
   return { label: "Ready", className: "", detail: "Axis is enabled." };
 }
 
+function logPositionTimeout(label, axis) {
+  const move = axis?.software_position;
+  if (!move || move.phase !== "timeout") return;
+  const eventKey = `${label}:${move.started_at || move.updated_at || move.target_deg}`;
+  if (loggedPositionTimeouts.has(eventKey)) return;
+  loggedPositionTimeouts.add(eventKey);
+  if (loggedPositionTimeouts.size > 100) {
+    loggedPositionTimeouts.delete(loggedPositionTimeouts.values().next().value);
+  }
+  addLog(
+    "warning",
+    `${label} position timeout: axis did not reach Position Set Point ${formatNumber(move.target_deg)} Deg (final error ${formatNumber(Math.abs(toNumber(move.error_deg) ?? 0))} Deg). Check axis tuning and inspect the mechanical system.`,
+  );
+}
+
 function signedDegreeDelta(target, current) {
   return ((target - current + 540) % 360) - 180;
 }
@@ -1672,15 +2191,34 @@ function renderMotorControls(data) {
   const allConnected = data?.connected && connectedAxes.length >= 2;
   const anyArmed = connectedAxes.some((axis) => axis.is_armed);
   const allArmed = connectedAxes.length >= 2 && connectedAxes.every((axis) => axis.is_armed);
+  const armedCount = connectedAxes.filter((axis) => axis.is_armed).length;
 
   if (fields.motorToggle) {
+    const togglePalette = allArmed
+      ? { background: "#7c2623", border: "#a13934" }
+      : anyArmed
+        ? { background: "#8a4a12", border: "#bd6c1d" }
+        : { background: "#19633d", border: "#278053" };
     fields.motorToggle.disabled = !allConnected || motorCommandInFlight;
     fields.motorToggle.classList.toggle("is-enabled", allArmed);
     fields.motorToggle.classList.toggle("is-partial", anyArmed && !allArmed);
+    fields.motorToggle.dataset.axisEnableState = allArmed ? "all" : anyArmed ? "partial" : "none";
+    fields.motorToggle.style.removeProperty("background");
+    fields.motorToggle.style.setProperty("background-color", togglePalette.background, "important");
+    fields.motorToggle.style.setProperty("border-color", togglePalette.border, "important");
     fields.motorToggle.setAttribute("aria-pressed", allArmed ? "true" : "false");
+    fields.motorToggle.title = allArmed
+      ? "Both axes are enabled. Click to disable both axes."
+      : anyArmed
+        ? `${armedCount} of ${connectedAxes.length} axes enabled. Click to enable all axes.`
+        : "Both axes are disabled. Click to enable both axes.";
   }
   if (fields.motorToggleLabel) {
-    fields.motorToggleLabel.textContent = allArmed ? "Disable" : anyArmed ? "Enable All" : "Enable";
+    fields.motorToggleLabel.textContent = allArmed
+      ? "Disable"
+      : anyArmed
+        ? `Enable All (${armedCount}/${connectedAxes.length})`
+        : "Enable";
   }
   if (fields.motorStop) {
     fields.motorStop.disabled = !anyArmed || motorCommandInFlight;
@@ -1714,9 +2252,27 @@ function renderAxisControls(data) {
 }
 
 function setViewMode(mode, { persist = true } = {}) {
-  activeViewMode = ["axis", "sky", "pointing"].includes(mode) ? mode : "axis";
+  activeViewMode = ["axis", "sky", "pointing", "camera", "report"].includes(mode) ? mode : "axis";
+  if (fields.industrialSectionTitle) {
+    fields.industrialSectionTitle.textContent = activeViewMode === "sky"
+      ? "HORIZON VIEW"
+      : activeViewMode === "pointing"
+        ? "POINTING MODEL"
+        : activeViewMode === "camera"
+          ? "CAMERA VIEW"
+          : activeViewMode === "report"
+            ? "REPORTS / CURRENT USING"
+        : "DASHBOARD";
+  }
+  hideFloatingWindowsOutsideView(activeViewMode);
+  if (activeViewMode !== "pointing" && fields.pointingTargetPanel) {
+    fields.pointingTargetPanel.hidden = true;
+  }
   document.body.classList.toggle("is-pointing-view", activeViewMode === "pointing");
-  if (fields.axisView) fields.axisView.hidden = activeViewMode !== "axis";
+  document.body.classList.toggle("is-camera-view", activeViewMode === "camera");
+  document.body.classList.toggle("is-report-view", activeViewMode === "report");
+  if (fields.axisView) fields.axisView.hidden = !["axis", "camera", "report"].includes(activeViewMode);
+  if (fields.reportView) fields.reportView.hidden = activeViewMode !== "report";
   if (fields.skyView) fields.skyView.hidden = activeViewMode !== "sky";
   if (fields.pointingView) fields.pointingView.hidden = activeViewMode !== "pointing";
 
@@ -1728,13 +2284,28 @@ function setViewMode(mode, { persist = true } = {}) {
 
   if (persist) {
     storeViewMode(activeViewMode);
-    const label = activeViewMode === "sky" ? "Horizon View" : activeViewMode === "pointing" ? "Pointing Model" : "Axis View";
+    const label = activeViewMode === "sky"
+      ? "Horizon View"
+      : activeViewMode === "pointing"
+        ? "Pointing Model"
+        : activeViewMode === "camera"
+          ? "Camera View"
+          : activeViewMode === "report"
+            ? "Current Using Report"
+          : "Axis View";
     addLog("message", `Dashboard view changed to ${label}`);
+  }
+  if (activeViewMode !== "camera" && fields.cameraLiveWindow?.classList.contains("is-docked") && !fields.cameraLiveWindow.hidden) {
+    closeCameraLiveWindow();
   }
   if (activeViewMode === "sky") {
     renderSkySphere(latestStatus);
   } else if (activeViewMode === "pointing") {
     loadPointingModel();
+  } else if (activeViewMode === "camera") {
+    if (fields.cameraLiveWindow?.hidden) openCameraLiveWindow();
+  } else if (activeViewMode === "report") {
+    requestAnimationFrame(renderCurrentReport);
   }
 }
 
@@ -1754,6 +2325,19 @@ function labelForHealth(health) {
 
 function valueOrDash(value) {
   return value === null || value === undefined || value === "" ? "--" : String(value);
+}
+
+function formatAxisState(value) {
+  const numeric = Number(value);
+  if (!Number.isInteger(numeric)) return "--";
+  return ODRIVE_AXIS_STATE_LABELS.get(numeric) || `Unknown (${numeric})`;
+}
+
+function axisStateTitle(value) {
+  const numeric = Number(value);
+  if (!Number.isInteger(numeric)) return "";
+  const label = ODRIVE_AXIS_STATE_LABELS.get(numeric);
+  return label ? `ODrive AxisState: ${label} (${numeric})` : `Unknown ODrive AxisState (${numeric})`;
 }
 
 function renderDeviceUptime(serverStartedAt, serverTimestamp) {
@@ -1806,16 +2390,50 @@ function setTuningInputs(label, axis) {
 
 function setTuningFieldValue(label, uiKey, fieldName, value) {
   const ui = axisFields[label];
-  setInputValueIfIdle(ui?.[uiKey], value);
+  setInputValueIfIdle(ui?.[uiKey], value, label, fieldName);
   tuningFormsForAxis(label).forEach((form) => {
-    setInputValueIfIdle(form.elements[fieldName], value);
+    setInputValueIfIdle(form.elements[fieldName], value, label, fieldName);
   });
 }
 
-function setInputValueIfIdle(input, value) {
-  if (!input || document.activeElement === input) return;
+function tuningEditKey(label, fieldName) {
+  return `${label}:${fieldName}`;
+}
+
+function setInputValueIfIdle(input, value, label = "", fieldName = "") {
+  if (
+    !input
+    || document.activeElement === input
+    || input.dataset.tuningDirty === "true"
+    || (label && fieldName && pendingTuningEdits.has(tuningEditKey(label, fieldName)))
+  ) return;
   const number = toNumber(value);
   input.value = number === null ? "" : formatGain(number);
+}
+
+function markTuningEditPending(label, fieldName, value) {
+  if (!label || !fieldName) return;
+  pendingTuningEdits.set(tuningEditKey(label, fieldName), String(value));
+  tuningFormsForAxis(label).forEach((form) => {
+    const input = form.elements[fieldName];
+    if (input) input.dataset.tuningDirty = "true";
+  });
+}
+
+function clearAppliedTuningEdits(label, payload) {
+  Object.entries(payload || {}).forEach(([fieldName, submittedValue]) => {
+    const key = tuningEditKey(label, fieldName);
+    if (!pendingTuningEdits.has(key)) return;
+    const currentValue = tuningFormsForAxis(label)
+      .map((form) => form.elements[fieldName])
+      .find((input) => input && input.dataset.tuningDirty === "true")?.value;
+    if (String(currentValue) !== String(submittedValue)) return;
+    pendingTuningEdits.delete(key);
+    tuningFormsForAxis(label).forEach((form) => {
+      const input = form.elements[fieldName];
+      if (input) delete input.dataset.tuningDirty;
+    });
+  });
 }
 
 function formatGain(value) {
@@ -1894,6 +2512,7 @@ function syncMatchingTuningInputs(sourceInput) {
     if (!target || target === sourceInput || document.activeElement === target) return;
     target.value = sourceInput.value;
   });
+  markTuningEditPending(axis, sourceInput.name, sourceInput.value);
 }
 
 async function applyTuning(label, form) {
@@ -1929,7 +2548,13 @@ async function applyTuningPayload(label, payload, options = {}) {
       throw new Error(data.error || "Tuning update failed.");
     }
     renderStatus(data.status);
+    const appliedVelocityLimit = toNumber(payload.velocity_limit);
+    if (label === "Azimuth" && appliedVelocityLimit !== null && appliedVelocityLimit > 0) {
+      if (!appSettings.motion_limits) appSettings.motion_limits = {};
+      appSettings.motion_limits.slew_rate_deg_per_sec = Math.min(appliedVelocityLimit, 100);
+    }
     pendingAutoTuneTuning[label] = null;
+    clearAppliedTuningEdits(label, payload);
     addLog("message", options.successMessage || `${label} tuning applied`);
     setTuningMessage(ui, options.successMessage || "Tuning applied", "is-ok");
     return true;
@@ -2413,6 +3038,61 @@ async function sendMotorCommand(action, payload = null) {
   }
 }
 
+async function emergencyStopAndDisable() {
+  if (emergencyStopInFlight) return;
+  emergencyStopInFlight = true;
+
+  // Stop browser-side jog refreshes immediately so they cannot overwrite the
+  // zero-velocity command while the emergency request is in flight.
+  clearAxisJogState("Azimuth");
+  clearAxisJogState("Altitude");
+  motorCommandInFlight = true;
+  addLog("warning", "EMERGENCY STOP: Escape pressed. Stopping and disabling both axes...");
+  renderMotorControls(latestStatus);
+  renderAxisControls(latestStatus);
+
+  let stopError = null;
+  try {
+    const stopResponse = await fetch("/api/motors/stop", { method: "POST" });
+    const stopData = await stopResponse.json();
+    if (!stopResponse.ok || !stopData.ok) {
+      throw new Error(stopData.error || "Could not stop both axes.");
+    }
+    if (stopData.status) renderStatus(stopData.status);
+  } catch (error) {
+    stopError = error;
+    addLog("error", `Emergency stop command failed: ${error.message}`);
+  }
+
+  try {
+    // Always attempt Disable even if the preceding Stop request fails.
+    const disableResponse = await fetch("/api/motors/disable", { method: "POST" });
+    const disableData = await disableResponse.json();
+    if (!disableResponse.ok || !disableData.ok) {
+      throw new Error(disableData.error || "Could not disable both axes.");
+    }
+    if (disableData.status) renderStatus(disableData.status);
+    const axes = Array.isArray(disableData.status?.axes) ? disableData.status.axes : [];
+    const stillArmed = axes.filter((axis) => axis.available && axis.is_armed);
+    if (stillArmed.length > 0) {
+      throw new Error(`Drive still armed: ${stillArmed.map((axis) => axis.label).join(", ")}`);
+    }
+    addLog(
+      stopError ? "warning" : "success",
+      stopError
+        ? "Escape emergency Disable completed, but the preceding Stop command reported an error."
+        : "Escape emergency stop complete. Azimuth and Altitude are disabled.",
+    );
+  } catch (error) {
+    addLog("error", `EMERGENCY DISABLE FAILED: ${error.message}`);
+  } finally {
+    motorCommandInFlight = false;
+    emergencyStopInFlight = false;
+    renderMotorControls(latestStatus);
+    renderAxisControls(latestStatus);
+  }
+}
+
 async function sendAxisMotorCommand(axis, action, payload = null, form = null) {
   const guardResult = motionCommandGuard.validate(action, payload);
   if (!guardResult.ok) {
@@ -2528,10 +3208,14 @@ async function sendAxisJogCommand(axis, velocity, form = null, message = "Jog", 
   }
 
   try {
-    const lightweight = options.lightweight === true;
-    const response = await fetch(lightweight ? "/api/motors/velocity-command" : "/api/motors/velocity", {
+    motionCommandSequence += 1;
+    const response = await fetch("/api/motors/velocity-command", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "X-Motion-Client-ID": motionClientId,
+        "X-Motion-Command-Sequence": String(motionCommandSequence),
+      },
       body: JSON.stringify(payload),
     });
     const data = await response.json();
@@ -2554,6 +3238,60 @@ function setAxisControlMessage(form, message, className = "") {
   messageElement.classList.remove("is-ok", "is-error", "is-warning");
   if (className) messageElement.classList.add(className);
   messageElement.textContent = message;
+}
+
+function motorCalibrationPayload(form) {
+  return {
+    min_position_deg: form.elements.min_position_deg.value,
+    max_position_deg: form.elements.max_position_deg.value,
+    current_amp: form.elements.current_amp.value,
+    speed_deg_per_sec: form.elements.speed_deg_per_sec.value,
+  };
+}
+
+function setMotorCalibrationMessage(form, message, className = "") {
+  const element = form?.querySelector("[data-motor-calibration-message]");
+  if (!element) return;
+  element.classList.remove("is-ok", "is-error", "is-warning");
+  if (className) element.classList.add(className);
+  element.textContent = message;
+}
+
+function renderMotorCalibration(states = {}) {
+  document.querySelectorAll("[data-motor-calibration]").forEach((form) => {
+    const state = states?.[form.dataset.motorCalibration];
+    const running = Boolean(state?.running);
+    form.querySelector(".motor-calibration-start")?.toggleAttribute("disabled", running);
+    form.querySelector(".motor-calibration-stop")?.toggleAttribute("disabled", !running);
+    if (!state) return;
+    if (state.phase === "error") {
+      setMotorCalibrationMessage(form, state.error || "Motor calibration failed", "is-error");
+    } else if (running) {
+      setMotorCalibrationMessage(form, `Running: ${state.phase} (${formatNumber(state.target_deg)} Deg)`, "is-ok");
+    } else {
+      setMotorCalibrationMessage(form, state.phase === "stopped" ? "Stopped" : state.phase, "is-warning");
+    }
+  });
+}
+
+async function sendMotorCalibrationCommand(axis, action, form) {
+  const payload = action === "start" ? motorCalibrationPayload(form) : null;
+  setMotorCalibrationMessage(form, `${action === "start" ? "Starting" : "Stopping"} motor calibration...`);
+  try {
+    const options = { method: "POST" };
+    if (payload) {
+      options.headers = { "Content-Type": "application/json" };
+      options.body = JSON.stringify(payload);
+    }
+    const response = await fetch(`/api/motors/calibration/${encodeURIComponent(axis)}/${action}`, options);
+    const data = await response.json();
+    if (!response.ok || !data.ok) throw new Error(data.error || "Motor calibration command failed.");
+    renderStatus(data.status);
+    addLog("message", `${axis} motor calibration ${action === "start" ? "started" : "stopped"}`);
+  } catch (error) {
+    setMotorCalibrationMessage(form, error.message, "is-error");
+    addLog("error", `${axis} motor calibration failed: ${error.message}`);
+  }
 }
 
 function validateMaxVelocity(action, payload) {
@@ -2618,9 +3356,10 @@ function labelForMotorAction(action) {
 }
 
 function addLog(level, message) {
-  if (!fields.logEntries || !message) return;
+  if (!fields.logEntries || !message || systemLogPaused) return;
   const entry = document.createElement("div");
   entry.className = `log-entry is-${level}`;
+  entry.dataset.level = level;
   entry.dataset.sequence = String(++logSequence);
 
   const time = document.createElement("time");
@@ -2629,13 +3368,17 @@ function addLog(level, message) {
 
   const status = document.createElement("span");
   status.className = "log-level";
-  status.textContent = level.toUpperCase();
+  status.textContent = level === "message" ? "INFO" : level.toUpperCase();
+
+  const source = document.createElement("span");
+  source.className = "log-source";
+  source.textContent = /telemetry/i.test(message) ? "Telemetry" : "System";
 
   const text = document.createElement("span");
   text.className = "log-message";
   text.textContent = message;
 
-  entry.append(time, status, text);
+  entry.append(time, status, source, text);
   fields.logEntries.prepend(entry);
 
   const maxEntries = 500;
@@ -2704,12 +3447,12 @@ function populateAutoTuneDefaults(label) {
     lower = Number.isFinite(Number(limits[lowerKey])) ? Math.max(Number(limits[lowerKey]), currentLower) : currentLower;
     upper = Number.isFinite(Number(limits[upperKey])) ? Math.min(Number(limits[upperKey]), currentUpper) : currentUpper;
   }
-  const speed = Number.isFinite(Number(limits.slew_rate_deg_per_sec)) ? Number(limits.slew_rate_deg_per_sec) : 20;
+  const speed = Number.isFinite(Number(limits.slew_rate_deg_per_sec)) ? Number(limits.slew_rate_deg_per_sec) : 50;
   const hasTemplateRange = autoUi.min?.value === "-60" && autoUi.max?.value === "60";
   if (autoUi.min && (autoUi.min.value === "" || hasTemplateRange)) autoUi.min.value = formatAutoTuneInput(lower);
   if (autoUi.max && (autoUi.max.value === "" || hasTemplateRange)) autoUi.max.value = formatAutoTuneInput(upper);
   if (autoUi.minSpeed && autoUi.minSpeed.value === "") autoUi.minSpeed.value = "0.1";
-  if (autoUi.maxSpeed && autoUi.maxSpeed.value === "") autoUi.maxSpeed.value = String(Math.min(Math.max(speed, 1), 20));
+  if (autoUi.maxSpeed && autoUi.maxSpeed.value === "") autoUi.maxSpeed.value = String(Math.min(Math.max(speed, 1), 50));
   if (autoUi.cycles && autoUi.cycles.value === "") autoUi.cycles.value = "3";
 }
 
@@ -2846,13 +3589,19 @@ function populateSettingsForm() {
   if (fields.settingsUpdateInterval) fields.settingsUpdateInterval.value = updater.check_interval_minutes || 15;
   if (fields.settingsUpdateChannel) fields.settingsUpdateChannel.value = updater.channel || "main";
   if (fields.settingsAutoUpdate) fields.settingsAutoUpdate.value = updater.enabled === false ? "false" : "true";
+  const simulationEnabled = appSettings.simulation_mode?.enabled === true;
+  if (fields.settingsSimulationMode) {
+    fields.settingsSimulationMode.textContent = simulationEnabled ? "Run in Hardware Mode" : "Run in Simulation Mode";
+    fields.settingsSimulationMode.classList.toggle("is-active", simulationEnabled);
+    fields.settingsSimulationMode.setAttribute("aria-pressed", simulationEnabled ? "true" : "false");
+  }
 }
 
 function updatePageTitle() {
   const stationName = String(appSettings.station?.name || "").trim();
   const title = "Narit Fire Detector Mount";
   if (fields.pageTitle) fields.pageTitle.textContent = title;
-  if (fields.stationTitle) fields.stationTitle.textContent = stationName || "NARIT#1 Mount Station";
+  if (fields.stationTitle) fields.stationTitle.textContent = (stationName || "NARIT#1").trim().split(/\s+/)[0];
   document.title = stationName ? `${title} - ${stationName}` : title;
 }
 
@@ -3221,6 +3970,31 @@ async function resetMountServer() {
   }
 }
 
+async function toggleSimulationMode() {
+  const button = fields.settingsSimulationMode;
+  const enabled = appSettings.simulation_mode?.enabled !== true;
+  if (button) button.disabled = true;
+  addLog("warning", `Restarting Mount Server in ${enabled ? "Simulation" : "Hardware"} Mode`);
+  try {
+    const response = await fetch("/api/system/simulation-mode", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled }),
+    });
+    const data = await response.json();
+    if (!response.ok || !data.ok) throw new Error(data.error || "Could not change simulation mode.");
+    await waitForMountServer();
+    await loadAppSettings();
+    await refreshStatus();
+    populateSettingsForm();
+    addLog("success", `Mount Server is running in ${enabled ? "Simulation" : "Hardware"} Mode.`);
+  } catch (error) {
+    addLog("error", `Simulation mode change failed: ${error.message}`);
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
+
 async function waitForMountServer() {
   await delay(900);
   let lastError = "Mount server did not come back online in time.";
@@ -3261,7 +4035,10 @@ function fillSkyGotoFromActual() {
 
 function fillSkyGotoFromMapClick(event) {
   const target = skyTargetFromPointerEvent(event);
-  if (!target) return;
+  if (!target) {
+    setSkyTargetMessage("Selected point is outside the configured motion limits.", "is-error");
+    return;
+  }
   selectedSkyTarget = target;
   if (fields.skyGotoAzimuth) fields.skyGotoAzimuth.value = target.azimuth.toFixed(2);
   if (fields.skyGotoAltitude) fields.skyGotoAltitude.value = target.altitude.toFixed(2);
@@ -3281,11 +4058,38 @@ function updateSkyTargetFromInputs() {
   }
 
   selectedSkyTarget = { azimuth, altitude };
-  updateSkyTargetMessageForAltitude(altitude);
+  updateSkyTargetMessageForLimits(azimuth, altitude);
   renderSkySphere(latestStatus);
 }
 
-function updateSkyTargetMessageForAltitude(altitude) {
+function validateSkyPositionTarget(azimuth, altitude) {
+  const limits = appSettings.motion_limits || {};
+  const ccwLimit = toNumber(limits.azimuth_ccw_limit_deg);
+  const cwLimit = toNumber(limits.azimuth_cw_limit_deg);
+  const lowerLimit = toNumber(limits.altitude_lower_limit_deg);
+  const upperLimit = toNumber(limits.altitude_upper_limit_deg);
+
+  if (ccwLimit !== null && azimuth < ccwLimit) {
+    return { ok: false, message: `Azimuth target must be at least ${formatNumber(ccwLimit)} Deg.` };
+  }
+  if (cwLimit !== null && azimuth > cwLimit) {
+    return { ok: false, message: `Azimuth target must not exceed ${formatNumber(cwLimit)} Deg.` };
+  }
+  if (lowerLimit !== null && altitude < lowerLimit) {
+    return { ok: false, message: `Altitude target must be at least ${formatNumber(lowerLimit)} Deg.` };
+  }
+  if (upperLimit !== null && altitude > upperLimit) {
+    return { ok: false, message: `Altitude target must not exceed ${formatNumber(upperLimit)} Deg.` };
+  }
+  return { ok: true, message: "" };
+}
+
+function updateSkyTargetMessageForLimits(azimuth, altitude) {
+  const validation = validateSkyPositionTarget(azimuth, altitude);
+  if (!validation.ok) {
+    setSkyTargetMessage(validation.message, "is-error");
+    return;
+  }
   const minAltitude = skyVisibleMinimumAltitude();
   const maxAltitude = skyVisibleMaximumAltitude();
   if (altitude < minAltitude || altitude > maxAltitude) {
@@ -3318,6 +4122,8 @@ async function loadPointingModel({ force = false } = {}) {
       throw new Error(data.error || "Pointing model unavailable.");
     }
     pointingModel = data;
+    pointing3DReady = false;
+    fields.pointingMap3DCanvas?.parentElement?.classList.remove("is-3d");
     pointingRasterImages.clear();
     selectedPointingSample = null;
     setPointingProgress(true, data.cached ? "Loading cached terrain map" : "Loading terrain map", data.cached ? "Using cached 30 m raster from disk..." : "Preparing generated 30 m raster...");
@@ -3367,6 +4173,17 @@ function updatePointingReadouts() {
 }
 
 function renderPointingModel() {
+  if (pointing3DReady && window.pointingTerrain3D) {
+    window.pointingTerrain3D.applyLayers(pointingLayerState());
+    window.pointingTerrain3D.showSelection(selectedPointingSample);
+    window.pointingTerrain3D.resize();
+    setPointingProgress(false);
+    return;
+  }
+  if (!pointing3DLoading && window.pointingTerrain3D && fields.pointingMap3DCanvas && pointingModel?.raster?.height_src) {
+    initializePointingTerrain3D();
+    return;
+  }
   const canvas = fields.pointingMapCanvas;
   if (!canvas || !pointingModel) return;
   const rect = canvas.parentElement?.getBoundingClientRect() || canvas.getBoundingClientRect();
@@ -3381,6 +4198,30 @@ function renderPointingModel() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, cssWidth, cssHeight);
   drawPointingTerrain(ctx, cssWidth, cssHeight);
+}
+
+async function initializePointingTerrain3D() {
+  pointing3DLoading = true;
+  setPointingProgress(true, "Loading 3D terrain", "Building elevation mesh from synchronized DEM...");
+  try {
+    pointing3DReady = await window.pointingTerrain3D.load(
+      fields.pointingMap3DCanvas,
+      pointingModel,
+      pointingLayerState(),
+    );
+    fields.pointingMap3DCanvas?.parentElement?.classList.toggle("is-3d", pointing3DReady);
+    if (pointing3DReady) {
+      window.pointingTerrain3D.showSelection(selectedPointingSample);
+      setPointingProgress(false);
+    }
+  } catch (error) {
+    pointing3DReady = false;
+    fields.pointingMap3DCanvas?.parentElement?.classList.remove("is-3d");
+    addLog("error", `3D Pointing Model failed; using 2D fallback: ${error.message}`);
+  } finally {
+    pointing3DLoading = false;
+    if (!pointing3DReady) renderPointingModel();
+  }
 }
 
 function drawPointingTerrain(ctx, width, height) {
@@ -3622,25 +4463,125 @@ function drawPointingPlaceholder(message) {
   ctx.fillText(message || "Pointing Model unavailable", width / 2, height / 2);
 }
 
-async function selectPointingMapPoint(event) {
+async function fetchPointingSample(target, signal = undefined) {
+  const url = `/api/pointing/sample?lat=${encodeURIComponent(target.latitude)}&lon=${encodeURIComponent(target.longitude)}`;
+  const response = await fetch(url, { cache: "no-store", signal });
+  const data = await response.json();
+  if (!response.ok || !data.ok) throw new Error(data.error || "Point sample failed.");
+  return data.sample;
+}
+
+function previewPointingMapPoint(event) {
+  if (event.buttons) return;
   const target = pointingTargetFromPointerEvent(event);
-  if (!target) return;
-  try {
-    const url = `/api/pointing/sample?lat=${encodeURIComponent(target.latitude)}&lon=${encodeURIComponent(target.longitude)}`;
-    const response = await fetch(url, { cache: "no-store" });
-    const data = await response.json();
-    if (!response.ok || !data.ok) {
-      throw new Error(data.error || "Point sample failed.");
-    }
-    selectedPointingSample = data.sample;
+  clearTimeout(pointingHoverTimer);
+  if (!target) {
+    pointingHoverRequest?.abort();
+    hoverPointingSample = null;
     updatePointingSelectionReadouts(selectedPointingSample);
+    if (pointing3DReady && window.pointingTerrain3D) {
+      window.pointingTerrain3D.showSelection(selectedPointingSample);
+    }
+    return;
+  }
+  pointingHoverTimer = setTimeout(async () => {
+    pointingHoverRequest?.abort();
+    const request = new AbortController();
+    pointingHoverRequest = request;
+    try {
+      hoverPointingSample = await fetchPointingSample(target, request.signal);
+      updatePointingSelectionReadouts(hoverPointingSample);
+      if (pointing3DReady && window.pointingTerrain3D) {
+        window.pointingTerrain3D.showSelection(hoverPointingSample);
+      }
+    } catch (error) {
+      if (error.name !== "AbortError") {
+        if (pointing3DReady && window.pointingTerrain3D) {
+          window.pointingTerrain3D.showSelection(selectedPointingSample);
+        }
+        addLog("error", `Pointing hover sample failed: ${error.message}`);
+      }
+    }
+  }, 110);
+}
+
+function leavePointingMap() {
+  clearTimeout(pointingHoverTimer);
+  pointingHoverRequest?.abort();
+  hoverPointingSample = null;
+  updatePointingSelectionReadouts(selectedPointingSample);
+  if (pointing3DReady && window.pointingTerrain3D) {
+    window.pointingTerrain3D.showSelection(selectedPointingSample);
+  }
+}
+
+async function selectPointingMapPoint(event) {
+  if (activeViewMode !== "pointing") return;
+  const target = pointingTargetFromPointerEvent(event)
+    || (hoverPointingSample ? { latitude: hoverPointingSample.latitude, longitude: hoverPointingSample.longitude } : null);
+  if (!target && !hoverPointingSample) return;
+  try {
+    selectedPointingSample = hoverPointingSample || await fetchPointingSample(target);
+    if (activeViewMode !== "pointing") return;
+    hoverPointingSample = selectedPointingSample;
+    updatePointingSelectionReadouts(selectedPointingSample);
+    openPointingTargetPanel(selectedPointingSample);
     renderPointingModel();
   } catch (error) {
     addLog("error", `Pointing sample failed: ${error.message}`);
   }
 }
 
+function mountAzimuthForPointingSample(sample) {
+  const normalized = toNumber(sample?.device_azimuth_deg);
+  if (normalized === null) return null;
+  const limits = appSettings.motion_limits || {};
+  const lower = toNumber(limits.azimuth_ccw_limit_deg);
+  const upper = toNumber(limits.azimuth_cw_limit_deg);
+  const actual = toNumber(axesByLabel().Azimuth?.position_deg) ?? 0;
+  const candidates = [-720, -360, 0, 360, 720]
+    .map((offset) => normalized + offset)
+    .filter((value) => (lower === null || value >= lower) && (upper === null || value <= upper));
+  if (!candidates.length) return normalized;
+  return candidates.sort((left, right) => Math.abs(left - actual) - Math.abs(right - actual))[0];
+}
+
+function openPointingTargetPanel(sample) {
+  const panel = fields.pointingTargetPanel;
+  if (!panel || !sample || activeViewMode !== "pointing") return;
+  const mountAzimuth = mountAzimuthForPointingSample(sample);
+  panel.hidden = false;
+  if (!panel.classList.contains("is-docked")) {
+    restoreFloatingWindowPosition(panel, {
+      left: window.innerWidth - panel.offsetWidth - 330,
+      top: Math.min(205, window.innerHeight - panel.offsetHeight - 24),
+    });
+  }
+  if (fields.pointingTargetGrid) fields.pointingTargetGrid.textContent = sample.grid_cell?.id || "30 m terrain cell";
+  if (fields.pointingTargetCoordinates) fields.pointingTargetCoordinates.textContent = `${formatCoordinate(sample.latitude)}, ${formatCoordinate(sample.longitude)}`;
+  if (fields.pointingTargetDistance) fields.pointingTargetDistance.textContent = `${formatNumber(sample.distance_km)} km`;
+  if (fields.pointingTargetTrueAzimuth) fields.pointingTargetTrueAzimuth.textContent = `${formatNumber(sample.azimuth_deg)} Deg`;
+  if (fields.pointingTargetMountAzimuth) fields.pointingTargetMountAzimuth.textContent = mountAzimuth === null ? "--" : `${formatNumber(mountAzimuth)} Deg`;
+  if (fields.pointingTargetAltitude) fields.pointingTargetAltitude.textContent = sample.altitude_deg === null ? "--" : `${formatNumber(sample.altitude_deg)} Deg`;
+  if (fields.pointingTargetElevation) fields.pointingTargetElevation.textContent = sample.elevation_m === null ? "No DEM data" : `${formatCompactNumber(sample.elevation_m)} m`;
+  if (fields.pointingTargetVisibility) fields.pointingTargetVisibility.textContent = sample.visible === null ? "--" : sample.visible ? "Visible" : "Blocked";
+  if (fields.pointingTargetMessage) {
+    fields.pointingTargetMessage.textContent = sample.visible === false
+      ? "Warning: terrain blocks direct line of sight to this target."
+      : "Target is ready. Review the angles before moving the mount.";
+    fields.pointingTargetMessage.classList.toggle("is-warning", sample.visible === false);
+  }
+  if (fields.pointingTargetGoto) {
+    fields.pointingTargetGoto.disabled = mountAzimuth === null || sample.altitude_deg === null || sample.elevation_m === null;
+    fields.pointingTargetGoto.dataset.azimuth = mountAzimuth === null ? "" : String(mountAzimuth);
+    fields.pointingTargetGoto.dataset.altitude = sample.altitude_deg === null ? "" : String(sample.altitude_deg);
+  }
+}
+
 function pointingTargetFromPointerEvent(event) {
+  if (pointing3DReady && window.pointingTerrain3D && event.currentTarget === fields.pointingMap3DCanvas) {
+    return window.pointingTerrain3D.pick(event);
+  }
   const canvas = fields.pointingMapCanvas;
   if (!canvas || !pointingModel) return null;
   const rect = canvas.getBoundingClientRect();
@@ -3723,7 +4664,7 @@ function skyTargetFromPointerEvent(event) {
   const distance = Math.hypot(dx, dy);
   if (!skyPointerWithinMotionArea(distance, dx, dy, radius)) return null;
 
-  const azimuth = normalizeDegrees((Math.atan2(dx, -dy) * 180) / Math.PI);
+  const azimuth = normalizeSignedDegrees((Math.atan2(dx, -dy) * 180) / Math.PI);
   return {
     azimuth,
     altitude: skyAltitudeFromRadius(distance, radius),
@@ -3891,7 +4832,7 @@ function clearAxisJogState(axis) {
     .filter((key) => key.startsWith(`${axis}:`))
     .forEach((key) => {
       const state = activeAxisJogs.get(key);
-      if (state?.timer) clearInterval(state.timer);
+      state?.cleanup?.();
       state?.button?.classList.remove("is-pressed");
       activeAxisJogs.delete(key);
     });
@@ -3915,43 +4856,54 @@ function startAxisJog(axis, form, button, event) {
   const key = axisJogKey(axis, direction);
   if (activeAxisJogs.has(key)) return;
   clearAxisJogState(axis);
-  const repeatCommand = () => {
-    const state = activeAxisJogs.get(key);
-    if (!state || state.inFlight) return;
-    state.inFlight = true;
-    const lightweight = state.started === true;
-    state.started = true;
-    sendAxisJogCommand(axis, velocity, form, `${axis} jog ${direction}`, { lightweight })
-      .finally(() => {
-        const latestState = activeAxisJogs.get(key);
-        if (latestState) latestState.inFlight = false;
-      });
-  };
-  activeAxisJogs.set(key, { timer: null, velocity, button, inFlight: false, started: false });
-  const timer = setInterval(repeatCommand, JOG_COMMAND_INTERVAL_MS);
-  activeAxisJogs.get(key).timer = timer;
+  const state = { velocity, button, cleanup: null, heartbeatTimer: null, heartbeatInFlight: false };
+  activeAxisJogs.set(key, state);
   button.classList.add("is-pressed");
   button.setPointerCapture?.(event.pointerId);
-  repeatCommand();
+  sendAxisJogCommand(axis, velocity, form, `${axis} jog ${direction}`);
 
+  let stopped = false;
   const stop = () => {
-    if (!activeAxisJogs.has(key)) return;
-    const state = activeAxisJogs.get(key);
-    if (state?.timer) clearInterval(state.timer);
-    activeAxisJogs.delete(key);
+    if (stopped) return;
+    stopped = true;
+    const isCurrent = activeAxisJogs.get(key) === state;
+    if (isCurrent) activeAxisJogs.delete(key);
     button.classList.remove("is-pressed");
     if (button.hasPointerCapture?.(event.pointerId)) {
       button.releasePointerCapture(event.pointerId);
     }
-    sendAxisJogCommand(axis, 0, form, `${axis} jog stopped`, { lightweight: true });
-    window.removeEventListener("pointerup", stop);
-    window.removeEventListener("pointercancel", stop);
+    window.removeEventListener("pointerup", stop, true);
+    window.removeEventListener("pointercancel", stop, true);
     window.removeEventListener("blur", stop);
+    window.removeEventListener("mouseup", stop, true);
+    button.removeEventListener("lostpointercapture", stop);
+    if (state.heartbeatTimer !== null) window.clearInterval(state.heartbeatTimer);
+    if (isCurrent) sendAxisJogCommand(axis, 0, form, `${axis} jog stopped`);
   };
 
-  window.addEventListener("pointerup", stop);
-  window.addEventListener("pointercancel", stop);
+  state.cleanup = () => {
+    window.removeEventListener("pointerup", stop, true);
+    window.removeEventListener("pointercancel", stop, true);
+    window.removeEventListener("blur", stop);
+    window.removeEventListener("mouseup", stop, true);
+    button.removeEventListener("lostpointercapture", stop);
+    if (state.heartbeatTimer !== null) window.clearInterval(state.heartbeatTimer);
+  };
+
+  window.addEventListener("pointerup", stop, { capture: true });
+  window.addEventListener("pointercancel", stop, { capture: true });
   window.addEventListener("blur", stop);
+  window.addEventListener("mouseup", stop, { capture: true });
+  button.addEventListener("lostpointercapture", stop);
+  state.heartbeatTimer = window.setInterval(async () => {
+    if (activeAxisJogs.get(key) !== state || state.heartbeatInFlight) return;
+    state.heartbeatInFlight = true;
+    try {
+      await sendAxisJogCommand(axis, velocity, form, `${axis} jog ${direction}`);
+    } finally {
+      state.heartbeatInFlight = false;
+    }
+  }, JOG_HEARTBEAT_MS);
 }
 
 function activateGotoTab(tabName) {
@@ -4092,10 +5044,12 @@ function scheduleAutoApply(input) {
   if (!axis || input.value === "") return;
 
   clearTimeout(autoApplyTimers.get(input));
+  const fieldName = input.name;
+  const submittedValue = input.value;
   const timer = setTimeout(() => {
-    applyTuningPayload(axis, { [input.name]: input.value }, {
-      pendingMessage: `Applying ${labelForField(input.name)}...`,
-      successMessage: `${labelForField(input.name)} applied`,
+    applyTuningPayload(axis, { [fieldName]: submittedValue }, {
+      pendingMessage: `Applying ${labelForField(fieldName)}...`,
+      successMessage: `${labelForField(fieldName)} applied`,
     });
   }, 220);
   autoApplyTimers.set(input, timer);
@@ -4110,7 +5064,9 @@ document.querySelectorAll("[data-tab-button]").forEach((button) => {
     const target = button.dataset.tabTarget;
     addLog("message", `${axis} tab changed to ${button.textContent.trim()}`);
     document.querySelectorAll(`[data-tab-button="${axis}"]`).forEach((item) => {
-      item.classList.toggle("active", item === button);
+      const active = item === button;
+      item.classList.toggle("active", active);
+      item.setAttribute("aria-selected", active ? "true" : "false");
     });
     document.querySelectorAll(`[data-tab-panel="${axis}"]`).forEach((panel) => {
       panel.classList.toggle("active", panel.dataset.tabName === target);
@@ -4138,6 +5094,274 @@ Object.entries(axisFields).forEach(([label, ui]) => {
 document.querySelectorAll("[data-view-mode]").forEach((button) => {
   button.addEventListener("click", () => setViewMode(button.dataset.viewMode));
 });
+
+let cameraLiveAnimationFrame = null;
+let cameraLiveStartedAt = 0;
+let cameraLiveLastRenderAt = 0;
+let cameraRecordingStatus = "idle";
+let cameraRecordingPollTimer = null;
+let cameraSourceMode = localStorage.getItem("cameraSourceMode") === "live" ? "live" : "simulation";
+let cameraStreamSocket = null;
+let cameraStreamReconnectTimer = null;
+let cameraStreamMetadata = { thermal: {}, visible: {} };
+
+function cameraStreamWebSocketUrl() {
+  const configured = fields.cameraLiveWindow?.dataset.cameraStreamUrl || "/ws/camera-stream";
+  if (/^wss?:\/\//i.test(configured)) return configured;
+  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+  const path = configured.startsWith("/") ? configured : `/${configured}`;
+  const separator = path.includes("?") ? "&" : "?";
+  return `${protocol}//${window.location.host}${path}${separator}role=viewer&source=${encodeURIComponent(cameraSourceMode)}`;
+}
+
+function cameraStreamTargets() {
+  return cameraSourceMode === "simulation"
+    ? [fields.thermalLiveImage, fields.visibleLiveImage]
+    : [fields.thermalRealImage, fields.visibleRealImage];
+}
+
+function clearCameraStreamFrames() {
+  cameraStreamTargets().forEach((element) => {
+    element?.removeAttribute("src");
+    element?.classList.add("is-stream-disconnected");
+  });
+}
+
+function setCameraConnectionStatus(message, connected = false) {
+  if (!fields.cameraRecordStatus) return;
+  fields.cameraRecordStatus.querySelector("i")?.classList.toggle("is-disconnected", !connected);
+  fields.cameraRecordStatus.lastChild.textContent = ` ${message}`;
+}
+
+function applyCameraFrame(message) {
+  const camera = message.camera === "thermal" ? "thermal" : message.camera === "visible" ? "visible" : null;
+  if (!camera) return;
+  const simulated = message.metadata?.simulated === true;
+  if (simulated !== (cameraSourceMode === "simulation")) return;
+  const target = camera === "thermal"
+    ? (simulated ? fields.thermalLiveImage : fields.thermalRealImage)
+    : (simulated ? fields.visibleLiveImage : fields.visibleRealImage);
+  const image = message.image || {};
+  const dataUrl = image.data_url || (image.data && `data:${image.mime_type || "image/jpeg"};base64,${image.data}`);
+  if (target && dataUrl) {
+    target.src = dataUrl;
+    target.classList.remove("is-stream-disconnected");
+  }
+  cameraStreamMetadata[camera] = message.metadata && typeof message.metadata === "object" ? message.metadata : {};
+}
+
+function connectCameraStream() {
+  clearTimeout(cameraStreamReconnectTimer);
+  if (!fields.cameraLiveWindow || fields.cameraLiveWindow.hidden) return;
+  if (cameraStreamSocket && [WebSocket.CONNECTING, WebSocket.OPEN].includes(cameraStreamSocket.readyState)) return;
+  setCameraConnectionStatus("Connecting to camera service…");
+  cameraStreamSocket = new WebSocket(cameraStreamWebSocketUrl());
+  cameraStreamSocket.addEventListener("open", () => {
+    cameraStreamSocket.send(JSON.stringify({ type: "subscribe", streams: ["thermal", "visible"], include_metadata: true }));
+    setCameraConnectionStatus("Live camera service connected", true);
+  });
+  cameraStreamSocket.addEventListener("message", (event) => {
+    if (typeof event.data !== "string") return;
+    try {
+      const message = JSON.parse(event.data);
+      if (message.type === "frame") applyCameraFrame(message);
+      if (message.type === "status" && message.message) {
+        const connected = message.connected !== false;
+        setCameraConnectionStatus(message.message, connected);
+        if (!connected) clearCameraStreamFrames();
+      }
+    } catch (error) {
+      addLog("warning", "Camera service sent invalid JSON");
+    }
+  });
+  cameraStreamSocket.addEventListener("close", () => {
+    cameraStreamSocket = null;
+    clearCameraStreamFrames();
+    setCameraConnectionStatus("Camera service disconnected — retrying…");
+    cameraStreamReconnectTimer = setTimeout(connectCameraStream, 2000);
+  });
+  cameraStreamSocket.addEventListener("error", () => cameraStreamSocket?.close());
+}
+
+function disconnectCameraStream() {
+  clearTimeout(cameraStreamReconnectTimer);
+  cameraStreamReconnectTimer = null;
+  if (cameraStreamSocket) {
+    cameraStreamSocket.onclose = null;
+    cameraStreamSocket.close();
+    cameraStreamSocket = null;
+  }
+  clearCameraStreamFrames();
+}
+
+function renderCameraSourceMode() {
+  const simulation = cameraSourceMode === "simulation";
+  fields.cameraSourceToggle?.classList.toggle("is-simulation", simulation);
+  fields.cameraSourceToggle?.setAttribute("aria-label", `Camera source: ${simulation ? "Simulation" : "Live camera"}. Click to switch.`);
+  fields.cameraSourceToggle?.setAttribute("title", simulation ? "Simulation is active. Click to use live cameras." : "Live cameras are active. Click to use simulation.");
+  if (fields.cameraSourceToggleLabel) {
+    fields.cameraSourceToggleLabel.textContent = simulation ? "Simulation" : "Live Camera";
+  }
+  [fields.thermalLiveImage, fields.visibleLiveImage].forEach((image) => { if (image) image.hidden = !simulation; });
+  [fields.thermalRealImage, fields.visibleRealImage].forEach((image) => { if (image) image.hidden = simulation; });
+  disconnectCameraStream();
+  [fields.thermalLiveImage, fields.visibleLiveImage, fields.thermalRealImage, fields.visibleRealImage]
+    .forEach((image) => image?.removeAttribute("src"));
+  if (fields.cameraLiveWindow?.hidden) return;
+  const targets = simulation
+    ? [[fields.thermalLiveImage, "thermal"], [fields.visibleLiveImage, "visible"]]
+    : [[fields.thermalRealImage, "thermal"], [fields.visibleRealImage, "visible"]];
+  let connectedStreams = 0;
+  setCameraConnectionStatus(`Connecting to AIV ${cameraSourceMode} streams…`);
+  targets.forEach(([image, camera]) => {
+    if (!image) return;
+    image.classList.add("is-stream-disconnected");
+    image.onload = () => {
+      image.classList.remove("is-stream-disconnected");
+      connectedStreams += 1;
+      setCameraConnectionStatus(
+        connectedStreams >= 2 ? `AIV ${cameraSourceMode} streams connected` : `AIV ${camera} stream connected`,
+        true,
+      );
+    };
+    image.onerror = () => {
+      image.classList.add("is-stream-disconnected");
+      setCameraConnectionStatus(`AIV ${camera} stream unavailable`);
+    };
+    image.src = `/api/camera-mjpeg/${cameraSourceMode}/${camera}?session=${Date.now()}`;
+  });
+}
+
+function toggleCameraSourceMode() {
+  cameraSourceMode = cameraSourceMode === "simulation" ? "live" : "simulation";
+  localStorage.setItem("cameraSourceMode", cameraSourceMode);
+  renderCameraSourceMode();
+  addLog("message", `Camera source changed to ${cameraSourceMode}`);
+}
+
+function renderCameraRecording(state) {
+  cameraRecordingStatus = state?.status || "idle";
+  const isRecording = cameraRecordingStatus === "recording";
+  const isBusy = ["saving", "uploading"].includes(cameraRecordingStatus);
+  if (fields.cameraRecordButton) {
+    fields.cameraRecordButton.disabled = isBusy;
+    fields.cameraRecordButton.classList.toggle("is-recording", isRecording);
+    fields.cameraRecordButton.querySelector("span").textContent = isRecording ? "Stop & Archive Event" : isBusy ? "Processing Event…" : "Start Fire Event";
+  }
+  if (fields.cameraRecordTimer) {
+    const elapsed = Number(state?.elapsed_sec ?? state?.duration_sec ?? 0);
+    fields.cameraRecordTimer.textContent = `${String(Math.floor(elapsed / 60)).padStart(2, "0")}:${String(Math.floor(elapsed % 60)).padStart(2, "0")}`;
+  }
+  if (fields.cameraRecordStatus && state?.message) fields.cameraRecordStatus.lastChild.textContent = ` ${state.message}`;
+  if (fields.cameraRecordEvent) {
+    fields.cameraRecordEvent.textContent = state?.incident_id
+      ? `Incident ${state.incident_id}`
+      : state?.event_id || "Ready to start a manual fire event";
+  }
+}
+
+async function pollCameraRecording() {
+  try {
+    const response = await fetch("/api/camera-recording", { cache: "no-store" });
+    if (response.ok) renderCameraRecording(await response.json());
+  } catch (error) {
+    if (fields.cameraRecordStatus) fields.cameraRecordStatus.lastChild.textContent = " Recording status unavailable";
+  }
+}
+
+async function toggleCameraRecording() {
+  const stopping = cameraRecordingStatus === "recording";
+  fields.cameraRecordButton.disabled = true;
+  try {
+    const response = await fetch(`/api/camera-recording/${stopping ? "stop" : "start"}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ source_phase_sec: cameraSourceMode === "simulation" ? (Date.now() / 1000) % 40 : 0 }),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || "Recording command failed");
+    renderCameraRecording(result);
+  } catch (error) {
+    if (fields.cameraRecordStatus) fields.cameraRecordStatus.lastChild.textContent = ` ${error.message}`;
+  } finally {
+    fields.cameraRecordButton.disabled = false;
+  }
+}
+
+function refreshCameraLiveWindow() {
+  const renderAt = performance.now();
+  if (renderAt - cameraLiveLastRenderAt < 100) {
+    cameraLiveAnimationFrame = requestAnimationFrame(refreshCameraLiveWindow);
+    return;
+  }
+  cameraLiveLastRenderAt = renderAt;
+  const now = new Date();
+  if (fields.cameraLiveClock) {
+    fields.cameraLiveClock.textContent = `${now.toISOString().slice(11, 19)} UTC`;
+  }
+  const streamTime = cameraSourceMode === "simulation" ? (Date.now() / 1000) % 40 : 0;
+  const elapsed = Math.max(0, (performance.now() - cameraLiveStartedAt) / 1000);
+  const cycleProgress = (streamTime % 40) / 20;
+  const zoom = cameraSourceMode === "simulation" ? 1 + 4 * (cycleProgress <= 1 ? cycleProgress : 2 - cycleProgress) : 1;
+  const zoomLabel = `${zoom.toFixed(1)}×`;
+  if (fields.thermalLiveZoom) fields.thermalLiveZoom.textContent = zoomLabel;
+  if (fields.visibleLiveZoom) fields.visibleLiveZoom.textContent = zoomLabel;
+  const elapsedTenths = Math.floor(elapsed * 10);
+  const elapsedText = `${String(Math.floor(elapsedTenths / 36000)).padStart(2, "0")}:${String(Math.floor(elapsedTenths / 600) % 60).padStart(2, "0")}:${String(Math.floor(elapsedTenths / 10) % 60).padStart(2, "0")}.${elapsedTenths % 10}`;
+  const utc = `${now.toISOString().slice(0, 23).replace("T", " ")} UTC`;
+  const thermalMeta = cameraSourceMode === "live" ? cameraStreamMetadata.thermal : {};
+  const visibleMeta = cameraSourceMode === "live" ? cameraStreamMetadata.visible : {};
+  if (fields.thermalLiveBurnin) fields.thermalLiveBurnin.textContent = `ELAPSED ${elapsedText}\nUTC ${thermalMeta.captured_at || utc}\nZOOM ${Number(thermalMeta.zoom_x || zoom).toFixed(2)}x\nRES ${thermalMeta.resolution || "640x512"}`;
+  if (fields.visibleLiveBurnin) fields.visibleLiveBurnin.textContent = `ELAPSED ${elapsedText}\nUTC ${visibleMeta.captured_at || utc}\nZOOM ${Number(visibleMeta.zoom_x || zoom).toFixed(2)}x\nRES ${visibleMeta.resolution || "1280x720"}`;
+  cameraLiveAnimationFrame = requestAnimationFrame(refreshCameraLiveWindow);
+}
+
+function openCameraLiveWindow() {
+  if (!fields.cameraLiveWindow) return;
+  fields.cameraLiveWindow.hidden = false;
+  fields.cameraLiveOpen?.setAttribute("aria-expanded", "true");
+  fields.cameraLiveOpen?.classList.add("is-open");
+  if (!fields.cameraLiveWindow.classList.contains("is-docked")) {
+    restoreFloatingWindowPosition(fields.cameraLiveWindow, {
+      left: Math.max(12, (window.innerWidth - Math.min(1280, window.innerWidth - 32)) / 2),
+      top: Math.max(84, (window.innerHeight - Math.min(760, window.innerHeight - 110)) / 2),
+    });
+  }
+  cameraLiveStartedAt = performance.now();
+  cameraLiveLastRenderAt = 0;
+  cancelAnimationFrame(cameraLiveAnimationFrame);
+  refreshCameraLiveWindow();
+  pollCameraRecording();
+  clearInterval(cameraRecordingPollTimer);
+  cameraRecordingPollTimer = setInterval(pollCameraRecording, 500);
+  addLog("message", "Live camera monitor opened");
+  renderCameraSourceMode();
+}
+
+function closeCameraLiveWindow() {
+  if (!fields.cameraLiveWindow) return;
+  fields.cameraLiveWindow.hidden = true;
+  fields.cameraLiveOpen?.setAttribute("aria-expanded", "false");
+  fields.cameraLiveOpen?.classList.remove("is-open");
+  cancelAnimationFrame(cameraLiveAnimationFrame);
+  cameraLiveAnimationFrame = null;
+  disconnectCameraStream();
+  [fields.thermalLiveImage, fields.visibleLiveImage, fields.thermalRealImage, fields.visibleRealImage]
+    .forEach((image) => image?.removeAttribute("src"));
+  clearInterval(cameraRecordingPollTimer);
+  cameraRecordingPollTimer = null;
+}
+
+fields.cameraLiveOpen?.addEventListener("click", () => {
+  if (fields.cameraLiveWindow?.hidden) openCameraLiveWindow();
+  else closeCameraLiveWindow();
+});
+fields.cameraLiveClose?.addEventListener("click", closeCameraLiveWindow);
+fields.cameraSourceToggle?.addEventListener("click", toggleCameraSourceMode);
+fields.cameraRecordButton?.addEventListener("click", toggleCameraRecording);
+if (new URLSearchParams(window.location.search).get("cameras") === "1") {
+  activeViewMode = "camera";
+}
 
 document.querySelectorAll("[data-tuning-form]").forEach((form) => {
   form.noValidate = true;
@@ -4237,6 +5461,26 @@ fields.velocityForm?.addEventListener("submit", (event) => {
 fields.skyGotoUseActual?.addEventListener("click", fillSkyGotoFromActual);
 fields.skySphereCanvas?.addEventListener("click", fillSkyGotoFromMapClick);
 fields.pointingMapCanvas?.addEventListener("click", selectPointingMapPoint);
+fields.pointingMap3DCanvas?.addEventListener("click", selectPointingMapPoint);
+fields.pointingMapCanvas?.addEventListener("pointermove", previewPointingMapPoint);
+fields.pointingMap3DCanvas?.addEventListener("pointermove", previewPointingMapPoint);
+fields.pointingMapCanvas?.addEventListener("pointerleave", leavePointingMap);
+fields.pointingMap3DCanvas?.addEventListener("pointerleave", leavePointingMap);
+fields.pointingTargetClose?.addEventListener("click", () => {
+  if (fields.pointingTargetPanel) fields.pointingTargetPanel.hidden = true;
+});
+fields.pointingTargetGoto?.addEventListener("click", () => {
+  const azimuth = toNumber(fields.pointingTargetGoto?.dataset.azimuth);
+  const altitude = toNumber(fields.pointingTargetGoto?.dataset.altitude);
+  if (azimuth === null || altitude === null) {
+    if (fields.pointingTargetMessage) fields.pointingTargetMessage.textContent = "This terrain point does not have valid pointing angles.";
+    return;
+  }
+  sendMotorCommand("goto", { Azimuth: String(azimuth), Altitude: String(altitude) });
+});
+window.addEventListener("pointing-terrain-3d-ready", () => {
+  if (activeViewMode === "pointing" && pointingModel) renderPointingModel();
+});
 [fields.pointingLayerSatellite, fields.pointingLayerTerrain, fields.pointingLayerVisibility, fields.pointingLayerGrid].forEach((input) => {
   input?.addEventListener("change", renderPointingModel);
 });
@@ -4246,7 +5490,19 @@ fields.pointingMapCanvas?.addEventListener("click", selectPointingMapPoint);
 });
 fields.skyGotoForm?.addEventListener("submit", (event) => {
   event.preventDefault();
-  sendMotorCommand("goto", skyGotoPayloadFromForm());
+  const payload = skyGotoPayloadFromForm();
+  const azimuth = toNumber(payload.Azimuth);
+  const altitude = toNumber(payload.Altitude);
+  if (azimuth === null || altitude === null) {
+    setSkyTargetMessage("Enter both target angles before moving.", "is-error");
+    return;
+  }
+  const validation = validateSkyPositionTarget(azimuth, altitude);
+  if (!validation.ok) {
+    setSkyTargetMessage(validation.message, "is-error");
+    return;
+  }
+  sendMotorCommand("goto", payload);
 });
 fields.skyVelocityZero?.addEventListener("click", zeroSkyVelocityInputs);
 fields.skyVelocityForm?.addEventListener("submit", (event) => {
@@ -4297,12 +5553,52 @@ document.querySelectorAll("[data-axis-control]").forEach((form) => {
   });
 });
 
+document.querySelectorAll("[data-motor-calibration]").forEach((form) => {
+  const axis = form.dataset.motorCalibration;
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    sendMotorCalibrationCommand(axis, "start", form);
+  });
+  form.querySelector("[data-motor-calibration-stop]")?.addEventListener("click", () => {
+    sendMotorCalibrationCommand(axis, "stop", form);
+  });
+});
+
 document.querySelectorAll("[data-settings-tab]").forEach((button) => {
   button.addEventListener("click", () => activateSettingsTab(button.dataset.settingsTab));
 });
 
+document.querySelectorAll("[data-mission-nav]").forEach((control) => {
+  control.addEventListener("click", () => {
+    const action = control.dataset.missionNav;
+    if (action === "dashboard") setViewMode("axis");
+    if (action === "devices") window.location.assign("/api-console");
+    if (action === "alerts") document.getElementById("event-log")?.scrollIntoView({ behavior: "smooth", block: "end" });
+    if (action === "settings") fields.systemSetting?.click();
+  });
+});
+
+document.getElementById("systemLogFilter")?.addEventListener("change", (event) => {
+  const selectedLevel = event.target.value;
+  fields.logEntries?.querySelectorAll(".log-entry").forEach((entry) => {
+    entry.hidden = selectedLevel !== "all" && entry.dataset.level !== selectedLevel;
+  });
+});
+
+document.getElementById("systemLogPause")?.addEventListener("click", (event) => {
+  systemLogPaused = !systemLogPaused;
+  event.currentTarget.classList.toggle("active", systemLogPaused);
+  event.currentTarget.setAttribute("aria-pressed", systemLogPaused ? "true" : "false");
+  event.currentTarget.lastChild.textContent = systemLogPaused ? " Resume" : " Pause";
+});
+
+document.getElementById("systemLogClear")?.addEventListener("click", () => {
+  fields.logEntries?.replaceChildren();
+});
+
 fields.settingsClose?.addEventListener("click", closeSettingsPanel);
 fields.settingsReloadSerials?.addEventListener("click", resetMountServer);
+fields.settingsSimulationMode?.addEventListener("click", toggleSimulationMode);
 fields.settingsAzimuthSerial?.addEventListener("change", updateSerialMapPreview);
 fields.systemUpdateCheck?.addEventListener("click", requestUpdateCheck);
 fields.settingsForm?.addEventListener("submit", (event) => {
@@ -4318,25 +5614,67 @@ document.addEventListener("pointerdown", (event) => {
 
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
+    event.preventDefault();
+    event.stopPropagation();
     closeStepPanel();
     closeGotoPanel();
     closeSettingsPanel();
     closeFloatingTuningPanels();
+    if (!event.repeat) emergencyStopAndDisable();
   }
+}, { capture: true });
+
+window.addEventListener("pagehide", () => {
+  const activeAxes = new Set(
+    [...activeAxisJogs.keys()].map((key) => key.split(":", 1)[0]),
+  );
+  activeAxes.forEach((axis) => {
+    fetch("/api/motors/velocity-command", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Motion-Client-ID": motionClientId,
+        "X-Motion-Command-Sequence": String(++motionCommandSequence),
+      },
+      body: JSON.stringify(axisPayload(axis, "0")),
+      keepalive: true,
+    }).catch(() => {});
+    clearAxisJogState(axis);
+  });
+});
+
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) return;
+  const activeAxes = new Set(
+    [...activeAxisJogs.keys()].map((key) => key.split(":", 1)[0]),
+  );
+  activeAxes.forEach((axis) => stopAxisJog(axis));
 });
 
 window.addEventListener("resize", () => {
   document.querySelectorAll("[data-floating-window]:not([hidden])").forEach((panel) => {
+    if (
+      panel.hasAttribute("data-floating-window-desktop-only") &&
+      document.documentElement.classList.contains("mobile-browser")
+    ) return;
     const rect = panel.getBoundingClientRect();
     setFloatingWindowPosition(panel, rect.left, rect.top);
     saveFloatingWindowPosition(panel);
   });
+  Object.keys(axisFields).forEach((label) => drawChart(label, new Date()));
   if (activeViewMode === "sky") renderSkySphere(latestStatus);
   if (activeViewMode === "pointing") renderPointingModel();
 });
 
 initializeFloatingWindows();
+if (!document.documentElement.classList.contains("mobile-browser") && !fields.pointingSelectionCard?.classList.contains("is-docked")) {
+  restoreFloatingWindowPosition(fields.pointingSelectionCard);
+}
+initializeAxisColumnResizer();
 setViewMode(activeViewMode, { persist: false });
+setInterval(() => {
+  if (activeViewMode === "report") renderCurrentReport();
+}, 30000);
 loadAppSettings();
 loadSystemInfo({ quiet: true });
 addLog("message", "Page loaded successfully. Fire Detector dashboard is ready.");

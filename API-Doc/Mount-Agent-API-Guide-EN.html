@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mount Agent API Guide</title>
+<style>
+@page { size:A4; margin:16mm 15mm 18mm; @bottom-right { content:"Page " counter(page); color:#687a74; font-size:9px; } }
+* { box-sizing:border-box } body { margin:0; color:#17252c; font-family:Arial,"FreeSans",sans-serif; font-size:10.2pt; line-height:1.48 }
+h1,h2,h3 { color:#0d5544; page-break-after:avoid } h1 { font-size:28pt; line-height:1.12 } h2 { font-size:17pt; border-bottom:2px solid #35a36f; padding-bottom:5px; margin-top:25px } h3 { font-size:12pt; margin:17px 0 6px }
+p { margin:6px 0 10px } ul,ol { margin:5px 0 12px 23px } li { margin:3px 0 }
+code { font-family:"Noto Sans Mono","FreeMono",monospace; font-size:8.5pt }
+pre { background:#0d1b20; color:#e8f7f1; border-left:4px solid #35a36f; padding:10px 12px; white-space:pre-wrap; overflow-wrap:anywhere; page-break-inside:avoid; line-height:1.4 }
+table { width:100%; border-collapse:collapse; margin:9px 0 16px; font-size:9pt; page-break-inside:auto }
+th { background:#0d5544; color:#fff; text-align:left } th,td { border:1px solid #b8c9c3; padding:6px 7px; vertical-align:top } tr:nth-child(even) td { background:#f2f8f5 }
+.cover { height:252mm; display:flex; flex-direction:column; justify-content:center; page-break-after:always; background:linear-gradient(145deg,#edf8f3,#fff 60%); padding:20mm; border-top:12px solid #136d55 }
+.eyebrow { color:#d86c25; font-weight:bold; letter-spacing:1px }.subtitle { font-size:14pt; color:#49645c }.meta { margin-top:30mm; color:#60736d }
+.notice { border:1px solid #e2a36f; background:#fff5eb; padding:10px 12px; margin:12px 0; page-break-inside:avoid }.good { border-color:#65aa87; background:#edf8f2 }
+.small { font-size:8.6pt; color:#61746e }
+</style>
+</head>
+<body>
+<section class="cover">
+<div class="eyebrow">FIRE DETECTION SYSTEM</div>
+<h1>Mount Agent<br>API Guide</h1>
+<p class="subtitle">Local Control Interface and Remote Device Protocol<br>JSON commands, telemetry, security, and Python examples</p>
+<div class="meta"><b>Protocol:</b> 1.0<br><b>Edition:</b> Developer Guide<br><b>Updated:</b> August 6, 2026</div>
+</section>
+
+<h2>1. Overview</h2>
+<p>The Mount Agent starts with <code>fire-detector.service</code>. Both API surfaces route commands through the existing ODriveMonitor safety layer, so configured motion limits, drive availability, and enable conditions are enforced consistently.</p>
+<table><tr><th>Interface</th><th>Transport</th><th>Purpose</th><th>Default</th></tr>
+<tr><td>Local Control Interface</td><td>Unix socket<br><code>/run/fire-detector/mount-agent.sock</code></td><td>Low-latency control by applications running on the Mount computer.</td><td>Enabled</td></tr>
+<tr><td>Remote Device Protocol</td><td>Outbound TCP/TLS connection to a Socket Receiver</td><td>Central control and telemetry without exposing an inbound port on the Mount.</td><td>Disabled until credentials are configured</td></tr></table>
+<div class="notice good"><b>Wire format:</b> Both interfaces use protocol 1.0 and newline-delimited JSON (NDJSON). Each message must be no larger than 64 KiB.</div>
+<h3>Transport and latency</h3>
+<ul><li>On-device clients should keep one persistent Unix domain socket open. It is the lowest-overhead control path and exposes no network port.</li><li>For remote operation, the Mount keeps one persistent outbound TCP/TLS connection to the Receiver, avoiding a handshake per command and working behind routers/CGNAT.</li><li>Local subscriptions support 100–60,000 ms intervals (up to 10 Hz). Remote telemetry supports a minimum <code>telemetry_sec</code> of 0.1 seconds.</li><li>The dashboard WebSocket at <code>/ws/status</code> is a read-only status stream, not a Mount Agent control transport.</li></ul>
+<p>TCP is a byte stream: clients must buffer until a newline and must not assume that one <code>recv()</code> call contains exactly one JSON message. Keep the same connection for the complete lease/control session.</p>
+
+<h2>2. Message Structure</h2>
+<h3>Command</h3>
+<pre>{
+  "version": "1.0",
+  "type": "command",
+  "message_id": "cmd-0001",
+  "action": "mount.get_status",
+  "params": {}
+}</pre>
+<table><tr><th>Field</th><th>Required</th><th>Description</th></tr>
+<tr><td><code>version</code></td><td>Yes</td><td>Must be <code>1.0</code>.</td></tr>
+<tr><td><code>type</code></td><td>Yes</td><td>Must be <code>command</code>.</td></tr>
+<tr><td><code>message_id</code></td><td>Yes</td><td>Unique ID used for correlation and duplicate detection.</td></tr>
+<tr><td><code>action</code></td><td>Yes</td><td>Command name.</td></tr>
+<tr><td><code>params</code></td><td>Yes</td><td>JSON object; use <code>{}</code> when empty.</td></tr>
+<tr><td><code>control_lease_id</code></td><td>For mutating commands</td><td>ID returned by <code>control.acquire</code>.</td></tr>
+<tr><td><code>expires_at</code></td><td>Recommended remotely</td><td>ISO 8601 timestamp with timezone.</td></tr></table>
+<h3>Successful response</h3>
+<pre>{"version":"1.0","type":"response","message_id":"rsp-...",
+ "correlation_id":"cmd-0001","action":"mount.get_status",
+ "timestamp":"2026-07-24T02:10:00.000Z","ok":true,
+ "result":{"connected":true,"axes":[...]}}</pre>
+<h3>Error response</h3>
+<pre>{"version":"1.0","type":"response","correlation_id":"cmd-0002",
+ "action":"mount.goto","ok":false,
+ "error":{"code":"CONTROL_LEASE_REQUIRED",
+          "message":"Acquire and maintain a control lease before sending this command.",
+          "details":{}}}</pre>
+
+<h2>3. Control Lease and Fail-Safe Behavior</h2>
+<p>Only one client may own control at a time. Acquire a lease, attach its ID to control commands, renew it before expiry, and release it when finished.</p>
+<pre>{"version":"1.0","type":"command","message_id":"lease-1",
+ "action":"control.acquire","params":{"lease_ms":5000}}</pre>
+<ul><li>Lease range: 500–30,000 ms.</li><li>The session lease is released when its connection closes.</li><li><code>mount.stop</code>, <code>mount.disable</code>, <code>axis.stop</code>, and <code>axis.disable</code> do not require a lease.</li><li>Non-zero velocity commands require <code>command_timeout_ms</code> from 100–5,000 ms. The watchdog commands zero velocity when updates stop.</li></ul>
+
+<h2>4. Command Reference</h2>
+<h3>System and control</h3>
+<table><tr><th>Action</th><th>Lease</th><th>Purpose / parameters</th></tr>
+<tr><td><code>system.hello</code></td><td>No</td><td>Protocol, device type, and capabilities.</td></tr>
+<tr><td><code>system.ping</code></td><td>No</td><td>Agent liveness and timestamp.</td></tr>
+<tr><td><code>system.get_info</code></td><td>No</td><td>System and device information.</td></tr>
+<tr><td><code>system.get_health</code></td><td>No</td><td>Current system/drive health snapshot.</td></tr>
+<tr><td><code>system.get_capabilities</code></td><td>No</td><td>Supported actions.</td></tr>
+<tr><td><code>control.acquire</code></td><td>No</td><td><code>lease_ms</code></td></tr>
+<tr><td><code>control.renew</code></td><td>No</td><td><code>lease_id</code></td></tr>
+<tr><td><code>control.release</code></td><td>No</td><td><code>lease_id</code></td></tr></table>
+<h3>Run-mode status</h3>
+<p>Every snapshot returned by <code>mount.get_status</code>, <code>system.get_health</code>, REST <code>GET /api/status</code>, and WebSocket <code>/ws/status</code> always includes:</p>
+<table><tr><th>Field</th><th>Type</th><th>Meaning</th></tr>
+<tr><td><code>run_mode</code></td><td>string</td><td><code>simulation</code> for the virtual model or <code>hardware</code> for real Drive/Encoder input.</td></tr>
+<tr><td><code>simulation_mode</code></td><td>boolean</td><td><code>true</code> only in Simulation Mode; otherwise <code>false</code>.</td></tr></table>
+<p>To query only the mode without the complete telemetry snapshot, call <code>GET /api/system/run-mode</code>:</p>
+<pre>{"ok":true,"run_mode":"simulation","simulation_mode":true}</pre>
+<div class="notice"><b>Important:</b> Clients must inspect <code>run_mode</code> before treating values as physical measurements. <code>connected: true</code> is also reported by Simulation Mode so the complete API workflow can be tested.</div>
+<h3>Mount</h3>
+<table><tr><th>Action</th><th>Lease</th><th>Parameters</th></tr>
+<tr><td><code>mount.get_status</code></td><td>No</td><td>None; returns the complete snapshot.</td></tr>
+<tr><td><code>mount.enable</code></td><td>Yes</td><td>None.</td></tr>
+<tr><td><code>mount.disable</code></td><td>No</td><td>None.</td></tr>
+<tr><td><code>mount.stop</code></td><td>No</td><td>None.</td></tr>
+<tr><td><code>mount.goto</code></td><td>Yes</td><td><code>azimuth_deg</code> and/or <code>altitude_deg</code>; optional <code>max_velocity_deg_per_sec</code>.</td></tr>
+<tr><td><code>mount.set_velocity</code></td><td>Yes</td><td><code>azimuth_deg_per_sec</code> and/or <code>altitude_deg_per_sec</code>; <code>command_timeout_ms</code> for non-zero values.</td></tr></table>
+<pre>{"version":"1.0","type":"command","message_id":"goto-1",
+ "action":"mount.goto","control_lease_id":"LEASE_ID",
+ "expires_at":"2026-07-24T02:10:05.000Z",
+ "params":{"azimuth_deg":30,"altitude_deg":15,
+           "max_velocity_deg_per_sec":10}}</pre>
+
+<h3>Axis</h3>
+<table><tr><th>Action</th><th>Lease</th><th>Parameters</th></tr>
+<tr><td><code>axis.enable</code></td><td>Yes</td><td><code>axis</code></td></tr>
+<tr><td><code>axis.disable</code></td><td>No</td><td><code>axis</code></td></tr>
+<tr><td><code>axis.stop</code></td><td>No</td><td><code>axis</code></td></tr>
+<tr><td><code>axis.goto</code></td><td>Yes</td><td><code>axis</code>, <code>position_deg</code>, optional <code>max_velocity_deg_per_sec</code>.</td></tr>
+<tr><td><code>axis.set_velocity</code></td><td>Yes</td><td><code>axis</code>, <code>velocity_deg_per_sec</code>, <code>command_timeout_ms</code>.</td></tr></table>
+<p>Axis values: <code>azimuth</code>/<code>azm</code> and <code>altitude</code>/<code>alt</code>.</p>
+<pre>{"version":"1.0","type":"command","message_id":"axis-1",
+ "action":"axis.goto","control_lease_id":"LEASE_ID",
+ "params":{"axis":"altitude","position_deg":20,
+           "max_velocity_deg_per_sec":5}}</pre>
+
+<h3>Pointing, calibration, and tuning</h3>
+<table><tr><th>Action</th><th>Parameters</th><th>Notes</th></tr>
+<tr><td><code>pointing.goto_altaz</code></td><td>Same as <code>mount.goto</code></td><td>Lease required.</td></tr>
+<tr><td><code>calibration.start</code></td><td><code>axis</code>, <code>minimum_position_deg</code>, <code>maximum_position_deg</code>, <code>current_amp</code>, <code>velocity_deg_per_sec</code></td><td>Lease required.</td></tr>
+<tr><td><code>calibration.stop</code></td><td><code>axis</code></td><td>Stops calibration.</td></tr>
+<tr><td><code>calibration.get_status</code></td><td>Optional <code>axis</code></td><td>Read-only.</td></tr>
+<tr><td><code>tuning.apply</code></td><td><code>axis</code>, <code>values</code></td><td>Temporary values; lease required.</td></tr>
+<tr><td><code>tuning.save</code></td><td><code>axis</code></td><td>Writes drive configuration; lease required.</td></tr></table>
+<div class="notice"><b>Warning:</b> Calibration and tuning can materially change drive behavior. The default Remote allowlist excludes these commands.</div>
+
+<h2>5. Telemetry</h2>
+<pre>{"version":"1.0","type":"command","message_id":"sub-1",
+ "action":"subscribe",
+ "params":{"topics":["axis.telemetry","sensor.status","fault"],
+           "interval_ms":500}}</pre>
+<table><tr><th>Topic</th><th>Data</th></tr>
+<tr><td><code>mount.status</code></td><td>Connection, health, timestamp, and axes.</td></tr>
+<tr><td><code>axis.telemetry</code></td><td>Position, velocity, current, state, and errors.</td></tr>
+<tr><td><code>sensor.status</code></td><td>CCW/CW limit sensor state.</td></tr>
+<tr><td><code>drive.status</code></td><td>Connection, serials, bus power, and health.</td></tr>
+<tr><td><code>fault</code></td><td>Drive error events.</td></tr>
+<tr><td><code>calibration.status</code></td><td>Motor calibration progress.</td></tr></table>
+
+<h2>6. Python Example 1 — Status and Telemetry</h2>
+<p>Complete source: <code>API-Doc/examples/01_local_status_and_telemetry.py</code>. It is read-only and safe to run while the service is active.</p>
+<pre>with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as client:
+    client.connect("/run/fire-detector/mount-agent.sock")
+    stream = client.makefile("rwb")
+    send(stream, command("mount.get_status"))
+    print(receive(stream))
+    send(stream, command("subscribe", {
+        "topics": ["axis.telemetry", "sensor.status"],
+        "interval_ms": 500
+    }))
+    print(receive(stream))       # subscription response
+    for _ in range(10):
+        print(receive(stream))   # telemetry events</pre>
+<pre>cd /home/pi/Public/Fire-Detector
+.venv/bin/python API-Doc/examples/01_local_status_and_telemetry.py</pre>
+
+<h2>7. Python Example 2 — Safe Axis Control</h2>
+<p>Complete source: <code>API-Doc/examples/02_safe_axis_control.py</code>. Motion is locked by default with <code>ALLOW_MOTION = False</code>. The example reads status, acquires a lease, enables Altitude, performs a low-speed Goto, and always executes stop/disable in <code>finally</code>.</p>
+<pre>lease = mount.call("control.acquire", {"lease_ms": 5000})
+lease_id = lease["result"]["lease_id"]
+try:
+    mount.call("axis.enable", {"axis": "altitude"}, lease_id)
+    mount.call("axis.goto", {
+        "axis": "altitude",
+        "position_deg": 10.0,
+        "max_velocity_deg_per_sec": 2.0
+    }, lease_id)
+finally:
+    mount.call("axis.stop", {"axis": "altitude"})
+    mount.call("axis.disable", {"axis": "altitude"})
+    mount.call("control.release", {"lease_id": lease_id})</pre>
+<div class="notice"><b>Before enabling motion:</b> clear the working area, station an operator at the Mount, verify configured limits and direction, start with low current/speed, and provide an independent emergency stop.</div>
+
+<h2>8. Remote Device Protocol and Security</h2>
+<ol><li>The Mount opens an outbound TCP connection.</li><li>TLS validates the CA and hostname; TLS 1.2 is the minimum.</li><li>The Mount sends Device ID and capabilities.</li><li>The receiver sends a nonce challenge.</li><li>The Mount responds with an HMAC-SHA256 signature over device ID, nonce, and timestamp.</li><li>After authentication, heartbeat, telemetry, and allowlisted commands begin.</li></ol>
+<pre>"remote": {
+  "enabled": true,
+  "host": "receiver.example.internal",
+  "port": 15001,
+  "server_name": "receiver.example.internal",
+  "device_id": "NARIT-001",
+  "ca_file": "/etc/fire-detector/ca.pem",
+  "client_cert_file": "/etc/fire-detector/device.crt",
+  "client_key_file": "/etc/fire-detector/device.key",
+  "secret_file": "/etc/fire-detector/device.secret",
+  "heartbeat_sec": 15,
+  "telemetry_sec": 1
+}</pre>
+<p>The device secret must contain at least 32 bytes. Store it in a permission-restricted file or environment variable, never directly in <code>AppSetting.JSON</code> or source control.</p>
+
+<h2>9. Camera Frame Ingest API</h2>
+<p>The main system no longer opens the Thermal or Visible camera directly. An external camera module connects both cameras and sends already encoded JPEG/PNG frames to the HTTP API. The relay retains only the newest frame per camera, preventing queue latency at approximately 60 FPS.</p>
+<h3>Recommended at 60 FPS: binary WebSocket</h3>
+<p>Do not serialize image bytes as a JSON integer array and do not Base64-encode high-rate frames. Open one persistent connection to <code>ws://192.168.1.105:8000/ws/camera-stream?role=producer&amp;source=live</code> and send one binary message per frame:</p>
+<pre>[uint32 big-endian JSON header length]
+[UTF-8 JSON header]
+[all remaining bytes: encoded JPEG/PNG]</pre>
+<pre>{"camera":"thermal","mime_type":"image/jpeg",
+ "sha256":"64-lowercase-hex-characters",
+ "metadata":{"producer_sequence":1234,
+             "captured_at":"2026-08-11T10:30:00.000Z",
+             "width":640,"height":512}}</pre>
+<p>The image bytes remain outside JSON. WebSocket/TCP provides ordered reliable delivery, <code>producer_sequence</code> identifies source-side gaps, and optional <code>sha256</code> verifies application payload integrity.</p>
+<div class="notice"><b>Important:</b> Disable WebSocket per-message compression (<code>compression=None</code> in Python). JPEG/PNG is already compressed; recompressing every frame wastes CPU and can substantially reduce frame rate.</div>
+<pre>.venv/bin/python API-Doc/examples/04_publish_camera_binary_ws.py \
+  --camera thermal --frame thermal-frame.jpg --fps 60</pre>
+<h3>HTTP compatibility API</h3>
+<table><tr><th>Camera</th><th>Endpoint</th></tr>
+<tr><td>Thermal</td><td><code>POST /api/camera-stream/frame/thermal?source=live</code></td></tr>
+<tr><td>Visible</td><td><code>POST /api/camera-stream/frame/visible?source=live</code></td></tr></table>
+<h3>curl example</h3>
+<pre>curl -X POST "http://192.168.1.105:8000/api/camera-stream/frame/thermal?source=live" \
+  -H "Content-Type: image/jpeg" \
+  -H 'X-Camera-Metadata: {"captured_at":"2026-08-11T10:30:00.000Z","width":640,"height":512,"producer_sequence":1}' \
+  --data-binary @thermal-frame.jpg</pre>
+<h3>Successful response</h3>
+<pre>HTTP/1.1 202 Accepted
+Content-Type: application/json
+
+{"ok":true,"camera":"thermal","source":"live","sequence":1234}</pre>
+<h3>Continuous HTTP example</h3>
+<pre>.venv/bin/python API-Doc/examples/03_publish_camera_frames.py \
+  --host 192.168.1.105 --port 8000 \
+  --camera thermal --frame thermal-frame.jpg --fps 60</pre>
+<ul><li><code>Content-Type</code> must be <code>image/jpeg</code> or <code>image/png</code>.</li>
+<li>Optional <code>X-Camera-Metadata</code> must be a JSON object.</li>
+<li>Each frame is limited to 16 MiB. Raw thermal sensor arrays are not accepted.</li>
+<li>Run a second process with <code>--camera visible</code> for the Visible feed.</li>
+<li>Check <code>GET /api/camera-stream</code> and view the MJPEG paths under <code>/api/camera-mjpeg/live/...</code>.</li></ul>
+<div class="notice"><b>Production guidance:</b> Publish pre-encoded frames over a stable LAN, inspect every HTTP status, and reconnect or retry with backoff when the receiver is unavailable.</div>
+
+<h2>10. Errors and Client Guidance</h2>
+<table><tr><th>Error code</th><th>Client action</th></tr>
+<tr><td><code>UNSUPPORTED_VERSION</code></td><td>Use protocol 1.0.</td></tr>
+<tr><td><code>INVALID_JSON</code>, <code>INVALID_MESSAGE_TYPE</code></td><td>Correct framing/schema.</td></tr>
+<tr><td><code>MISSING_MESSAGE_ID</code></td><td>Generate a unique ID for every command.</td></tr>
+<tr><td><code>MESSAGE_TOO_LARGE</code></td><td>Keep each message below 64 KiB.</td></tr>
+<tr><td><code>RATE_LIMITED</code></td><td>Remain below 20 commands/sec and back off.</td></tr>
+<tr><td><code>COMMAND_EXPIRED</code></td><td>Re-read state before creating a new command.</td></tr>
+<tr><td><code>CONTROL_LEASE_BUSY</code></td><td>Do not take control from the current owner.</td></tr>
+<tr><td><code>CONTROL_LEASE_REQUIRED</code></td><td>Acquire a lease on the same connection.</td></tr>
+<tr><td><code>ACTION_NOT_ALLOWED</code></td><td>Action is outside the Remote allowlist.</td></tr>
+<tr><td><code>INVALID_PARAMETER</code></td><td>Check values and configured safety limits.</td></tr>
+<tr><td><code>COMMAND_FAILED</code></td><td>Read health/status; do not blindly retry motion.</td></tr></table>
+<p class="small">Implementation references: <code>src/fire_detector/mount_agent.py</code>, <code>src/fire_detector/web_server.py</code>, and <code>scripts/mount_agent_client.py</code>.</p>
+<h3>Verification status — August 4, 2026</h3>
+<p>Automated integration tests cover a real Unix socket round trip, response correlation, duplicate protection, control leases, and telemetry subscription without commanding hardware. Run <code>PYTHONPATH=src .venv/bin/python -m unittest discover -s tests -v</code>. Production acceptance still requires a supervised hardware test of axis direction, software/physical limits, emergency stop, velocity watchdog, and Receiver reconnection.</p>
+</body>
+</html>

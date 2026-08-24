@@ -1,0 +1,63 @@
+{
+  "cached": true,
+  "curvature": {
+    "drop_at_radius_m": 27.31,
+    "enabled": true,
+    "refraction_coefficient": 0.13
+  },
+  "dem": {
+    "available": true,
+    "bounds": {
+      "east": 98.95916665555555,
+      "north": 18.87027778888888,
+      "south": 18.82194445555555,
+      "west": 98.89527776666667
+    },
+    "elevation_max_m": 1554.5,
+    "elevation_min_m": 324.6,
+    "height": 174,
+    "path": "data/dem/output_hh.tif",
+    "width": 230
+  },
+  "grid_orientation": {
+    "column_direction": "east",
+    "crs": "local-east-north",
+    "device_azimuth_for_true_north_deg": 90.0,
+    "north_up": true,
+    "row_direction": "south"
+  },
+  "grid_resolution_m": 30.0,
+  "grid_size": 1334,
+  "imagery": {
+    "attribution": "Tiles \u00a9 Esri and imagery providers",
+    "available": true,
+    "source": "ArcGIS World Imagery"
+  },
+  "ok": true,
+  "radius_km": 20.0,
+  "raster": {
+    "depth_m": 40000.0,
+    "elevation_max_m": 1554.5,
+    "elevation_min_m": 324.6,
+    "height": 1334,
+    "height_height": 384,
+    "height_src": "/api/pointing/cache/pointing_a92a256ed5df08ed72a2_height.png",
+    "height_width": 384,
+    "satellite_src": "/api/pointing/cache/pointing_a92a256ed5df08ed72a2_satellite.png",
+    "src": "/api/pointing/cache/pointing_a92a256ed5df08ed72a2.png",
+    "terrain_src": "/api/pointing/cache/pointing_a92a256ed5df08ed72a2.png",
+    "visibility_src": "/api/pointing/cache/pointing_a92a256ed5df08ed72a2_visibility.png",
+    "width": 1334,
+    "width_m": 40000.0
+  },
+  "station": {
+    "azimuth_north_offset_deg": 90.0,
+    "elevation_above_ground_m": 40.0,
+    "elevation_m": 390.7,
+    "ground_elevation_m": 350.7,
+    "latitude": 18.853,
+    "longitude": 98.958,
+    "name": "NARIT#1",
+    "source": "settings"
+  }
+}
