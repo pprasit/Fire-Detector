@@ -1,5 +1,5 @@
 [Unit]
-Description=Publish simulated thermal H.264 stream to MediaMTX
+Description=Publish live thermal H.264 stream to MediaMTX
 Wants=network-online.target
 After=network-online.target tailscaled.service fire-detector-stream-credentials.service
 Requires=fire-detector-stream-credentials.service
@@ -10,7 +10,7 @@ User=pi
 Group=pi
 WorkingDirectory=/home/pi/Public/Fire-Detector
 EnvironmentFile=/run/fire-detector-stream/publisher.env
-ExecStart=/home/pi/Public/Fire-Detector/.venv/bin/python /home/pi/Public/Fire-Detector/scripts/publish_simulated_stream.py --camera thermal
+ExecStart=/home/pi/Public/Fire-Detector/.venv/bin/python /home/pi/Public/Fire-Detector/scripts/publish_live_stream.py --camera thermal
 Restart=always
 RestartSec=3
 

@@ -87,8 +87,8 @@
   "station": {
     "azimuth_north_offset_deg": 90.0,
     "elevation_above_ground_m": 40.0,
-    "latitude": 18.853,
-    "longitude": 98.958,
+    "latitude": 18.48389,
+    "longitude": 98.01517,
     "name": "NARIT#1"
   },
   "tuning_steps": {

@@ -38,16 +38,15 @@ function installIndustrialDeckLayout() {
         <button type="button" data-view-mode="camera" role="tab" aria-selected="false">
           <i aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="12" rx="2"></rect><path d="m16 10 5-3v10l-5-3z"></path></svg></i><span>Camera View</span><kbd>05</kbd>
         </button>
-        <small>INSIGHTS</small>
-        <button type="button" data-view-mode="report" role="tab" aria-selected="false"><i aria-hidden="true"><svg><use href="/static/img/mission-nav-icons.svg#reports"></use></svg></i><span>Reports</span><kbd>06</kbd></button>
-        <button type="button" data-mission-nav="settings">
-          <i aria-hidden="true"><svg><use href="/static/img/mission-nav-icons.svg#settings"></use></svg></i><span>Settings</span><kbd>07</kbd>
+        <button type="button" data-mission-nav="direction">
+          <i aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 2v20M2 12h20M12 2l-3 3M12 2l3 3M22 12l-3-3M22 12l-3 3"></path></svg></i><span>Direction Control</span><kbd>06</kbd>
         </button>
-      </nav>
-      <div class="industrial-sidebar-health">
-        <small>SYSTEM HEALTH</small>
-        <div><i></i><span><strong id="industrialHealthStatus">All systems nominal</strong><em>Updated just now</em></span></div>
-      </div>`;
+        <small>INSIGHTS</small>
+        <button type="button" data-view-mode="report" role="tab" aria-selected="false"><i aria-hidden="true"><svg><use href="/static/img/mission-nav-icons.svg#reports"></use></svg></i><span>Reports</span><kbd>07</kbd></button>
+        <button type="button" data-mission-nav="settings">
+          <i aria-hidden="true"><svg><use href="/static/img/mission-nav-icons.svg#settings"></use></svg></i><span>Settings</span><kbd>08</kbd>
+        </button>
+      </nav>`;
   }
 
   const headerCopy = document.querySelector(".monitor-header .header-copy");
@@ -64,6 +63,17 @@ function installIndustrialDeckLayout() {
   document.querySelector(".monitor-header .api-console-link")?.remove();
   document.querySelector(".monitor-header .camera-live-button")?.remove();
 
+  const motorControls = document.querySelector(".monitor-header .motor-controls");
+  if (motorControls && !document.getElementById("industrialBeaconStatus")) {
+    const beacon = document.createElement("div");
+    beacon.className = "industrial-beacon-status is-unknown";
+    beacon.id = "industrialBeaconStatus";
+    beacon.setAttribute("role", "status");
+    beacon.setAttribute("aria-live", "polite");
+    beacon.innerHTML = `<i aria-hidden="true"></i><span><small>LED STATUS <em id="industrialBeaconPattern">• --</em></small><strong id="industrialBeaconLabel">CHECKING...</strong></span>`;
+    motorControls.prepend(beacon);
+  }
+
   const axisView = document.getElementById("axisView");
   if (axisView && !document.getElementById("industrialSummary")) {
     const summary = document.createElement("section");
@@ -73,9 +83,9 @@ function installIndustrialDeckLayout() {
     summary.innerHTML = `
       <article><small>AZ POSITION</small><strong id="industrialAzimuthSummary">--</strong><span><i></i> TRACKING</span></article>
       <article><small>ALT POSITION</small><strong id="industrialAltitudeSummary">--</strong><span><i></i> TRACKING</span></article>
-      <article><small>COMBINED CURRENT</small><strong class="is-blue" id="industrialCombinedCurrent">--</strong><span>WITHIN LIMITS</span></article>
+      <article class="industrial-velocity-error"><small>VELOCITY TRACKING ERROR</small><div><span>AZ <strong id="industrialAzimuthVelocityError">--</strong></span><span>ALT <strong id="industrialAltitudeVelocityError">--</strong></span></div></article>
       <article><small>AVERAGE VELOCITY</small><strong class="is-amber" id="industrialAverageVelocity">--</strong><span>NOMINAL</span></article>
-      <article><small>LINK QUALITY</small><strong id="industrialLinkQuality">--</strong><span>LOCAL CONTROL</span></article>`;
+      <article class="industrial-internet-summary"><div class="industrial-internet-grid"><span><b>DOWN</b><small>EST CAP <strong id="industrialInternetDownloadCapacity">--</strong></small><small>USED <strong id="industrialInternetDownload">--</strong></small><small>FREE <strong id="industrialInternetDownloadAvailable">--</strong></small></span><span><b>UP</b><small>EST CAP <strong id="industrialInternetUploadCapacity">--</strong></small><small>USED <strong id="industrialInternetUpload">--</strong></small><small>FREE <strong id="industrialInternetUploadAvailable">--</strong></small></span></div><p><span id="industrialInternetAverage">BUILDING 15M ESTIMATE...</span> <em id="industrialInternetInterface">(--)</em></p></article>`;
     axisView.prepend(summary);
   }
 
@@ -153,11 +163,23 @@ const fields = {
   industrialSectionTitle: document.getElementById("industrialSectionTitle"),
   industrialMountStatus: document.getElementById("industrialMountStatus"),
   industrialHealthStatus: document.getElementById("industrialHealthStatus"),
+  industrialBeaconStatus: document.getElementById("industrialBeaconStatus"),
+  industrialBeaconLabel: document.getElementById("industrialBeaconLabel"),
+  industrialBeaconPattern: document.getElementById("industrialBeaconPattern"),
   industrialAzimuthSummary: document.getElementById("industrialAzimuthSummary"),
   industrialAltitudeSummary: document.getElementById("industrialAltitudeSummary"),
-  industrialCombinedCurrent: document.getElementById("industrialCombinedCurrent"),
+  industrialAzimuthVelocityError: document.getElementById("industrialAzimuthVelocityError"),
+  industrialAltitudeVelocityError: document.getElementById("industrialAltitudeVelocityError"),
   industrialAverageVelocity: document.getElementById("industrialAverageVelocity"),
-  industrialLinkQuality: document.getElementById("industrialLinkQuality"),
+  industrialInternetSummary: document.querySelector(".industrial-internet-summary"),
+  industrialInternetInterface: document.getElementById("industrialInternetInterface"),
+  industrialInternetDownloadCapacity: document.getElementById("industrialInternetDownloadCapacity"),
+  industrialInternetDownload: document.getElementById("industrialInternetDownload"),
+  industrialInternetDownloadAvailable: document.getElementById("industrialInternetDownloadAvailable"),
+  industrialInternetUploadCapacity: document.getElementById("industrialInternetUploadCapacity"),
+  industrialInternetUpload: document.getElementById("industrialInternetUpload"),
+  industrialInternetUploadAvailable: document.getElementById("industrialInternetUploadAvailable"),
+  industrialInternetAverage: document.getElementById("industrialInternetAverage"),
   cameraLiveOpen: document.getElementById("cameraLiveOpen"),
   cameraLiveWindow: document.getElementById("cameraLiveWindow"),
   cameraLiveClose: document.getElementById("cameraLiveClose"),
@@ -194,6 +216,10 @@ const fields = {
   velocityAltitude: document.getElementById("velocityAltitude"),
   velocityZero: document.getElementById("velocityZero"),
   velocityApply: document.getElementById("velocityApply"),
+  directionPanel: document.getElementById("directionControlPanel"),
+  directionClose: document.getElementById("directionControlClose"),
+  directionSpeed: document.getElementById("directionControlSpeed"),
+  directionMessage: document.getElementById("directionControlMessage"),
   azimuthTuningPanel: document.getElementById("azimuthTuningPanel"),
   altitudeTuningPanel: document.getElementById("altitudeTuningPanel"),
   azimuthAutoTunePanel: document.getElementById("azimuthAutoTunePanel"),
@@ -426,6 +452,7 @@ let lastStreamTelemetrySequence = null;
 
 const historyWindowMs = 60000;
 let reportRequestInFlight = false;
+let activeReportTab = "current";
 const PLOT_REFRESH_INTERVAL_MS = 25;
 const STATUS_FALLBACK_REFRESH_MS = 500;
 const STATUS_WS_RECONNECT_MS = 1200;
@@ -462,6 +489,7 @@ let pendingStreamStatus = null;
 let statusRenderTimer = null;
 let lastServerStartedAt = null;
 const activeAxisJogs = new Map();
+let activeDirectionJog = null;
 const lastDriveErrorLogKeys = new Map();
 const lastAxisArmedStates = new Map();
 let driveErrorEventsSupported = false;
@@ -882,6 +910,80 @@ async function refreshStatus() {
   }
 }
 
+async function refreshBeaconStatus() {
+  if (!fields.industrialBeaconStatus || !fields.industrialBeaconLabel) return;
+  try {
+    const response = await fetch("/api/health-beacon", { cache: "no-store" });
+    const data = await response.json();
+    fields.industrialBeaconLabel.textContent = data.label || "LED STATUS UNKNOWN";
+    if (fields.industrialBeaconPattern) fields.industrialBeaconPattern.textContent = `• ${data.pattern || "--"}`;
+    fields.industrialBeaconStatus.title = `${data.pattern || ""} — ${data.reason || ""}`;
+    fields.industrialBeaconStatus.classList.toggle("is-ready", data.mode === "healthy");
+    fields.industrialBeaconStatus.classList.toggle("is-warning", [
+      "off", "thermal_missing", "visible_missing",
+    ].includes(data.mode));
+    fields.industrialBeaconStatus.classList.toggle("is-fault", [
+      "azimuth_error", "altitude_error", "internet_error", "network_disconnected",
+    ].includes(data.mode));
+    fields.industrialBeaconStatus.classList.toggle("is-unknown", !data.ok);
+  } catch (error) {
+    fields.industrialBeaconLabel.textContent = "LED STATUS UNKNOWN";
+    if (fields.industrialBeaconPattern) fields.industrialBeaconPattern.textContent = "• --";
+    fields.industrialBeaconStatus.title = error.message;
+    fields.industrialBeaconStatus.className = "industrial-beacon-status is-unknown";
+  }
+}
+
+async function refreshInternetSummary() {
+  if (!fields.industrialInternetDownload || !fields.industrialInternetUpload) return;
+  const speed = (value) => Number.isFinite(Number(value)) ? `${Number(value).toFixed(2)} Mbps` : "--";
+  try {
+    const response = await fetch("/api/network/throughput", { cache: "no-store" });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    fields.industrialInternetDownload.textContent = speed(data.download_mbps);
+    fields.industrialInternetUpload.textContent = speed(data.upload_mbps);
+    const downloadCapacity = Number.isFinite(Number(data.estimated_download_mbps))
+      ? Number(data.estimated_download_mbps) : null;
+    const uploadCapacity = Number.isFinite(Number(data.estimated_upload_mbps))
+      ? Number(data.estimated_upload_mbps) : null;
+    const available = (capacity, used) => Number.isFinite(capacity) && Number.isFinite(Number(used))
+      ? Math.max(0, capacity - Number(used))
+      : null;
+    if (fields.industrialInternetDownloadCapacity) fields.industrialInternetDownloadCapacity.textContent = speed(downloadCapacity);
+    if (fields.industrialInternetUploadCapacity) fields.industrialInternetUploadCapacity.textContent = speed(uploadCapacity);
+    if (fields.industrialInternetDownloadAvailable) fields.industrialInternetDownloadAvailable.textContent = speed(available(downloadCapacity, data.download_mbps));
+    if (fields.industrialInternetUploadAvailable) fields.industrialInternetUploadAvailable.textContent = speed(available(uploadCapacity, data.upload_mbps));
+    if (fields.industrialInternetInterface) {
+      fields.industrialInternetInterface.textContent = `(${data.interface || "NO ROUTE"})`;
+    }
+    if (fields.industrialInternetSummary) {
+      fields.industrialInternetSummary.title = `15-minute rolling capacity estimate on ${data.interface || "no default interface"}, calculated from ${data.capacity_sample_count || 0} active tests plus observed traffic. Usage is sampled over ${data.sample_window_ms || "--"} ms.`;
+    }
+  } catch (error) {
+    fields.industrialInternetDownload.textContent = "--";
+    fields.industrialInternetUpload.textContent = "--";
+    if (fields.industrialInternetSummary) fields.industrialInternetSummary.title = `Internet speed unavailable: ${error.message}`;
+  }
+}
+
+async function refreshInternetSpeedTestAverage() {
+  if (!fields.industrialInternetAverage) return;
+  const speed = (value) => Number.isFinite(Number(value)) ? `${Number(value).toFixed(2)} Mbps` : "--";
+  try {
+    const response = await fetch("/api/reports/internet-speed?hours=168", { cache: "no-store" });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    const latest = data.latest || {};
+    const measuredMs = Number(latest.time_ms) || null;
+    const measured = measuredMs ? new Date(measuredMs).toLocaleTimeString() : "--";
+    fields.industrialInternetAverage.textContent = `15M ESTIMATE • TESTED ${measured}`;
+    refreshInternetSummary();
+  } catch (error) {
+    fields.industrialInternetAverage.textContent = "PIPE CAPACITY UNAVAILABLE";
+  }
+}
+
 function statusWebSocketUrl() {
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
   return `${protocol}//${window.location.host}/ws/status`;
@@ -946,6 +1048,7 @@ function queueStreamStatusRender(data) {
   const sequence = Number(data?.telemetry_source?.sequence);
   if (Number.isFinite(sequence) && sequence === lastStreamTelemetrySequence) return;
   if (Number.isFinite(sequence)) lastStreamTelemetrySequence = sequence;
+  captureStreamHistory(data);
   pendingStreamStatus = data;
   if (statusRenderTimer) return;
   statusRenderTimer = setTimeout(() => {
@@ -954,6 +1057,20 @@ function queueStreamStatusRender(data) {
     pendingStreamStatus = null;
     if (latest) renderStatus(latest);
   }, PLOT_REFRESH_INTERVAL_MS);
+}
+
+// Store every telemetry sample as soon as the WebSocket delivers it. Browsers
+// throttle timers and animation work in background tabs, so history must not
+// depend on the deferred DOM-render timer below.
+function captureStreamHistory(data) {
+  const timestamp = data?.timestamp ? new Date(data.timestamp) : new Date();
+  if (!Number.isFinite(timestamp.getTime())) return;
+  const axes = Array.isArray(data?.axes) ? data.axes : [];
+  ["Azimuth", "Altitude"].forEach((label) => {
+    const axis = axes.find((candidate) => candidate?.label === label);
+    if (data?.connected && axis?.available) appendAxisHistory(label, axis, timestamp);
+    else pruneHistory(label, timestamp);
+  });
 }
 
 function renderStatus(data) {
@@ -1018,12 +1135,16 @@ function renderIndustrialSummary(data) {
       : "--";
   }
 
-  const currents = [azimuth?.current, altitude?.current].map(toNumber).filter(Number.isFinite);
-  if (fields.industrialCombinedCurrent) {
-    fields.industrialCombinedCurrent.textContent = currents.length === 2
-      ? `${formatNumber(currents[0] + currents[1])} A`
+  const renderVelocityError = (field, axis) => {
+    if (!field) return;
+    const actual = toNumber(axis?.velocity_deg_per_sec);
+    const setpoint = axisVelocitySetpoint(axis);
+    field.textContent = Number.isFinite(actual) && Number.isFinite(setpoint)
+      ? `${formatNumber(Math.abs(actual - setpoint))} °/s`
       : "--";
-  }
+  };
+  renderVelocityError(fields.industrialAzimuthVelocityError, azimuth);
+  renderVelocityError(fields.industrialAltitudeVelocityError, altitude);
 
   const velocities = [azimuth?.velocity_deg_per_sec, altitude?.velocity_deg_per_sec]
     .map(toNumber)
@@ -1032,9 +1153,6 @@ function renderIndustrialSummary(data) {
     fields.industrialAverageVelocity.textContent = velocities.length === 2
       ? `${formatNumber((Math.abs(velocities[0]) + Math.abs(velocities[1])) / 2)} °/s`
       : "--";
-  }
-  if (fields.industrialLinkQuality) {
-    fields.industrialLinkQuality.textContent = connected ? "100.0%" : "--";
   }
   if (fields.industrialMountStatus) {
     fields.industrialMountStatus.classList.toggle("is-offline", !connected);
@@ -1187,20 +1305,7 @@ function renderAxis(label, axis, timestamp) {
     return;
   }
 
-  const sample = {
-    timeMs: timestamp.getTime(),
-    position: toNumber(axis.position_deg),
-    positionSetpoint: axisPositionSetpoint(axis),
-    velocity: toNumber(axis.velocity_deg_per_sec),
-    velocitySetpoint: axisVelocitySetpoint(axis),
-    current: toNumber(axis.current),
-    currentSetpoint: toNumber(axis.current_setpoint),
-  };
-  const previousSample = history[label][history[label].length - 1];
-  if (!previousSample || previousSample.timeMs !== sample.timeMs) {
-    history[label].push(sample);
-  }
-  pruneHistory(label, timestamp);
+  appendAxisHistory(label, axis, timestamp);
 
   ui.status.textContent = "Connected";
   ui.position.textContent = `${formatNumber(axis.position_deg)} Deg`;
@@ -1230,6 +1335,23 @@ function renderAxis(label, axis, timestamp) {
   logAxisDriveErrors(label, axis);
   ui.card.classList.add("axis-ready");
   drawChart(label, timestamp);
+}
+
+function appendAxisHistory(label, axis, timestamp) {
+  const sample = {
+    timeMs: timestamp.getTime(),
+    position: toNumber(axis.position_deg),
+    positionSetpoint: axisPositionSetpoint(axis),
+    velocity: toNumber(axis.velocity_deg_per_sec),
+    velocitySetpoint: axisVelocitySetpoint(axis),
+    current: toNumber(axis.current),
+    currentSetpoint: toNumber(axis.current_setpoint),
+  };
+  const previousSample = history[label][history[label].length - 1];
+  if (!previousSample || previousSample.timeMs !== sample.timeMs) {
+    history[label].push(sample);
+  }
+  pruneHistory(label, timestamp);
 }
 
 function logAxisArmedTransition(label, axis) {
@@ -1301,7 +1423,7 @@ function pruneHistory(label, now) {
 }
 
 async function renderCurrentReport() {
-  if (reportRequestInFlight || !fields.reportView || fields.reportView.hidden) return;
+  if (reportRequestInFlight || !fields.reportView || fields.reportView.hidden || activeReportTab !== "current") return;
   reportRequestInFlight = true;
   try {
     const response = await fetch("/api/reports/current-using?hours=24&buckets=288", { cache: "no-store" });
@@ -1328,6 +1450,37 @@ async function renderCurrentReport() {
   } finally {
     reportRequestInFlight = false;
   }
+}
+
+async function renderInternetReport() {
+  if (reportRequestInFlight || !fields.reportView || fields.reportView.hidden || activeReportTab !== "internet") return;
+  reportRequestInFlight = true;
+  try {
+    const response = await fetch("/api/reports/internet-speed?hours=168", { cache: "no-store" });
+    if (!response.ok) throw new Error(`Internet report failed (${response.status})`);
+    const report = await response.json();
+    const latest = report.latest || {};
+    document.getElementById("reportNetworkDownload").textContent = formatReportValue(latest.download_mbps, "Mbps");
+    document.getElementById("reportNetworkUpload").textContent = formatReportValue(latest.upload_mbps, "Mbps");
+    document.getElementById("reportNetworkLatency").textContent = `Latency ${formatReportValue(latest.latency_ms, "ms")}`;
+    drawNetworkReportChart(report.points || [], report.from_ms, report.to_ms);
+  } finally { reportRequestInFlight = false; }
+}
+
+function drawNetworkReportChart(points, fromMs, toMs) {
+  const canvas = document.getElementById("reportNetworkChart");
+  const chart = canvas ? prepareChartCanvas(canvas) : null;
+  if (!chart) return;
+  const { ctx, width, height } = chart;
+  const pad = { left: 58, right: 24, top: 20, bottom: 34 };
+  ctx.clearRect(0, 0, width, height); ctx.fillStyle = "#0b1217"; ctx.fillRect(0, 0, width, height);
+  ctx.strokeStyle = "rgba(133,153,164,.13)";
+  for (let i=0;i<=7;i+=1) { const x=pad.left+(i/7)*(width-pad.left-pad.right); ctx.beginPath();ctx.moveTo(x,pad.top);ctx.lineTo(x,height-pad.bottom);ctx.stroke(); const d=new Date(fromMs+(i/7)*(toMs-fromMs));ctx.fillStyle="#75858e";ctx.textAlign="center";ctx.font="10px Inter";ctx.fillText(d.toLocaleDateString([], {weekday:"short"}),x,height-10); }
+  for (let i=0;i<=4;i+=1) { const y=pad.top+(i/4)*(height-pad.top-pad.bottom);ctx.beginPath();ctx.moveTo(pad.left,y);ctx.lineTo(width-pad.right,y);ctx.stroke(); }
+  const max=Math.max(1,...points.flatMap(p=>[Number(p.download_mbps)||0,Number(p.upload_mbps)||0]));
+  const draw=(key,color)=>{ctx.beginPath();ctx.strokeStyle=color;ctx.lineWidth=2;let started=false;points.forEach(p=>{const v=Number(p[key]);if(!Number.isFinite(v))return;const x=pad.left+((p.time_ms-fromMs)/Math.max(1,toMs-fromMs))*(width-pad.left-pad.right);const y=height-pad.bottom-(v/max)*(height-pad.top-pad.bottom);started?ctx.lineTo(x,y):ctx.moveTo(x,y);started=true;});ctx.stroke();};
+  draw("download_mbps","#58c4df"); draw("upload_mbps","#f3a84b");
+  ctx.fillStyle="#58c4df";ctx.textAlign="right";ctx.font="10px Inter";ctx.fillText(`${max.toFixed(1)} Mbps`,pad.left-6,pad.top+4);ctx.fillText("0",pad.left-6,height-pad.bottom);
 }
 
 function formatReportValue(value, unit) {
@@ -2261,7 +2414,7 @@ function setViewMode(mode, { persist = true } = {}) {
         : activeViewMode === "camera"
           ? "CAMERA VIEW"
           : activeViewMode === "report"
-            ? "REPORTS / CURRENT USING"
+            ? `REPORTS / ${activeReportTab === "internet" ? "INTERNET SPEED" : "CURRENT USING"}`
         : "DASHBOARD";
   }
   hideFloatingWindowsOutsideView(activeViewMode);
@@ -2305,7 +2458,7 @@ function setViewMode(mode, { persist = true } = {}) {
   } else if (activeViewMode === "camera") {
     if (fields.cameraLiveWindow?.hidden) openCameraLiveWindow();
   } else if (activeViewMode === "report") {
-    requestAnimationFrame(renderCurrentReport);
+    requestAnimationFrame(activeReportTab === "internet" ? renderInternetReport : renderCurrentReport);
   }
 }
 
@@ -3046,6 +3199,7 @@ async function emergencyStopAndDisable() {
   // zero-velocity command while the emergency request is in flight.
   clearAxisJogState("Azimuth");
   clearAxisJogState("Altitude");
+  stopActiveDirectionJog(false);
   motorCommandInFlight = true;
   addLog("warning", "EMERGENCY STOP: Escape pressed. Stopping and disabling both axes...");
   renderMotorControls(latestStatus);
@@ -3399,6 +3553,22 @@ function openGotoPanel() {
 
 function closeGotoPanel() {
   if (fields.gotoPanel) fields.gotoPanel.hidden = true;
+}
+
+function openDirectionControl() {
+  if (!fields.directionPanel) return;
+  fields.directionPanel.hidden = false;
+  restoreFloatingWindowPosition(fields.directionPanel, {
+    left: Math.max(12, window.innerWidth - fields.directionPanel.offsetWidth - 28),
+    top: 116,
+  });
+  fields.directionSpeed?.focus();
+  addLog("message", "Opened Direction Control");
+}
+
+function closeDirectionControl() {
+  stopActiveDirectionJog();
+  if (fields.directionPanel) fields.directionPanel.hidden = true;
 }
 
 function tuningPanelForAxis(label) {
@@ -4906,6 +5076,103 @@ function startAxisJog(axis, form, button, event) {
   }, JOG_HEARTBEAT_MS);
 }
 
+function setDirectionControlMessage(message, className = "") {
+  if (!fields.directionMessage) return;
+  fields.directionMessage.classList.remove("is-ok", "is-error", "is-warning");
+  if (className) fields.directionMessage.classList.add(className);
+  fields.directionMessage.textContent = message;
+}
+
+async function sendDirectionJogCommand(azimuth, altitude, message) {
+  const payload = { Azimuth: String(azimuth), Altitude: String(altitude) };
+  const guardResult = motionCommandGuard.validate("velocity", payload);
+  if (!guardResult.ok) {
+    setDirectionControlMessage(guardResult.message, "is-warning");
+    return false;
+  }
+  const limitResult = validateMaxVelocity("velocity", payload);
+  if (!limitResult.ok) {
+    setDirectionControlMessage(limitResult.message, "is-warning");
+    return false;
+  }
+
+  try {
+    motionCommandSequence += 1;
+    const response = await fetch("/api/motors/velocity-command", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Motion-Client-ID": motionClientId,
+        "X-Motion-Command-Sequence": String(motionCommandSequence),
+      },
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json();
+    if (!response.ok || !data.ok) throw new Error(data.error || "Direction command failed.");
+    setDirectionControlMessage(message, azimuth === 0 && altitude === 0 ? "is-ok" : "");
+    return true;
+  } catch (error) {
+    setDirectionControlMessage(error.message, "is-error");
+    addLog("error", `Direction control failed: ${error.message}`);
+    return false;
+  }
+}
+
+function stopActiveDirectionJog(sendStop = true) {
+  const state = activeDirectionJog;
+  if (!state) return;
+  activeDirectionJog = null;
+  state.cleanup?.();
+  state.button.classList.remove("is-pressed");
+  if (sendStop) sendDirectionJogCommand(0, 0, "Direction jog stopped");
+}
+
+function startDirectionJog(button, event) {
+  const speed = toNumber(fields.directionSpeed?.value);
+  if (speed === null || speed <= 0) {
+    setDirectionControlMessage("Movement speed must be greater than 0.", "is-error");
+    return;
+  }
+  const azimuthSign = Number(button.dataset.directionAz);
+  const altitudeSign = Number(button.dataset.directionAlt);
+  const divisor = Math.hypot(azimuthSign, altitudeSign) || 1;
+  const azimuth = (speed * azimuthSign) / divisor;
+  const altitude = (speed * altitudeSign) / divisor;
+
+  stopActiveDirectionJog();
+  const state = { button, heartbeatTimer: null, heartbeatInFlight: false, cleanup: null };
+  activeDirectionJog = state;
+  button.classList.add("is-pressed");
+  button.setPointerCapture?.(event.pointerId);
+  sendDirectionJogCommand(azimuth, altitude, `Moving ${button.getAttribute("aria-label").replace("Move ", "")}`);
+
+  const stop = () => {
+    if (activeDirectionJog !== state) return;
+    stopActiveDirectionJog();
+  };
+  state.cleanup = () => {
+    if (button.hasPointerCapture?.(event.pointerId)) button.releasePointerCapture(event.pointerId);
+    window.removeEventListener("pointerup", stop, true);
+    window.removeEventListener("pointercancel", stop, true);
+    window.removeEventListener("blur", stop);
+    button.removeEventListener("lostpointercapture", stop);
+    if (state.heartbeatTimer !== null) window.clearInterval(state.heartbeatTimer);
+  };
+  window.addEventListener("pointerup", stop, { capture: true });
+  window.addEventListener("pointercancel", stop, { capture: true });
+  window.addEventListener("blur", stop);
+  button.addEventListener("lostpointercapture", stop);
+  state.heartbeatTimer = window.setInterval(async () => {
+    if (activeDirectionJog !== state || state.heartbeatInFlight) return;
+    state.heartbeatInFlight = true;
+    try {
+      await sendDirectionJogCommand(azimuth, altitude, `Moving ${button.getAttribute("aria-label").replace("Move ", "")}`);
+    } finally {
+      state.heartbeatInFlight = false;
+    }
+  }, JOG_HEARTBEAT_MS);
+}
+
 function activateGotoTab(tabName) {
   document.querySelectorAll("[data-goto-tab]").forEach((button) => {
     const active = button.dataset.gotoTab === tabName;
@@ -5100,7 +5367,8 @@ let cameraLiveStartedAt = 0;
 let cameraLiveLastRenderAt = 0;
 let cameraRecordingStatus = "idle";
 let cameraRecordingPollTimer = null;
-let cameraSourceMode = localStorage.getItem("cameraSourceMode") === "live" ? "live" : "simulation";
+let cameraSourceMode = "live";
+let cameraSourceAutoSelected = false;
 let cameraStreamSocket = null;
 let cameraStreamReconnectTimer = null;
 let cameraStreamMetadata = { thermal: {}, visible: {} };
@@ -5232,6 +5500,23 @@ function renderCameraSourceMode() {
   });
 }
 
+async function selectAvailableCameraSource() {
+  if (cameraSourceAutoSelected) return;
+  cameraSourceAutoSelected = true;
+  try {
+    const response = await fetch("/api/camera-stream", { cache: "no-store" });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const sources = (await response.json()).sources || {};
+    const liveReady = sources.live?.cameras?.thermal?.connected === true
+      && sources.live?.cameras?.visible?.connected === true;
+    cameraSourceMode = liveReady ? "live" : "simulation";
+    localStorage.setItem("cameraSourceMode", cameraSourceMode);
+  } catch (error) {
+    cameraSourceMode = localStorage.getItem("cameraSourceMode") === "simulation" ? "simulation" : "live";
+    addLog("warning", `Could not select camera source automatically: ${error.message}`);
+  }
+}
+
 function toggleCameraSourceMode() {
   cameraSourceMode = cameraSourceMode === "simulation" ? "live" : "simulation";
   localStorage.setItem("cameraSourceMode", cameraSourceMode);
@@ -5316,7 +5601,7 @@ function refreshCameraLiveWindow() {
   cameraLiveAnimationFrame = requestAnimationFrame(refreshCameraLiveWindow);
 }
 
-function openCameraLiveWindow() {
+async function openCameraLiveWindow() {
   if (!fields.cameraLiveWindow) return;
   fields.cameraLiveWindow.hidden = false;
   fields.cameraLiveOpen?.setAttribute("aria-expanded", "true");
@@ -5335,6 +5620,7 @@ function openCameraLiveWindow() {
   clearInterval(cameraRecordingPollTimer);
   cameraRecordingPollTimer = setInterval(pollCameraRecording, 500);
   addLog("message", "Live camera monitor opened");
+  await selectAvailableCameraSource();
   renderCameraSourceMode();
 }
 
@@ -5448,6 +5734,19 @@ fields.skyStop?.addEventListener("click", () => {
 fields.motorGoto?.addEventListener("click", openGotoPanel);
 fields.systemSetting?.addEventListener("click", openSettingsPanel);
 fields.gotoClose?.addEventListener("click", closeGotoPanel);
+fields.directionClose?.addEventListener("click", closeDirectionControl);
+fields.directionPanel?.querySelectorAll("[data-direction-az]").forEach((button) => {
+  button.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    startDirectionJog(button, event);
+  });
+  button.addEventListener("click", (event) => event.preventDefault());
+});
+fields.directionPanel?.querySelector("[data-direction-stop]")?.addEventListener("click", () => {
+  if (activeDirectionJog) stopActiveDirectionJog();
+  else sendDirectionJogCommand(0, 0, "Direction jog stopped");
+});
 fields.gotoUseActual?.addEventListener("click", fillGotoFromActual);
 fields.gotoForm?.addEventListener("submit", (event) => {
   event.preventDefault();
@@ -5574,7 +5873,18 @@ document.querySelectorAll("[data-mission-nav]").forEach((control) => {
     if (action === "dashboard") setViewMode("axis");
     if (action === "devices") window.location.assign("/api-console");
     if (action === "alerts") document.getElementById("event-log")?.scrollIntoView({ behavior: "smooth", block: "end" });
+    if (action === "direction") openDirectionControl();
     if (action === "settings") fields.systemSetting?.click();
+  });
+});
+
+document.querySelectorAll("[data-report-tab]").forEach((button) => {
+  button.addEventListener("click", () => {
+    activeReportTab = button.dataset.reportTab;
+    if (fields.industrialSectionTitle) fields.industrialSectionTitle.textContent = `REPORTS / ${activeReportTab === "internet" ? "INTERNET SPEED" : "CURRENT USING"}`;
+    document.querySelectorAll("[data-report-tab]").forEach(tab => { const active=tab===button;tab.classList.toggle("active",active);tab.setAttribute("aria-selected",active?"true":"false"); });
+    document.querySelectorAll("[data-report-panel]").forEach(panel => { panel.hidden = panel.dataset.reportPanel !== activeReportTab; });
+    if (activeReportTab === "internet") renderInternetReport(); else renderCurrentReport();
   });
 });
 
@@ -5618,6 +5928,7 @@ document.addEventListener("keydown", (event) => {
     event.stopPropagation();
     closeStepPanel();
     closeGotoPanel();
+    closeDirectionControl();
     closeSettingsPanel();
     closeFloatingTuningPanels();
     if (!event.repeat) emergencyStopAndDisable();
@@ -5625,6 +5936,19 @@ document.addEventListener("keydown", (event) => {
 }, { capture: true });
 
 window.addEventListener("pagehide", () => {
+  if (activeDirectionJog) {
+    stopActiveDirectionJog(false);
+    fetch("/api/motors/velocity-command", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Motion-Client-ID": motionClientId,
+        "X-Motion-Command-Sequence": String(++motionCommandSequence),
+      },
+      body: JSON.stringify({ Azimuth: "0", Altitude: "0" }),
+      keepalive: true,
+    }).catch(() => {});
+  }
   const activeAxes = new Set(
     [...activeAxisJogs.keys()].map((key) => key.split(":", 1)[0]),
   );
@@ -5645,6 +5969,7 @@ window.addEventListener("pagehide", () => {
 
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden) return;
+  stopActiveDirectionJog();
   const activeAxes = new Set(
     [...activeAxisJogs.keys()].map((key) => key.split(":", 1)[0]),
   );
@@ -5673,9 +5998,15 @@ if (!document.documentElement.classList.contains("mobile-browser") && !fields.po
 initializeAxisColumnResizer();
 setViewMode(activeViewMode, { persist: false });
 setInterval(() => {
-  if (activeViewMode === "report") renderCurrentReport();
+  if (activeViewMode === "report") activeReportTab === "internet" ? renderInternetReport() : renderCurrentReport();
 }, 30000);
 loadAppSettings();
 loadSystemInfo({ quiet: true });
+refreshBeaconStatus();
+setInterval(refreshBeaconStatus, 1000);
+refreshInternetSummary();
+setInterval(refreshInternetSummary, 1000);
+refreshInternetSpeedTestAverage();
+setInterval(refreshInternetSpeedTestAverage, 10000);
 addLog("message", "Page loaded successfully. Fire Detector dashboard is ready.");
 connectStatusStream();

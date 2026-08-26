@@ -77,6 +77,26 @@ def assert_flash_count(mode, count):
     assert all(not value for value in samples[count * 10 - 5:])
 
 
+def test_general_not_ready_state_flashes_once_instead_of_looking_dead():
+    status = healthy_status()
+    status["connected"] = False
+    mode, _ = health_beacon.beacon_state(status, healthy_cameras())
+    assert mode == health_beacon.MODE_OFF
+    assert_flash_count(mode, 1)
+
+
+def test_both_cameras_missing_flashes_general_not_ready_code():
+    cameras = healthy_cameras()
+    cameras["sources"]["live"]["connected"] = False
+    cameras["sources"]["live"]["cameras"]["thermal"]["connected"] = False
+    cameras["sources"]["live"]["cameras"]["visible"]["connected"] = False
+    mode, reason = health_beacon.beacon_state(healthy_status(), cameras)
+    assert mode == health_beacon.MODE_OFF
+    assert reason == "both camera streams are missing"
+    assert health_beacon.beacon_label(mode, reason) == "BOTH CAMERAS OFFLINE"
+    assert_flash_count(mode, 1)
+
+
 def test_axis_and_internet_patterns():
     status = healthy_status()
     status["axes"][0]["active_errors"] = 1
@@ -88,6 +108,17 @@ def test_axis_and_internet_patterns():
     assert health_beacon.beacon_state(status, healthy_cameras())[0] == health_beacon.MODE_ALTITUDE_ERROR
     assert_flash_count(health_beacon.MODE_ALTITUDE_ERROR, 5)
 
-    mode, _ = health_beacon.beacon_state(healthy_status(), healthy_cameras(), internet_connected=False)
+    mode, _ = health_beacon.beacon_state(healthy_status(), healthy_cameras(), telemetry_connected=False)
     assert mode == health_beacon.MODE_INTERNET_ERROR
     assert_flash_count(mode, 6)
+
+
+def test_disconnected_internet_uses_rapid_100ms_pattern():
+    mode, reason = health_beacon.beacon_state(
+        healthy_status(), healthy_cameras(), internet_connected=False
+    )
+    assert mode == health_beacon.MODE_NETWORK_DISCONNECTED
+    assert "internet" in reason
+    assert [health_beacon.pattern_output(mode, value) for value in (
+        0.0, 0.099, 0.1, 0.199, 0.2, 0.299,
+    )] == [True, True, False, False, True, True]

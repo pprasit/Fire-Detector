@@ -2916,6 +2916,23 @@ def create_app() -> Flask:
     def api_status():
         return jsonify(monitor.snapshot())
 
+    @app.get("/api/health-beacon")
+    def api_health_beacon():
+        state_path = Path("/run/fire-detector/health-beacon.json")
+        try:
+            payload = json.loads(state_path.read_text(encoding="utf-8"))
+            if time.time() - float(payload.get("updated_at", 0)) > 5.0:
+                raise ValueError("health beacon status is stale")
+            return jsonify({"ok": True, **payload})
+        except (OSError, ValueError, json.JSONDecodeError):
+            return jsonify({
+                "ok": False,
+                "mode": "unknown",
+                "label": "LED STATUS UNKNOWN",
+                "pattern": "No current data",
+                "reason": "Health beacon service is unavailable",
+            }), 503
+
     @app.get("/api/reports/current-using")
     def api_current_using_report():
         try:
@@ -2924,6 +2941,18 @@ def create_app() -> Flask:
         except ValueError:
             return jsonify({"ok": False, "error": "hours and buckets must be integers"}), 400
         return jsonify({"ok": True, **telemetry_store.report(hours=hours, buckets=buckets)})
+
+    @app.get("/api/reports/internet-speed")
+    def api_internet_speed_report():
+        try:
+            hours = int(request.args.get("hours", "168"))
+        except ValueError:
+            return jsonify({"ok": False, "error": "hours must be an integer"}), 400
+        return jsonify({"ok": True, **telemetry_store.network_report(hours=hours)})
+
+    @app.get("/api/network/throughput")
+    def api_network_throughput():
+        return jsonify({"ok": True, **telemetry_store.network_live()})
 
     @app.get("/api/camera-preview/<camera>")
     def api_camera_preview(camera: str):

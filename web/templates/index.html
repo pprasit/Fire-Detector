@@ -19,7 +19,7 @@
     <link rel="shortcut icon" type="image/png" href="{{ url_for('static', filename='img/narit-smart-wildfire-favicon.png') }}?v=2">
     <meta name="theme-color" content="#071014">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}?v=85">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/mission_control.css') }}?v=21">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mission_control.css') }}?v=32">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/tabs.css') }}?v=2">
   </head>
   <body>
@@ -574,10 +574,11 @@
 
         <section class="report-view" id="reportView" aria-label="24 hour mount reports" hidden>
         <div class="report-tabs tab-list system-tabs" role="tablist" aria-label="Report type">
-          <button class="tab-button system-tab active" type="button" role="tab" aria-selected="true">Current Using</button>
+          <button class="tab-button system-tab active" type="button" role="tab" aria-selected="true" data-report-tab="current">Current Using</button>
+          <button class="tab-button system-tab" type="button" role="tab" aria-selected="false" data-report-tab="internet">Internet Speed</button>
         </div>
 
-        <div class="report-current-panel">
+        <div class="report-current-panel" data-report-panel="current">
           <article class="report-axis-chart">
             <header>
               <div class="report-axis-title"><h3>Azimuth</h3></div>
@@ -600,6 +601,19 @@
               <span class="report-chart-legend"><i class="current-key"></i> Current (A)<i class="velocity-key"></i> Speed (Deg/Sec)</span>
             </header>
             <canvas id="reportAltitudeChart" width="1400" height="290"></canvas>
+          </article>
+        </div>
+        <div class="report-internet-panel" data-report-panel="internet" hidden>
+          <article class="report-axis-chart report-network-chart">
+            <header>
+              <div class="report-axis-title"><h3>Internet Speed • Last 7 Days</h3></div>
+              <div class="report-chart-metrics">
+                <span><small>DOWNLOAD</small><strong id="reportNetworkDownload">-- Mbps</strong><em id="reportNetworkLatency">Latency -- ms</em></span>
+                <span><small>UPLOAD</small><strong id="reportNetworkUpload">-- Mbps</strong><em>Measured every 15 min</em></span>
+              </div>
+              <span class="report-chart-legend"><i class="current-key"></i> Download (Mbps)<i class="velocity-key"></i> Upload (Mbps)</span>
+            </header>
+            <canvas id="reportNetworkChart" width="1400" height="620"></canvas>
           </article>
         </div>
         </section>
@@ -1022,6 +1036,32 @@
       </form>
     </div>
 
+    <section class="direction-control-panel" id="directionControlPanel" hidden data-floating-window="directionControlPanel" role="dialog" aria-modal="false" aria-labelledby="directionControlTitle">
+      <header class="direction-control-header" data-floating-window-handle>
+        <div><small>MOUNT JOG</small><strong id="directionControlTitle">Direction Control</strong></div>
+        <button type="button" id="directionControlClose" aria-label="Close direction control">×</button>
+      </header>
+      <div class="direction-control-body">
+        <label class="direction-speed-field">
+          <span>Movement Speed</span>
+          <div><input id="directionControlSpeed" type="number" min="0.001" step="0.1" inputmode="decimal" value="5.0"><em>Deg/Sec</em></div>
+        </label>
+        <div class="direction-pad" aria-label="Press and hold a direction to move">
+          <button type="button" data-direction-az="-1" data-direction-alt="1" aria-label="Move up and left"><svg viewBox="0 0 24 24" style="--direction-angle:225deg"><path d="M5 12h14M14 7l5 5-5 5"/></svg></button>
+          <button type="button" data-direction-az="0" data-direction-alt="1" aria-label="Move up"><svg viewBox="0 0 24 24" style="--direction-angle:270deg"><path d="M5 12h14M14 7l5 5-5 5"/></svg></button>
+          <button type="button" data-direction-az="1" data-direction-alt="1" aria-label="Move up and right"><svg viewBox="0 0 24 24" style="--direction-angle:315deg"><path d="M5 12h14M14 7l5 5-5 5"/></svg></button>
+          <button type="button" data-direction-az="-1" data-direction-alt="0" aria-label="Move left"><svg viewBox="0 0 24 24" style="--direction-angle:180deg"><path d="M5 12h14M14 7l5 5-5 5"/></svg></button>
+          <button class="direction-stop" type="button" data-direction-stop aria-label="Stop movement"><svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="1"/></svg></button>
+          <button type="button" data-direction-az="1" data-direction-alt="0" aria-label="Move right"><svg viewBox="0 0 24 24" style="--direction-angle:0deg"><path d="M5 12h14M14 7l5 5-5 5"/></svg></button>
+          <button type="button" data-direction-az="-1" data-direction-alt="-1" aria-label="Move down and left"><svg viewBox="0 0 24 24" style="--direction-angle:135deg"><path d="M5 12h14M14 7l5 5-5 5"/></svg></button>
+          <button type="button" data-direction-az="0" data-direction-alt="-1" aria-label="Move down"><svg viewBox="0 0 24 24" style="--direction-angle:90deg"><path d="M5 12h14M14 7l5 5-5 5"/></svg></button>
+          <button type="button" data-direction-az="1" data-direction-alt="-1" aria-label="Move down and right"><svg viewBox="0 0 24 24" style="--direction-angle:45deg"><path d="M5 12h14M14 7l5 5-5 5"/></svg></button>
+        </div>
+        <p id="directionControlMessage" class="direction-control-message">Press and hold to move • Release to stop</p>
+        <small class="direction-control-safety">Diagonal speed is normalized. Axis and runtime limits remain enforced.</small>
+      </div>
+    </section>
+
     <div class="settings-panel" id="settingsPanel" hidden data-floating-window="settingsPanel">
       <div class="settings-panel-header" data-floating-window-handle>
         <strong>System Settings</strong>
@@ -1224,7 +1264,7 @@
     </section>
 
     <script type="module" src="{{ url_for('static', filename='js/pointing_terrain_3d.js') }}?v=4"></script>
-  <script src="{{ url_for('static', filename='js/dashboard.js') }}?v=47"></script>
+  <script src="{{ url_for('static', filename='js/dashboard.js') }}?v=62"></script>
     <script src="{{ url_for('static', filename='js/mobile_panels.js') }}?v=12"></script>
   </body>
 </html>
