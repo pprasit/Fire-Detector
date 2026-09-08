@@ -294,6 +294,16 @@ class PositionMotionAlgorithmTests(unittest.TestCase):
         self.assertTrue(settled.settled)
         self.assertEqual(settled.command_velocity_deg_per_sec, 0.0)
 
+    def test_precise_offset_does_not_settle_inside_default_goto_tolerance(self):
+        result = self.step(
+            error_deg=0.01,
+            actual_velocity_deg_per_sec=0.0,
+            position_tolerance_deg=0.0025,
+        )
+
+        self.assertFalse(result.settled)
+        self.assertGreater(result.command_velocity_deg_per_sec, 0.0)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -27,7 +27,8 @@ def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
 
-def main() -> int:
+def fetch_publisher_credentials() -> tuple[dict[str, object], int]:
+    """Fetch and validate credentials without persisting or logging secrets."""
     remote = json.loads(SETTINGS_PATH.read_text(encoding="utf-8"))["mount_agent"]["remote"]
     device_id = str(remote["device_id"])
     timestamp = utc_now()
@@ -59,6 +60,14 @@ def main() -> int:
     if not isinstance(paths, dict) or not all(isinstance(paths.get(camera), str) for camera in ("thermal", "visible")):
         raise RuntimeError("Publisher credential response does not contain both stream paths.")
 
+    return payload, status
+
+
+def main() -> int:
+    payload, status = fetch_publisher_credentials()
+    paths = payload["paths"]
+    assert isinstance(paths, dict)
+
     CREDENTIAL_PATH.parent.mkdir(parents=True, exist_ok=True)
     fd, temporary = tempfile.mkstemp(prefix=".publisher-credentials.", dir=CREDENTIAL_PATH.parent)
     try:
@@ -66,8 +75,8 @@ def main() -> int:
         encoded = {
             "PUBLISHER_USERNAME_B64": base64.b64encode(payload["username"].encode()).decode(),
             "PUBLISHER_PASSWORD_B64": base64.b64encode(payload["password"].encode()).decode(),
-            "THERMAL_PATH_B64": base64.b64encode(paths["thermal"].encode()).decode(),
-            "VISIBLE_PATH_B64": base64.b64encode(paths["visible"].encode()).decode(),
+            "THERMAL_PATH_B64": base64.b64encode(str(paths["thermal"]).encode()).decode(),
+            "VISIBLE_PATH_B64": base64.b64encode(str(paths["visible"]).encode()).decode(),
         }
         with os.fdopen(fd, "w", encoding="utf-8") as output:
             for name, value in encoded.items():

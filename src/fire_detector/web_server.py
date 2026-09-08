@@ -27,9 +27,10 @@ from threading import Condition, Event, Lock, Thread, Timer, current_thread
 from time import monotonic, sleep
 from typing import Any
 import urllib.parse
+import urllib.error
 import urllib.request
 
-from flask import Flask, Response, jsonify, render_template, request, send_file, send_from_directory, stream_with_context
+from flask import Flask, Response, jsonify, make_response, render_template, request, send_file, send_from_directory, stream_with_context
 from flask_sock import Sock
 
 from fire_detector.mount_agent import MountAgent, ProtocolError
@@ -45,7 +46,15 @@ from fire_detector.motion_algorithm import PositionMotionAlgorithm, PositionStep
 from fire_detector.motion_commands import ManagedMotionController, MotionCommandManager
 from fire_detector.jog_commands import JogCommandRegistry
 from fire_detector.telemetry_store import TelemetryStore
+from fire_detector.backup_api import (
+    BackupError,
+    BackupManager,
+    BackupNonceCache,
+    require_tailscale_source,
+    verify_backup_signature,
+)
 from fire_detector.camera_overlay import burn_camera_overlay
+from fire_detector.camera_frame_pool import CAMERA_POOL_PROFILES, CameraFramePool
 from fire_detector.odrive_connection import (
     ODriveConnectionError,
     connect,
@@ -55,13 +64,25 @@ from fire_detector.odrive_connection import (
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 APP_SETTINGS_PATH = PROJECT_ROOT / "AppSetting.JSON"
+POINTING_MODEL_PATH = PROJECT_ROOT / "data" / "pointing_model.json"
 ACTIVE_STATION_CONFIGURATION_PATH = PROJECT_ROOT / "data" / "station_configuration" / "active.json"
 UPDATE_STATE_PATH = PROJECT_ROOT / ".update_state.json"
 UPDATER_SCRIPT_PATH = PROJECT_ROOT / "scripts" / "fire_detector_update.py"
 DEM_PATH = PROJECT_ROOT / "data" / "dem" / "output_hh.tif"
 POINTING_CACHE_DIR = PROJECT_ROOT / "data" / "pointing_cache"
 TELEMETRY_DATABASE_PATH = PROJECT_ROOT / "data" / "telemetry" / "mount_telemetry.sqlite3"
+BACKUP_DIR = PROJECT_ROOT / "data" / "backups"
 ARCGIS_WORLD_IMAGERY_EXPORT_URL = "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export"
+POINTING_IMAGERY_TEXTURE_SIZE = 4096
+POINTING_IMAGERY_JPEG_QUALITY = 88
+POINTING_DETAIL_IMAGERY_RADIUS_M = 5000.0
+POINTING_PRECISION_IMAGERY_RADIUS_M = 1000.0
+POINTING_PRECISION_IMAGERY_TEXTURE_SIZE = 2048
+CAMERA_CONTROL_ZOOM_URL = os.environ.get(
+    "FIRE_DETECTOR_CAMERA_ZOOM_URL",
+    "http://127.0.0.1:5005/api/camera/zoom",
+).strip()
+CAMERA_ZOOM_STEP_PCT = 1.0
 SYSTEM_DIST_PACKAGES = "/usr/lib/python3/dist-packages"
 ODRIVE_PRO_V44_MAX_CURRENT_AMP = 150.0
 SAFE_MAX_SLEW_RATE_DEG_PER_SEC = 100.0
@@ -79,6 +100,10 @@ DEFAULT_TORQUE_CONSTANT_NM_PER_AMP = MOTOR_CURRENT_ENVELOPE.torque_constant_nm_p
 CURRENT_LIMIT_WRITE_INTERVAL_SEC = 0.075
 CURRENT_LIMIT_WRITE_STEP_AMP = 0.5
 DEFAULT_UPDATE_INTERVAL_MINUTES = 15
+STREAM_PUBLISHER_SERVICE_UNITS = (
+    "fire-detector-thermal-stream.service",
+    "fire-detector-visible-stream.service",
+)
 POINTING_RADIUS_KM = 20.0
 POINTING_GRID_RESOLUTION_M = 30.0
 EARTH_RADIUS_M = 6371008.8
@@ -92,6 +117,7 @@ POSITION_GLITCH_ACCEPT_AFTER = 12
 POSITION_MEDIAN_WINDOW = 11
 TELEMETRY_INTERVAL_SEC = 0.025
 TELEMETRY_PUSH_INTERVAL_SEC = TELEMETRY_INTERVAL_SEC
+DRIVE_POWER_TELEMETRY_INTERVAL_SEC = 1.0
 TELEMETRY_CONTENTION_YIELD_SEC = 0.005
 MAX_DRIVE_ERROR_EVENTS = 100
 MAX_AUTO_TUNE_STEP_EVENTS = 160
@@ -108,12 +134,16 @@ SINE_VELOCITY_INTERVAL_SEC = TELEMETRY_INTERVAL_SEC
 SINE_LIMIT_BIAS_START_RATIO = 0.5
 SINE_LIMIT_MAX_RETURN_PROBABILITY = 0.95
 SINE_MAX_SAME_DIRECTION_HALF_CYCLES = 2
+AZIMUTH_SENSOR_BRIDGE_MAX_AGE_SEC = 3.0
 _GPIO: Any | None = None
 _GPIO_CONFIGURED_INPUTS: dict[int, str] = {}
 _GPIO_LOCK = Lock()
+_AZIMUTH_SENSOR_BRIDGE_LOCK = Lock()
+_AZIMUTH_SENSOR_BRIDGE_STATE: dict[str, Any] = {}
 _SETTINGS_CACHE: dict[str, Any] | None = None
 _SETTINGS_MTIME: float | None = None
 _REMOTE_SETTINGS_MTIME: float | None = None
+_POINTING_MODEL_MTIME: float | None = None
 _DEM_CACHE: dict[str, Any] | None = None
 _POINTING_RASTER_CACHE: dict[str, Any] | None = None
 SERVER_STARTED_AT = datetime.now().astimezone()
@@ -445,6 +475,7 @@ class ODriveMonitor:
         self._motor_calibration_threads: dict[str, Thread] = {}
         self._motor_calibration_state: dict[str, dict[str, Any]] = {}
         self._next_missing_drive_retry_at = 0.0
+        self._next_power_telemetry_at = 0.0
 
     def start(self) -> None:
         with self._lock:
@@ -1117,6 +1148,18 @@ class ODriveMonitor:
         with self._device_lock:
             self._devices = None
 
+    def rebase_position_offsets(self) -> None:
+        """Reinitialize unwrapped telemetry after software zero offsets change."""
+        if not self._hardware_io.is_owner():
+            self._hardware_call(
+                self.rebase_position_offsets,
+                label="rebase-position-offsets",
+                priority=PRIORITY_CONFIGURATION,
+            )
+            return
+        with self._device_lock:
+            self._position_unwrap.clear()
+
     def flash_motion_limits(self, settings: dict[str, Any]) -> dict[str, Any]:
         if not self._hardware_io.is_owner():
             return self._hardware_call(
@@ -1436,20 +1479,39 @@ class ODriveMonitor:
                     {"running": False, "phase": phase, "updated_at": _timestamp()}
                 )
 
-    def goto_positions(self, positions_deg: dict[str, float], velocity_target_deg_per_sec: float | None = None) -> dict[str, Any]:
+    def goto_positions(
+        self,
+        positions_deg: dict[str, float],
+        velocity_target_deg_per_sec: float | None = None,
+        position_tolerance_deg: float | None = None,
+    ) -> dict[str, Any]:
         for label in positions_deg:
             self.stop_motor_calibration(label)
         self._cancel_sine_velocity_tests(tuple(positions_deg))
         _validate_motion_targets(positions_deg)
         velocity_target_deg_per_sec = _effective_slew_rate(velocity_target_deg_per_sec) or _configured_slew_rate() or 30.0
-        self._start_software_position_move(positions_deg, velocity_target_deg_per_sec)
+        self._start_software_position_move(
+            positions_deg,
+            velocity_target_deg_per_sec,
+            position_tolerance_deg,
+        )
         # Command acknowledgement must not perform another full USB telemetry
         # read. The monitor thread owns status refreshes; reading here stalls
         # the newly-started control loop and couples API latency to USB latency.
         return self.snapshot()
 
-    def _start_software_position_move(self, positions_deg: dict[str, float], max_speed_deg_per_sec: float) -> None:
+    def _start_software_position_move(
+        self,
+        positions_deg: dict[str, float],
+        max_speed_deg_per_sec: float,
+        position_tolerance_deg: float | None = None,
+    ) -> None:
         generation = self._cancel_software_position_move()
+        position_tolerance_deg = (
+            SOFTWARE_POSITION_TOLERANCE_DEG
+            if position_tolerance_deg is None
+            else max(0.0001, min(SOFTWARE_POSITION_TOLERANCE_DEG, float(position_tolerance_deg)))
+        )
         start_positions_deg: dict[str, float] = {}
         initial_commands_deg_per_sec: dict[str, float] = {}
         resolved_positions_deg = dict(positions_deg)
@@ -1519,6 +1581,7 @@ class ODriveMonitor:
                     "active": True,
                     "target_deg": target,
                     "max_speed_deg_per_sec": max_speed_deg_per_sec,
+                    "position_tolerance_deg": position_tolerance_deg,
                     "gain": _software_position_gain(label),
                     "error_deg": None,
                     "command_velocity_deg_per_sec": initial_commands_deg_per_sec.get(label, 0.0),
@@ -1534,6 +1597,7 @@ class ODriveMonitor:
                     dict(positions_deg),
                     start_positions_deg,
                     float(max_speed_deg_per_sec),
+                    position_tolerance_deg,
                     initial_commands_deg_per_sec,
                     stop_event,
                     generation,
@@ -1566,6 +1630,7 @@ class ODriveMonitor:
         positions_deg: dict[str, float],
         start_positions_deg: dict[str, float],
         max_speed_deg_per_sec: float,
+        position_tolerance_deg: float,
         initial_commands_deg_per_sec: dict[str, float],
         stop_event: Event,
         generation: int,
@@ -1575,7 +1640,12 @@ class ODriveMonitor:
             label: initial_commands_deg_per_sec.get(label, 0.0)
             for label in positions_deg
         }
-        timeout_at = monotonic() + _software_position_timeout_sec(positions_deg, start_positions_deg, max_speed)
+        timeout_at = monotonic() + _software_position_timeout_sec(
+            positions_deg,
+            start_positions_deg,
+            max_speed,
+            position_tolerance_deg,
+        )
         phase = "moving"
         initial_telemetry = self.snapshot().get("telemetry_source", {})
         last_telemetry_sequence = max(
@@ -1649,7 +1719,7 @@ class ODriveMonitor:
                         gain_per_sec=gain,
                         acceleration_deg_per_sec2=acceleration,
                         interval_sec=control_interval_sec,
-                        position_tolerance_deg=SOFTWARE_POSITION_TOLERANCE_DEG,
+                        position_tolerance_deg=position_tolerance_deg,
                         settle_velocity_deg_per_sec=SOFTWARE_POSITION_SETTLE_VELOCITY_DEG_PER_SEC,
                     ))
                     settled = step.settled
@@ -1668,6 +1738,7 @@ class ODriveMonitor:
                         "target_deg": target,
                         "current_deg": current,
                         "max_speed_deg_per_sec": max_speed,
+                        "position_tolerance_deg": position_tolerance_deg,
                         "gain": gain,
                         "error_deg": error,
                         "command_velocity_deg_per_sec": command_velocity,
@@ -2238,11 +2309,16 @@ class ODriveMonitor:
     def _read_drive_status(self, devices: tuple[Any, ...], telemetry_only: bool = False) -> Any:
         if self._thread is not None and not self._hardware_io.is_owner():
             raise RuntimeError("ODrive telemetry reads are restricted to the hardware I/O owner.")
+        now = monotonic()
+        refresh_power = not telemetry_only or now >= self._next_power_telemetry_at
         status = read_dual_drive_status(
             devices,
             telemetry_only=telemetry_only and self._drive_status is not None,
             previous=self._drive_status,
+            refresh_power=refresh_power,
         )
+        if refresh_power:
+            self._next_power_telemetry_at = now + DRIVE_POWER_TELEMETRY_INTERVAL_SEC
         self._drive_status = status
         return status
 
@@ -2384,6 +2460,12 @@ class ODriveMonitor:
                     _axis_position_offset(axis_status.label),
                     self._position_unwrap,
                     azimuth_sensors,
+                    lower,
+                    upper,
+                    allow_region_reconcile=(
+                        abs(_finite_float(getattr(axis_status, "velocity_deg_per_sec", None)) or 0.0) < 0.25
+                        and abs(_finite_float(getattr(axis_status, "input_vel", None)) or 0.0) < 0.0001
+                    ),
                 )
             if _axis_target_returns_within_limits(axis_status, lower, upper, azimuth_sensors):
                 continue
@@ -2547,7 +2629,13 @@ class SimulationMonitor:
             for axis in self._axes.values(): axis.update(velocity=0.0, command_velocity=0.0, target=None)
         return self.snapshot()
 
-    def goto_positions(self, positions_deg: dict[str, float], velocity_target_deg_per_sec: float | None = None) -> dict[str, Any]:
+    def goto_positions(
+        self,
+        positions_deg: dict[str, float],
+        velocity_target_deg_per_sec: float | None = None,
+        position_tolerance_deg: float | None = None,
+    ) -> dict[str, Any]:
+        del position_tolerance_deg
         _validate_motion_targets(positions_deg)
         speed = _effective_slew_rate(velocity_target_deg_per_sec) or 30.0
         with self._lock:
@@ -2582,6 +2670,7 @@ class SimulationMonitor:
         return {"simulation_mode": True, "drive_flash_skipped": True}
 
     def reload_configuration(self) -> None: pass
+    def rebase_position_offsets(self) -> None: pass
     def request_auto_tune_stop(self) -> dict[str, Any]: return {"requested": True, "simulation_mode": True}
     def auto_tune_axis(self, label: str, options: dict[str, Any] | None = None) -> dict[str, Any]:
         del options
@@ -2599,12 +2688,116 @@ class SimulationMonitor:
         return {"axis": label, "active": False, "simulation_mode": True}
 
 
+def active_stream_publisher_units() -> list[str]:
+    """Return production publishers that would be disrupted by a speed test."""
+    active: list[str] = []
+    for unit in STREAM_PUBLISHER_SERVICE_UNITS:
+        try:
+            result = subprocess.run(
+                ["systemctl", "is-active", "--quiet", unit],
+                timeout=2.0,
+                check=False,
+            )
+        except (OSError, subprocess.SubprocessError):
+            # Be conservative: an unknown service state must not permit an
+            # active bandwidth probe on a production link.
+            return ["publisher-state-unavailable"]
+        if result.returncode == 0:
+            active.append(unit)
+    return active
+
+
+def _dashboard_variant(user_agent: str, mobile_hint: str = "", override: str = "") -> str:
+    """Select an isolated dashboard frontend before rendering any HTML."""
+    requested = override.strip().lower()
+    if requested in {"mobile", "desktop"}:
+        return requested
+    if mobile_hint.strip() == "?1":
+        return "mobile"
+    mobile_pattern = re.compile(
+        r"Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|Tablet",
+        re.IGNORECASE,
+    )
+    return "mobile" if mobile_pattern.search(user_agent or "") else "desktop"
+
+
+def _stepped_camera_zoom_target(
+    current_zoom_pct: float,
+    direction: str,
+    step_pct: float = CAMERA_ZOOM_STEP_PCT,
+) -> float:
+    """Calculate one normalized target shared by both camera lenses."""
+    normalized_direction = str(direction).strip().lower()
+    if normalized_direction not in {"in", "out"}:
+        raise ValueError("direction must be 'in' or 'out'")
+    try:
+        step = float(step_pct)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("step_pct must be a number") from exc
+    if not math.isfinite(step) or step < 0.1 or step > 25.0:
+        raise ValueError("step_pct must be between 0.1 and 25")
+    delta = step if normalized_direction == "in" else -step
+    try:
+        current = float(current_zoom_pct)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Current linked zoom percentage is unavailable") from exc
+    if not math.isfinite(current):
+        raise ValueError("Current linked zoom percentage is unavailable")
+    return round(max(0.0, min(100.0, current + delta)), 3)
+
+
+def _absolute_camera_zoom_target(target_zoom_pct: Any) -> float:
+    """Validate an operator-entered normalized zoom target."""
+    try:
+        target = float(target_zoom_pct)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("target_zoom_pct must be a number") from exc
+    if not math.isfinite(target) or target < 0.0 or target > 100.0:
+        raise ValueError("target_zoom_pct must be between 0 and 100")
+    return round(target, 3)
+
+
+def _post_camera_zoom(camera: str, target_pct: float) -> dict[str, Any]:
+    """Send one bounded zoom command to the local camera-system API."""
+    payload = json.dumps({"camera": camera, "zoom_pct": target_pct}).encode("utf-8")
+    upstream_request = urllib.request.Request(
+        CAMERA_CONTROL_ZOOM_URL,
+        data=payload,
+        headers={"Content-Type": "application/json", "Accept": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(upstream_request, timeout=4.0) as response:
+            response_payload = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        try:
+            detail = json.loads(exc.read().decode("utf-8")).get("message")
+        except (AttributeError, json.JSONDecodeError, UnicodeDecodeError):
+            detail = None
+        raise RuntimeError(detail or f"Camera zoom API returned HTTP {exc.code}") from exc
+    except (urllib.error.URLError, TimeoutError, OSError) as exc:
+        raise RuntimeError("Camera zoom API is unavailable") from exc
+    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+        raise RuntimeError("Camera zoom API returned an invalid response") from exc
+    if not isinstance(response_payload, dict) or response_payload.get("status") != "ok":
+        detail = response_payload.get("message") if isinstance(response_payload, dict) else None
+        raise RuntimeError(detail or "Camera zoom command was rejected")
+    return response_payload
+
+
 def create_app() -> Flask:
     app = Flask(
         __name__,
         static_folder=str(PROJECT_ROOT / "web" / "static"),
         template_folder=str(PROJECT_ROOT / "web" / "templates"),
     )
+    # WebSocket ping/pong makes dead dashboard peers deterministic: a client
+    # that disappears without a TCP FIN is closed after two missed intervals
+    # instead of retaining a worker and socket for hours.
+    app.config["SOCK_SERVER_OPTIONS"] = {
+        "ping_interval": 25,
+        "max_message_size": 16 * 1024 * 1024,
+    }
     sock = Sock(app)
     settings_at_start = _load_app_settings()
     simulation_enabled = bool(settings_at_start.get("simulation_mode", {}).get("enabled", False))
@@ -2622,6 +2815,9 @@ def create_app() -> Flask:
     telemetry_store.start()
     atexit.register(telemetry_store.stop)
     app.extensions["telemetry_store"] = telemetry_store
+    backup_manager = BackupManager(PROJECT_ROOT, TELEMETRY_DATABASE_PATH, BACKUP_DIR)
+    backup_nonce_cache = BackupNonceCache()
+    app.extensions["backup_manager"] = backup_manager
     command_router = MountCommandRouter(
         ManagedMotionController(raw_monitor, command_manager, "mount-agent")
     )
@@ -2646,22 +2842,73 @@ def create_app() -> Flask:
     camera_recording_lock = Lock()
     camera_recording: dict[str, Any] = {"status": "idle"}
     camera_preview_started_monotonic = monotonic()
-    camera_stream_lock = Lock()
-    camera_stream_updated = Condition(camera_stream_lock)
-    camera_stream_frames: dict[tuple[str, str], dict[str, Any]] = {}
-    camera_stream_images: dict[tuple[str, str], dict[str, Any]] = {}
-    camera_stream_sequence = {"value": 0}
-    camera_stream_producers = {
-        "simulation": {"connections": 0, "last_frame_at": None, "last_frame_monotonic": None},
-        "live": {"connections": 0, "last_frame_at": None, "last_frame_monotonic": None},
-    }
+    camera_pool = CameraFramePool()
+    app.extensions["camera_frame_pool"] = camera_pool
+    # Compatibility aliases keep route code readable while all state and
+    # synchronization are owned by one explicit central pool.
+    camera_stream_lock = camera_pool.lock
+    camera_stream_updated = camera_pool.updated
+    camera_stream_frames = camera_pool.frames
+    camera_stream_images = camera_pool.images
+    camera_pointing_preview_cache = camera_pool.profile_cache
+    camera_pointing_preview_cache_lock = camera_pool.profile_cache_lock
+    camera_stream_producers = camera_pool.producers
+    camera_zoom_command_lock = Lock()
+    camera_zoom_linked: dict[str, float | None] = {"target": None}
+
+    def live_camera_zoom_percentages() -> dict[str, float]:
+        live: dict[str, float] = {}
+        with camera_stream_lock:
+            for camera in ("thermal", "visible"):
+                frame = camera_stream_images.get(("live", camera))
+                metadata = frame.get("metadata") if isinstance(frame, dict) else None
+                raw_percentage = metadata.get("zoom_pct") if isinstance(metadata, dict) else None
+                try:
+                    percentage = float(raw_percentage)
+                except (TypeError, ValueError):
+                    percentage = math.nan
+                if math.isfinite(percentage):
+                    live[camera] = max(0.0, min(100.0, percentage))
+        return live
+
+    def authenticate_backup_request() -> None:
+        # The dashboard may remain reachable on the station LAN, but backup
+        # material is deliberately exposed only to authenticated tailnet peers.
+        require_tailscale_source(request.remote_addr)
+        settings = _load_app_settings()
+        remote = settings.get("mount_agent", {}).get("remote", {})
+        if not isinstance(remote, dict) or not bool(remote.get("enabled")):
+            raise BackupError("BACKUP_API_DISABLED", "Remote device identity is disabled.", 503)
+        device_id = str(remote.get("device_id") or "").strip()
+        secret = b""
+        secret_file = str(remote.get("secret_file") or "").strip()
+        secret_env = str(remote.get("secret_env") or "").strip()
+        try:
+            if secret_file:
+                secret = Path(secret_file).read_bytes().strip()
+            elif secret_env:
+                secret = os.environ.get(secret_env, "").encode("utf-8").strip()
+        except OSError as exc:
+            raise BackupError("BACKUP_AUTH_UNAVAILABLE", "Backup API secret is unavailable.", 503) from exc
+        verify_backup_signature(
+            headers=request.headers,
+            method=request.method,
+            path=request.path,
+            body=request.get_data(cache=True),
+            expected_device_id=device_id,
+            secret=secret,
+            nonce_cache=backup_nonce_cache,
+        )
+
+    @app.errorhandler(BackupError)
+    def handle_backup_error(error: BackupError):
+        return jsonify({
+            "ok": False,
+            "error": {"code": error.code, "message": str(error)},
+        }), error.status
 
     def camera_source_connected(source: str) -> bool:
-        state = camera_stream_producers[source]
-        last_frame = state.get("last_frame_monotonic")
-        return state["connections"] > 0 or (
-            isinstance(last_frame, (int, float)) and monotonic() - last_frame < 2.0
-        )
+        return camera_pool.source_connected_locked(source)
 
     def decode_camera_image(image: dict[str, Any]) -> tuple[bytes, str] | None:
         mime_type = str(image.get("mime_type") or "image/jpeg").lower()
@@ -2712,29 +2959,7 @@ def create_app() -> Flask:
 
     def store_camera_frame(source: str, camera: str, payload: bytes, mime_type: str,
                            metadata: dict[str, Any]) -> dict[str, Any]:
-        camera_stream_sequence["value"] += 1
-        sequence = camera_stream_sequence["value"]
-        clean_metadata = {**metadata, "simulated": source == "simulation"}
-        message = {
-            "type": "frame",
-            "camera": camera,
-            "image": {"mime_type": mime_type, "data": base64.b64encode(payload).decode("ascii")},
-            "metadata": clean_metadata,
-            "sequence": sequence,
-        }
-        camera_stream_frames[(source, camera)] = message
-        received_monotonic = monotonic()
-        camera_stream_images[(source, camera)] = {
-            "data": payload,
-            "mime_type": mime_type,
-            "metadata": clean_metadata,
-            "sequence": sequence,
-            "received_monotonic": received_monotonic,
-        }
-        now = datetime.now(timezone.utc).isoformat()
-        camera_stream_producers[source].update(last_frame_at=now, last_frame_monotonic=received_monotonic)
-        camera_stream_updated.notify_all()
-        return message
+        return camera_pool.store_locked(source, camera, payload, mime_type, metadata)
 
     def camera_recording_snapshot() -> dict[str, Any]:
         with camera_recording_lock:
@@ -2826,8 +3051,22 @@ def create_app() -> Flask:
                 camera_recording.update(status="error", message=str(exc), local_directory=str(output_dir))
 
     @app.get("/")
-    def index() -> str:
-        return render_template("index.html")
+    def index() -> Response:
+        variant = _dashboard_variant(
+            user_agent=request.headers.get("User-Agent", ""),
+            mobile_hint=request.headers.get("Sec-CH-UA-Mobile", ""),
+            override=request.args.get("view", ""),
+        )
+        response = make_response(render_template(f"{variant}/index.html"))
+        response.headers["Vary"] = "User-Agent, Sec-CH-UA-Mobile"
+        response.headers["X-Dashboard-Variant"] = variant
+        return response
+
+    @app.get("/camera-monitor")
+    def camera_monitor_page() -> Response:
+        response = make_response(render_template("camera_monitor.html"))
+        response.headers["Cache-Control"] = "no-store"
+        return response
 
     @app.get("/download/station-logo.png")
     def download_station_logo():
@@ -2916,6 +3155,16 @@ def create_app() -> Flask:
     def api_status():
         return jsonify(monitor.snapshot())
 
+    @app.post("/api/internal/azimuth-sensors")
+    def api_internal_azimuth_sensors():
+        if request.remote_addr not in {"127.0.0.1", "::1"}:
+            return jsonify({"ok": False, "error": "This endpoint is restricted to localhost."}), 403
+        try:
+            state = _update_azimuth_sensor_bridge(request.get_json(silent=True))
+        except ValueError as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 400
+        return jsonify({"ok": True, "azimuth_sensors": state})
+
     @app.get("/api/health-beacon")
     def api_health_beacon():
         state_path = Path("/run/fire-detector/health-beacon.json")
@@ -2946,13 +3195,233 @@ def create_app() -> Flask:
     def api_internet_speed_report():
         try:
             hours = int(request.args.get("hours", "168"))
+            buckets = int(request.args.get("buckets", "2016"))
         except ValueError:
-            return jsonify({"ok": False, "error": "hours must be an integer"}), 400
-        return jsonify({"ok": True, **telemetry_store.network_report(hours=hours)})
+            return jsonify({"ok": False, "error": "hours and buckets must be integers"}), 400
+        return jsonify({
+            "ok": True,
+            **telemetry_store.network_report(hours=hours, buckets=buckets),
+        })
+
+    @app.get("/api/reports/power-consumption")
+    def api_power_consumption_report():
+        try:
+            hours = int(request.args.get("hours", "24"))
+            buckets = int(request.args.get("buckets", "288"))
+            interval_sec = int(request.args.get("interval_sec", "5"))
+            max_points = int(request.args.get("max_points", "5000"))
+        except ValueError:
+            return jsonify({
+                "ok": False,
+                "error": "hours, buckets, interval_sec, and max_points must be integers",
+            }), 400
+        return jsonify({
+            "ok": True,
+            **telemetry_store.power_report(
+                hours=hours,
+                buckets=buckets,
+                interval_sec=interval_sec,
+                max_points=max_points,
+            ),
+        })
+
+    @app.get("/api/reports/controller-health")
+    def api_controller_health_report():
+        try:
+            hours = int(request.args.get("hours", "24"))
+            buckets = int(request.args.get("buckets", "288"))
+        except ValueError:
+            return jsonify({"ok": False, "error": "hours and buckets must be integers"}), 400
+        return jsonify({
+            "ok": True,
+            **telemetry_store.system_health_report(hours=hours, buckets=buckets),
+        })
 
     @app.get("/api/network/throughput")
     def api_network_throughput():
         return jsonify({"ok": True, **telemetry_store.network_live()})
+
+    @app.get("/api/stream/policy")
+    def api_stream_policy():
+        """Expose the live queue-controlled cadence to the camera producer."""
+        now = time.time()
+        streams: dict[str, dict[str, Any]] = {}
+        for camera in ("thermal", "visible"):
+            path = Path(f"/run/fire-detector/stream-policy-{camera}.json")
+            try:
+                state = json.loads(path.read_text(encoding="utf-8"))
+                updated_at = float(state["updated_at"])
+                frame_rate = int(state["frame_rate"])
+                if now - updated_at > 10.0 or frame_rate not in {3, 5, 8, 10, 12, 15}:
+                    raise ValueError("stream policy is stale or invalid")
+                streams[camera] = {
+                    "frame_rate": frame_rate,
+                    "queue_bytes": state.get("queue_bytes"),
+                    "reason": state.get("reason"),
+                    "age_sec": max(0.0, now - updated_at),
+                }
+            except (OSError, ValueError, TypeError, KeyError, json.JSONDecodeError):
+                continue
+        target_frame_rate = min(
+            (int(state["frame_rate"]) for state in streams.values()),
+            default=3,
+        )
+        return jsonify({
+            "ok": bool(streams),
+            "adaptive": True,
+            "target_frame_rate": target_frame_rate,
+            "steps": [15, 12, 10, 8, 5, 3],
+            "streams": streams,
+        }), 200 if streams else 503
+
+    @app.get("/api/camera-control/zoom")
+    def api_camera_control_zoom_status():
+        """Return the station-owned normalized setpoint and live readback."""
+        with camera_zoom_command_lock:
+            live = live_camera_zoom_percentages()
+            linked = camera_zoom_linked.get("target")
+            if not isinstance(linked, (int, float)) or not math.isfinite(linked):
+                linked = live.get("thermal", live.get("visible"))
+        if linked is None:
+            return jsonify({
+                "ok": False,
+                "error": "Current linked zoom percentage is unavailable",
+                "live": live,
+            }), 409
+        return jsonify({"ok": True, "linked_zoom_pct": linked, "live": live})
+
+    @app.post("/api/camera-control/zoom")
+    def api_camera_control_zoom():
+        """Step one normalized setpoint and apply it to both camera lenses."""
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            return jsonify({"ok": False, "error": "Request body must be a JSON object."}), 400
+        direction = str(payload.get("direction", "")).strip().lower()
+        step_pct = payload.get("step_pct", CAMERA_ZOOM_STEP_PCT)
+        absolute_requested = "target_zoom_pct" in payload
+
+        with camera_zoom_command_lock:
+            live = live_camera_zoom_percentages()
+            current = camera_zoom_linked.get("target")
+            if not isinstance(current, (int, float)) or not math.isfinite(current):
+                # Thermal is the deterministic initial reference. Once this
+                # endpoint issues a command, the station's linked setpoint is
+                # authoritative for both cameras regardless of readback
+                # quantization in either ONVIF implementation.
+                current = live.get("thermal", live.get("visible", math.nan))
+            try:
+                target = (
+                    _absolute_camera_zoom_target(payload.get("target_zoom_pct"))
+                    if absolute_requested
+                    else _stepped_camera_zoom_target(current, direction, step_pct)
+                )
+            except ValueError as exc:
+                status = 409 if "unavailable" in str(exc) else 400
+                return jsonify({"ok": False, "error": str(exc)}), status
+
+            current_response = current if isinstance(current, (int, float)) and math.isfinite(current) else None
+            targets = {"thermal": target, "visible": target}
+            already_linked = bool(live) and all(
+                math.isclose(percentage, target, abs_tol=0.05)
+                for percentage in live.values()
+            ) and all(camera in live for camera in ("thermal", "visible"))
+            try:
+                upstream = None if already_linked else _post_camera_zoom("all", target)
+            except RuntimeError as exc:
+                return jsonify({
+                    "ok": False,
+                    "error": str(exc),
+                    "mode": "absolute" if absolute_requested else "step",
+                    "direction": None if absolute_requested else direction,
+                    "step_pct": None if absolute_requested else float(step_pct),
+                    "live": live,
+                    "current_zoom_pct": current_response,
+                    "targets": targets,
+                }), 502
+            camera_zoom_linked["target"] = target
+
+        return jsonify({
+            "ok": True,
+            "mode": "absolute" if absolute_requested else "step",
+            "direction": None if absolute_requested else direction,
+            "step_pct": None if absolute_requested else float(step_pct),
+            "live": live,
+            "current_zoom_pct": current_response,
+            "linked_zoom_pct": target,
+            "targets": targets,
+            "status": "at_limit" if already_linked else "accepted",
+            "upstream": upstream,
+        })
+
+    @app.get("/api/network/capacity-test")
+    def api_network_capacity_test_status():
+        return jsonify({
+            "ok": True,
+            "blocked_by": active_stream_publisher_units(),
+            **telemetry_store.network_capacity_test_status(),
+        })
+
+    @app.post("/api/network/capacity-test")
+    def api_network_capacity_test_start():
+        active_publishers = active_stream_publisher_units()
+        if active_publishers:
+            return jsonify({
+                "ok": False,
+                "error": "Stop both production stream publishers before running a capacity test.",
+                "blocked_by": active_publishers,
+            }), 409
+        started, state = telemetry_store.start_network_capacity_test()
+        return jsonify({"ok": started, **state}), 202 if started else 409
+
+    @app.get("/api/v1/backups")
+    def api_backup_list():
+        authenticate_backup_request()
+        return jsonify({"ok": True, **backup_manager.list_backups()})
+
+    @app.post("/api/v1/backups")
+    def api_backup_create():
+        authenticate_backup_request()
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            raise BackupError("INVALID_JSON", "JSON object body is required.")
+        record = backup_manager.create_backup(str(payload.get("request_id") or ""))
+        return jsonify({"ok": True, "backup": record}), 201
+
+    @app.get("/api/v1/backups/<backup_id>/download")
+    def api_backup_download(backup_id: str):
+        authenticate_backup_request()
+        archive_path, record = backup_manager.archive_path_for(backup_id)
+        response = send_file(
+            archive_path,
+            mimetype="application/gzip",
+            as_attachment=True,
+            download_name=f"fire-detector-{backup_id}.tar.gz",
+            conditional=True,
+            etag=str(record["sha256"]),
+        )
+        response.headers["Cache-Control"] = "private, no-store"
+        response.headers["X-Backup-SHA256"] = str(record["sha256"])
+        response.headers["X-Backup-Id"] = backup_id
+        return response
+
+    @app.post("/api/v1/backups/<backup_id>/confirm")
+    def api_backup_confirm(backup_id: str):
+        authenticate_backup_request()
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            raise BackupError("INVALID_JSON", "JSON object body is required.")
+        record = backup_manager.confirm_backup(
+            backup_id,
+            str(payload.get("sha256") or ""),
+            str(payload.get("receipt_id") or ""),
+        )
+        return jsonify({"ok": True, "backup": record})
+
+    @app.delete("/api/v1/backups/<backup_id>")
+    def api_backup_delete(backup_id: str):
+        authenticate_backup_request()
+        record = backup_manager.delete_confirmed_backup(backup_id)
+        return jsonify({"ok": True, "backup": record})
 
     @app.get("/api/camera-preview/<camera>")
     def api_camera_preview(camera: str):
@@ -3187,35 +3656,227 @@ def create_app() -> Flask:
     @app.get("/api/camera-stream")
     def api_camera_stream_status():
         with camera_stream_lock:
-            now = monotonic()
+            return jsonify(camera_pool.status_locked())
+
+    @app.get("/api/camera-stream/metadata/<source>/<camera>")
+    def api_camera_stream_metadata(source: str, camera: str):
+        """Return metadata retained with the newest frame for one camera."""
+        if source not in {"simulation", "live"} or camera not in {"thermal", "visible"}:
+            return jsonify({"ok": False, "error": "Unknown camera stream."}), 404
+        with camera_stream_lock:
+            frame = camera_stream_images.get((source, camera))
+            if frame is None:
+                return jsonify({
+                    "ok": False,
+                    "source": source,
+                    "camera": camera,
+                    "error": "No frame metadata is available yet.",
+                }), 404
+            received_monotonic = frame.get("received_monotonic")
+            age_ms = (
+                max(0.0, (monotonic() - float(received_monotonic)) * 1000.0)
+                if isinstance(received_monotonic, (int, float))
+                else None
+            )
             return jsonify({
-                "sources": {
-                    source: {
-                        "connected": camera_source_connected(source),
-                        "last_frame_at": state["last_frame_at"],
-                        "streams": sorted(camera for frame_source, camera in camera_stream_frames if frame_source == source),
-                        "cameras": {
-                            camera: {
-                                "connected": isinstance(
-                                    camera_stream_images.get((source, camera), {}).get("received_monotonic"),
-                                    (int, float),
-                                ) and now - camera_stream_images[(source, camera)]["received_monotonic"] < 2.0,
-                            }
-                            for camera in ("thermal", "visible")
-                        },
-                    }
-                    for source, state in camera_stream_producers.items()
-                },
+                "ok": True,
+                "source": source,
+                "camera": camera,
+                "sequence": int(frame.get("sequence", 0)),
+                "age_ms": round(age_ms, 1) if age_ms is not None else None,
+                "metadata": dict(frame.get("metadata") or {}),
             })
+
+    @app.get("/api/camera-stream/metadata-stream/<source>/<camera>")
+    def api_camera_stream_metadata_stream(source: str, camera: str):
+        """Stream metadata whenever a new camera frame is retained."""
+        if source not in {"simulation", "live"} or camera not in {"thermal", "visible"}:
+            return jsonify({"ok": False, "error": "Unknown camera stream."}), 404
+
+        def generate_metadata():
+            last_sequence = 0
+            last_keepalive = monotonic()
+            while True:
+                event = None
+                with camera_stream_updated:
+                    frame = camera_stream_images.get((source, camera))
+                    if frame is None or int(frame.get("sequence", 0)) <= last_sequence:
+                        camera_stream_updated.wait(timeout=1.0)
+                        frame = camera_stream_images.get((source, camera))
+                    if frame is not None and int(frame.get("sequence", 0)) > last_sequence:
+                        last_sequence = int(frame["sequence"])
+                        received_monotonic = frame.get("received_monotonic")
+                        age_ms = (
+                            max(0.0, (monotonic() - float(received_monotonic)) * 1000.0)
+                            if isinstance(received_monotonic, (int, float))
+                            else None
+                        )
+                        event = {
+                            "ok": True,
+                            "source": source,
+                            "camera": camera,
+                            "sequence": last_sequence,
+                            "age_ms": round(age_ms, 1) if age_ms is not None else None,
+                            "metadata": dict(frame.get("metadata") or {}),
+                        }
+                if event is not None:
+                    yield f"data:{json.dumps(event, separators=(',', ':'))}\n\n"
+                    last_keepalive = monotonic()
+                elif monotonic() - last_keepalive >= 10.0:
+                    yield ":keepalive\n\n"
+                    last_keepalive = monotonic()
+
+        response = Response(
+            stream_with_context(generate_metadata()),
+            mimetype="text/event-stream",
+        )
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["X-Accel-Buffering"] = "no"
+        return response
+
+    @app.get("/api/camera-frame/latest/<source>/<camera>")
+    def api_camera_latest_frame(source: str, camera: str):
+        """Return one latest frame, optionally resized for the Pointing panel.
+
+        Unlike a long-running MJPEG/TCP response, each request ends after one
+        image.  A slow client therefore asks for the newest frame next instead
+        of draining seconds of already-obsolete video from a socket queue.
+        """
+        if source not in {"simulation", "live"} or camera not in {"thermal", "visible"}:
+            return jsonify({"ok": False, "error": "Unknown camera stream."}), 404
+        frame = camera_pool.latest(source, camera)
+        if frame is None:
+            return jsonify({"ok": False, "error": "No camera frame is available yet."}), 404
+
+        payload = frame["data"]
+        mime_type = str(frame.get("mime_type") or "image/jpeg")
+        sequence = int(frame.get("sequence", 0))
+        pointing_preview = request.args.get("preview", "").strip().lower() == "pointing"
+        profile_name = "pointing" if pointing_preview else "full"
+        if pointing_preview and source == "live":
+            profile = camera_pool.profile_spec(profile_name, camera)
+            cache_key = (source, camera, profile_name)
+            with camera_pointing_preview_cache_lock:
+                cached = camera_pointing_preview_cache.get(cache_key)
+                if cached and int(cached.get("sequence", -1)) == sequence:
+                    payload = cached["data"]
+                    mime_type = "image/jpeg"
+                else:
+                    cached = None
+            if cached is None:
+                try:
+                    from PIL import Image, ImageOps
+
+                    target_size = profile["dimensions"]
+                    with Image.open(BytesIO(payload)) as image:
+                        image.load()
+                        rendered = ImageOps.fit(
+                            image.convert("RGB"),
+                            target_size,
+                            method=Image.Resampling.BILINEAR,
+                        )
+                        output = BytesIO()
+                        rendered.save(
+                            output,
+                            format="JPEG",
+                            quality=int(profile["jpeg_quality"]),
+                            optimize=False,
+                        )
+                        payload = output.getvalue()
+                    mime_type = "image/jpeg"
+                    with camera_pointing_preview_cache_lock:
+                        camera_pointing_preview_cache[cache_key] = {
+                            "sequence": sequence,
+                            "data": payload,
+                        }
+                except (OSError, ValueError):
+                    # A malformed source frame should not blank the viewer;
+                    # return the original image for this one request.
+                    pass
+
+        metadata_json = json.dumps(
+            frame.get("metadata") or {}, separators=(",", ":"), ensure_ascii=True,
+        )
+        return Response(
+            payload,
+            content_type=mime_type,
+            headers={
+                "Cache-Control": "no-store, no-cache, must-revalidate",
+                "Pragma": "no-cache",
+                "X-Camera-Sequence": str(sequence),
+                "X-Camera-Metadata": metadata_json,
+                "X-Camera-Transport": "latest-frame-request",
+                "X-Camera-Pool": "central-latest-frame",
+                "X-Camera-Profile": profile_name,
+            },
+        )
+
+    @app.get("/api/camera-frame/latest-pair/<source>")
+    def api_camera_latest_pair(source: str):
+        """Return Thermal and Visible latest frames in one finite response.
+
+        Second-display browsers can otherwise exhaust or serialize their
+        HTTP/1.1 per-origin connections when the main dashboard is open.  The
+        compact binary pair keeps both cameras synchronized through one
+        central-pool request without opening another upstream camera stream.
+        """
+        if source not in {"simulation", "live"}:
+            return jsonify({"ok": False, "error": "Unknown camera stream."}), 404
+        thermal = camera_pool.latest(source, "thermal")
+        visible = camera_pool.latest(source, "visible")
+        if thermal is None or visible is None:
+            missing = [
+                camera for camera, frame in (("thermal", thermal), ("visible", visible))
+                if frame is None
+            ]
+            return jsonify({
+                "ok": False,
+                "error": f"No latest frame is available for {', '.join(missing)}.",
+            }), 404
+
+        thermal_payload = bytes(thermal["data"])
+        visible_payload = bytes(visible["data"])
+        payload = (
+            b"NCP1"
+            + len(thermal_payload).to_bytes(4, "big")
+            + len(visible_payload).to_bytes(4, "big")
+            + thermal_payload
+            + visible_payload
+        )
+        metadata_json = json.dumps({
+            "thermal": dict(thermal.get("metadata") or {}),
+            "visible": dict(visible.get("metadata") or {}),
+        }, separators=(",", ":"), ensure_ascii=True)
+        return Response(
+            payload,
+            content_type="application/vnd.narit.camera-pair",
+            headers={
+                "Cache-Control": "no-store, no-cache, must-revalidate",
+                "Pragma": "no-cache",
+                "X-Camera-Pair-Format": "NCP1",
+                "X-Camera-Pair-Metadata": metadata_json,
+                "X-Camera-Thermal-Type": str(thermal.get("mime_type") or "image/jpeg"),
+                "X-Camera-Visible-Type": str(visible.get("mime_type") or "image/jpeg"),
+                "X-Camera-Thermal-Sequence": str(int(thermal.get("sequence", 0))),
+                "X-Camera-Visible-Sequence": str(int(visible.get("sequence", 0))),
+                "X-Camera-Pool": "central-latest-frame",
+                "X-Camera-Transport": "latest-frame-pair-request",
+            },
+        )
 
     @app.get("/api/camera-mjpeg/<source>/<camera>")
     def api_camera_mjpeg(source: str, camera: str):
         """Stream camera video as server-originated MJPEG without Base64/JSON framing."""
         if source not in {"simulation", "live"} or camera not in {"thermal", "visible"}:
             return jsonify({"ok": False, "error": "Unknown camera stream."}), 404
+        pointing_preview = request.args.get("preview", "").strip().lower() == "pointing"
+        command = None
         if source == "simulation":
             video = PROJECT_ROOT / "web" / "static" / "video" / f"{camera}-zoom-simulation.mp4"
-            resolution = "640:512" if camera == "thermal" else "1280:720"
+            if pointing_preview:
+                resolution = "400:320" if camera == "thermal" else "480:270"
+            else:
+                resolution = "640:512" if camera == "thermal" else "1280:720"
             phase = time.time() % 40.0
             command = [
                 "ffmpeg", "-hide_banner", "-nostdin", "-loglevel", "error",
@@ -3223,8 +3884,11 @@ def create_app() -> Flask:
                 "-an", "-vf", f"fps=15,scale={resolution}", "-c:v", "mjpeg", "-q:v", "5",
                 "-f", "mpjpeg", "-boundary_tag", "naritframe", "pipe:1",
             ]
-        else:
-            command = None
+        # Live Pointing Model previews deliberately use the same direct
+        # latest-frame path as the full Camera View.  Re-decoding/resizing in a
+        # nested ffmpeg process creates an ordered queue, so a slow viewer can
+        # end up watching frames that are several seconds old.  The direct path
+        # below drops superseded frames and always resumes from the newest one.
 
         def generate():
             if command is None:
@@ -3237,14 +3901,27 @@ def create_app() -> Flask:
                             frame = camera_stream_images.get((source, camera))
                         if frame is None or int(frame["sequence"]) <= last_sequence:
                             continue
-                        payload = frame["data"]
-                        mime_type = frame["mime_type"]
                         last_sequence = int(frame["sequence"])
+                    payload = frame["data"]
+                    mime_type = frame["mime_type"]
+                    metadata_json = json.dumps(
+                        frame.get("metadata") or {}, separators=(",", ":"), ensure_ascii=True,
+                    ).encode("ascii")
                     yield (b"--naritframe\r\nContent-Type: " + mime_type.encode("ascii")
                            + b"\r\nContent-Length: " + str(len(payload)).encode("ascii")
+                           + b"\r\nX-Camera-Metadata: " + metadata_json
                            + b"\r\n\r\n" + payload + b"\r\n")
                 return
-            process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+            # Thermal preview JPEGs are small enough that Python's default
+            # BufferedReader can hold several complete frames while trying to
+            # satisfy a 64 KiB read.  An unbuffered pipe forwards each ffmpeg
+            # write immediately instead of presenting the browser with bursts.
+            process = subprocess.Popen(
+                command,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+                bufsize=0,
+            )
             try:
                 assert process.stdout is not None
                 while True:
@@ -3263,7 +3940,14 @@ def create_app() -> Flask:
         return Response(
             stream_with_context(generate()),
             content_type="multipart/x-mixed-replace; boundary=naritframe",
-            headers={"Cache-Control": "no-store, no-cache, must-revalidate", "X-Accel-Buffering": "no"},
+            headers={
+                "Cache-Control": "no-store, no-cache, must-revalidate",
+                "X-Accel-Buffering": "no",
+                "X-Camera-Preview": "pointing" if pointing_preview else "full",
+                "X-Camera-Transport": "ffmpeg" if command is not None else "direct-latest-frame",
+                "X-Camera-Pool": "central-latest-frame" if command is None else "simulation-generator",
+                "X-Camera-Profile": "pointing" if pointing_preview else "full",
+            },
         )
 
     @app.get("/api/settings")
@@ -3308,15 +3992,203 @@ def create_app() -> Flask:
         except Exception as exc:
             return jsonify({"ok": False, "error": f"Could not sample pointing model: {exc}"}), 500
 
+    @app.post("/api/pointing/alignment-point")
+    def api_pointing_alignment_point():
+        """Add one reviewed DEM/camera observation to the rigid mount model."""
+        payload = request.get_json(silent=True) or {}
+        try:
+            latitude = _required_finite_number(payload, "latitude", minimum=-90.0, maximum=90.0)
+            longitude = _required_finite_number(payload, "longitude", minimum=-180.0, maximum=180.0)
+            camera_offset_azimuth = _required_finite_number(
+                payload, "camera_offset_azimuth_deg", minimum=-360.0, maximum=360.0,
+            )
+            camera_offset_altitude = _required_finite_number(
+                payload, "camera_offset_altitude_deg", minimum=-180.0, maximum=180.0,
+            )
+            sample = _pointing_sample(latitude, longitude)
+            if sample.get("inside_dem") is not True or sample.get("inside_radius") is not True:
+                raise ValueError("The selected calibration point must be inside the DEM pointing radius.")
+            reference_azimuth = _finite_float(sample.get("device_azimuth_deg"))
+            reference_altitude = _finite_float(sample.get("altitude_deg"))
+            elevation_m = _finite_float(sample.get("elevation_m"))
+            if reference_azimuth is None or reference_altitude is None or elevation_m is None:
+                raise ValueError("The DEM could not calculate reference angles for this point.")
+            status = monitor.snapshot()
+            if status.get("connected") is not True:
+                raise ValueError("Live mount telemetry must be connected before adding a calculation point.")
+            axes = {
+                str(axis.get("label")): axis
+                for axis in status.get("axes", [])
+                if isinstance(axis, dict) and axis.get("available") is True
+            }
+            if "Azimuth" not in axes or "Altitude" not in axes:
+                raise ValueError("Both Azimuth and Altitude telemetry axes must be available.")
+            for label in ("Azimuth", "Altitude"):
+                velocity = _finite_float(axes[label].get("velocity_deg_per_sec"))
+                if velocity is None:
+                    raise ValueError(f"{label} velocity telemetry is unavailable.")
+                if abs(velocity) > 0.2:
+                    raise ValueError(
+                        f"Wait for {label} to settle below 0.2 Deg/Sec before calculating offsets."
+                    )
+
+            telemetry_azimuth = _finite_float(axes["Azimuth"].get("position_deg"))
+            telemetry_altitude = _finite_float(axes["Altitude"].get("position_deg"))
+            if telemetry_azimuth is None or telemetry_altitude is None:
+                raise ValueError("Live mount position telemetry is unavailable.")
+            saved_at = _timestamp()
+            grid_cell = str((sample.get("grid_cell") or {}).get("id") or payload.get("grid_cell") or "")[:80]
+            point_id = hashlib.sha256(
+                f"{grid_cell}|{latitude:.7f}|{longitude:.7f}|{saved_at}".encode("utf-8")
+            ).hexdigest()[:16]
+            point = {
+                "id": point_id,
+                "grid_cell": grid_cell,
+                "latitude": latitude,
+                "longitude": longitude,
+                "elevation_m": elevation_m,
+                "distance_m": float(sample["surface_distance_m"]),
+                "curvature_drop_m": float(sample["curvature_drop_m"]),
+                "slant_range_m": float(sample["slant_range_m"]),
+                "reference_azimuth_deg": reference_azimuth,
+                "reference_altitude_deg": reference_altitude,
+                "telemetry_azimuth_deg": telemetry_azimuth,
+                "telemetry_altitude_deg": telemetry_altitude,
+                "camera_offset_azimuth_deg": camera_offset_azimuth,
+                "camera_offset_altitude_deg": camera_offset_altitude,
+                "saved_at": saved_at,
+            }
+            residual_azimuth = _signed_degree_delta(reference_azimuth, telemetry_azimuth)
+            residual_altitude = reference_altitude - telemetry_altitude
+            latest = {
+                "grid_cell": grid_cell,
+                "latitude": latitude,
+                "longitude": longitude,
+                "dem_azimuth_deg": reference_azimuth,
+                "dem_altitude_deg": reference_altitude,
+                "camera_offset_azimuth_deg": camera_offset_azimuth,
+                "camera_offset_altitude_deg": camera_offset_altitude,
+                "expected_mount_azimuth_deg": reference_azimuth,
+                "expected_mount_altitude_deg": reference_altitude,
+                "telemetry_azimuth_deg": telemetry_azimuth,
+                "telemetry_altitude_deg": telemetry_altitude,
+                "residual_azimuth_deg": residual_azimuth,
+                "residual_altitude_deg": residual_altitude,
+                "saved_at": saved_at,
+            }
+            for label, key in (
+                ("Azimuth", "raw_azimuth_encoder_deg"),
+                ("Altitude", "raw_altitude_encoder_deg"),
+            ):
+                raw_position = _finite_float(axes[label].get("raw_position_deg"))
+                if raw_position is not None:
+                    latest[key] = raw_position
+
+            existing_alignment = _load_app_settings().get("pointing_alignment", {})
+            points = [
+                existing
+                for existing in existing_alignment.get("points", [])
+                if existing.get("grid_cell") != grid_cell
+            ]
+            points.append(point)
+            points = points[-32:]
+            settings = _merge_app_settings({
+                "pointing_alignment": {"latest": latest, "points": points},
+            })
+            model = settings["pointing_alignment"]["model"]
+            calculation = {
+                "reference_azimuth_deg": round(reference_azimuth, 6),
+                "reference_altitude_deg": round(reference_altitude, 6),
+                "telemetry_azimuth_deg": round(telemetry_azimuth, 6),
+                "telemetry_altitude_deg": round(telemetry_altitude, 6),
+                "residual_azimuth_deg": round(residual_azimuth, 6),
+                "residual_altitude_deg": round(residual_altitude, 6),
+                "curvature_drop_m": sample["curvature_drop_m"],
+                "surface_distance_m": sample["surface_distance_m"],
+                "slant_range_m": sample["slant_range_m"],
+            }
+        except ValueError as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 400
+        except Exception as exc:
+            return jsonify({"ok": False, "error": f"Could not add alignment calculation point: {exc}"}), 500
+        return jsonify({
+            "ok": True,
+            "settings": settings,
+            "point": point,
+            "model": model,
+            "calculation": calculation,
+        })
+
+    @app.delete("/api/pointing/alignment-point/<point_id>")
+    def api_delete_pointing_alignment_point(point_id: str):
+        try:
+            alignment = _load_app_settings().get("pointing_alignment", {})
+            points = alignment.get("points", [])
+            retained = [point for point in points if str(point.get("id")) != point_id]
+            if len(retained) == len(points):
+                return jsonify({"ok": False, "error": "Calibration point was not found."}), 404
+            settings = _merge_app_settings({
+                "pointing_alignment": {
+                    "latest": alignment.get("latest"),
+                    "points": retained,
+                },
+            })
+        except ValueError as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 400
+        except Exception as exc:
+            return jsonify({"ok": False, "error": f"Could not delete alignment point: {exc}"}), 500
+        return jsonify({
+            "ok": True,
+            "settings": settings,
+            "model": settings["pointing_alignment"]["model"],
+        })
+
     @app.get("/api/pointing/cache/<path:filename>")
     def api_pointing_cache(filename: str):
         return send_from_directory(POINTING_CACHE_DIR, filename)
+
+    @app.post("/api/settings/apply")
+    def api_apply_settings():
+        """Apply a volatile settings draft without flashing or reconnecting hardware."""
+        try:
+            payload = request.get_json(silent=True) or {}
+            previous_limits = deepcopy(_load_app_settings().get("motion_limits", {}))
+            settings = _merge_app_settings(payload, persist=False)
+            applied_limits = settings.get("motion_limits", {})
+            position_conversion_changed = any(
+                previous_limits.get(key) != applied_limits.get(key)
+                for key in (
+                    "azimuth_ccw_limit_deg",
+                    "azimuth_cw_limit_deg",
+                    "azimuth_position_offset_deg",
+                    "altitude_position_offset_deg",
+                    "azimuth_position_scale",
+                    "altitude_position_scale",
+                )
+            )
+            if position_conversion_changed:
+                # Limits define which equivalent azimuth branch is valid, so a
+                # changed envelope must also reinitialize software unwrapping.
+                monitor.rebase_position_offsets()
+        except ValueError as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 400
+        except Exception as exc:
+            return jsonify({"ok": False, "error": f"Could not apply runtime settings: {exc}"}), 500
+        return jsonify({
+            "ok": True,
+            "settings": settings,
+            "persisted": False,
+            "hardware_reloaded": False,
+            "drives_flashed": False,
+            "position_offsets_rebased": position_conversion_changed,
+        })
 
     @app.post("/api/settings")
     def api_update_settings():
         try:
             payload = request.get_json(silent=True) or {}
             settings = _merge_app_settings(payload)
+            mount_agent.station_configuration_saved(_station_configuration_changed_fields(payload))
             drive_flash = monitor.flash_motion_limits(settings) if payload.get("flash_drives", True) else None
         except ValueError as exc:
             return jsonify({"ok": False, "error": str(exc)}), 400
@@ -3468,9 +4340,11 @@ def create_app() -> Flask:
     @app.post("/api/motors/goto")
     def api_goto_motors():
         try:
-            positions, velocity_target = _parse_goto_payload(request.get_json(silent=True) or {})
+            positions, velocity_target, position_tolerance = _parse_goto_payload(
+                request.get_json(silent=True) or {}
+            )
             jog_commands.supersede(tuple(positions))
-            status = monitor.goto_positions(positions, velocity_target)
+            status = monitor.goto_positions(positions, velocity_target, position_tolerance)
         except (ValueError, ODriveConnectionError) as exc:
             return jsonify({"ok": False, "error": str(exc)}), 400
         except Exception as exc:
@@ -3581,7 +4455,7 @@ def _set_simulation_mode(enabled: bool) -> dict[str, Any]:
     finally:
         if os.path.exists(temporary):
             os.unlink(temporary)
-    global _SETTINGS_CACHE, _SETTINGS_MTIME
+    global _SETTINGS_CACHE, _SETTINGS_MTIME, _POINTING_MODEL_MTIME
     _SETTINGS_CACHE = None
     _SETTINGS_MTIME = None
     return _load_app_settings()
@@ -3686,7 +4560,7 @@ def _tuning_value_to_odrive_units(key: str, value: float) -> float:
     return value
 
 
-def _parse_goto_payload(payload: dict[str, Any]) -> tuple[dict[str, float], float | None]:
+def _parse_goto_payload(payload: dict[str, Any]) -> tuple[dict[str, float], float | None, float | None]:
     positions: dict[str, float] = {}
     for label in ("Azimuth", "Altitude"):
         value = payload.get(label)
@@ -3707,7 +4581,15 @@ def _parse_goto_payload(payload: dict[str, Any]) -> tuple[dict[str, float], floa
     )
     if velocity_target is not None:
         _validate_max_velocity("Velocity target", velocity_target)
-    return positions, velocity_target
+    position_tolerance = _parse_optional_positive_float(
+        payload.get("position_tolerance_deg"),
+        "Position tolerance",
+    )
+    if position_tolerance is not None and position_tolerance > SOFTWARE_POSITION_TOLERANCE_DEG:
+        raise ValueError(
+            f"Position tolerance must be {SOFTWARE_POSITION_TOLERANCE_DEG:g} Deg or less."
+        )
+    return positions, velocity_target, position_tolerance
 
 
 def _parse_optional_positive_float(value: Any, label: str) -> float | None:
@@ -3797,17 +4679,90 @@ def _parse_motor_calibration_payload(payload: dict[str, Any]) -> dict[str, float
     return values
 
 
+def _pointing_model_file_mtime() -> float | None:
+    try:
+        return POINTING_MODEL_PATH.stat().st_mtime
+    except OSError:
+        return None
+
+
+def _load_pointing_model_file() -> dict[str, Any] | None:
+    try:
+        with POINTING_MODEL_PATH.open("r", encoding="utf-8") as file:
+            document = json.load(file)
+    except FileNotFoundError:
+        return None
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"Could not read {POINTING_MODEL_PATH.name}: {exc}") from exc
+    if not isinstance(document, dict):
+        raise ValueError(f"{POINTING_MODEL_PATH.name} must contain a JSON object.")
+    alignment = document.get("pointing_alignment", document)
+    if not isinstance(alignment, dict):
+        raise ValueError(f"{POINTING_MODEL_PATH.name}.pointing_alignment must be an object.")
+    return _clean_pointing_alignment(alignment)
+
+
+def _write_pointing_model_file(alignment: dict[str, Any], settings: dict[str, Any]) -> None:
+    clean = _clean_pointing_alignment(alignment)
+    station = settings.get("station", {})
+    document = {
+        "schema_version": 1,
+        "saved_at": _timestamp(),
+        "station": {
+            "name": str(station.get("name") or ""),
+            "latitude": station.get("latitude"),
+            "longitude": station.get("longitude"),
+            "elevation_above_ground_m": station.get("elevation_above_ground_m"),
+            "azimuth_north_offset_deg": station.get("azimuth_north_offset_deg"),
+        },
+        "pointing_alignment": clean,
+    }
+    POINTING_MODEL_PATH.parent.mkdir(parents=True, exist_ok=True)
+    fd, temporary = tempfile.mkstemp(prefix=f".{POINTING_MODEL_PATH.name}.", dir=POINTING_MODEL_PATH.parent)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as file:
+            json.dump(document, file, indent=2, sort_keys=True, allow_nan=False)
+            file.write("\n")
+            file.flush()
+            os.fsync(file.fileno())
+        os.replace(temporary, POINTING_MODEL_PATH)
+    finally:
+        try:
+            os.unlink(temporary)
+        except FileNotFoundError:
+            pass
+
+
+def _settings_document_without_pointing_model(settings: dict[str, Any]) -> dict[str, Any]:
+    document = deepcopy(settings)
+    # Preserve a legacy embedded model until the first dedicated model file is
+    # created. After that file exists it is authoritative and settings stays
+    # free of calibration points, which makes the model independently portable.
+    if POINTING_MODEL_PATH.exists():
+        document.pop("pointing_alignment", None)
+    return document
+
+
 def _load_app_settings() -> dict[str, Any]:
-    global _SETTINGS_CACHE, _SETTINGS_MTIME, _REMOTE_SETTINGS_MTIME
+    global _SETTINGS_CACHE, _SETTINGS_MTIME, _REMOTE_SETTINGS_MTIME, _POINTING_MODEL_MTIME
     if not APP_SETTINGS_PATH.exists():
-        return _default_app_settings()
+        settings = _default_app_settings()
+        try:
+            alignment = _load_pointing_model_file()
+        except ValueError:
+            alignment = None
+        if alignment is not None:
+            settings["pointing_alignment"] = alignment
+        return settings
     mtime = APP_SETTINGS_PATH.stat().st_mtime
     try:
         remote_mtime = ACTIVE_STATION_CONFIGURATION_PATH.stat().st_mtime
     except OSError:
         remote_mtime = None
+    pointing_model_mtime = _pointing_model_file_mtime()
     if (_SETTINGS_CACHE is not None and _SETTINGS_MTIME == mtime
-            and _REMOTE_SETTINGS_MTIME == remote_mtime):
+            and _REMOTE_SETTINGS_MTIME == remote_mtime
+            and _POINTING_MODEL_MTIME == pointing_model_mtime):
         return _SETTINGS_CACHE
     try:
         with APP_SETTINGS_PATH.open("r", encoding="utf-8") as file:
@@ -3834,6 +4789,18 @@ def _load_app_settings() -> dict[str, Any]:
     camera_metadata = settings.get("camera_metadata")
     if isinstance(camera_metadata, dict):
         default_settings["camera_metadata"] = _clean_camera_metadata(camera_metadata)
+    camera_calibration = settings.get("camera_calibration")
+    if isinstance(camera_calibration, dict):
+        default_settings["camera_calibration"].update(_clean_camera_calibration(camera_calibration))
+    pointing_alignment = settings.get("pointing_alignment")
+    if isinstance(pointing_alignment, dict):
+        default_settings["pointing_alignment"] = _clean_pointing_alignment(pointing_alignment)
+    try:
+        file_alignment = _load_pointing_model_file()
+    except ValueError:
+        file_alignment = None
+    if file_alignment is not None:
+        default_settings["pointing_alignment"] = file_alignment
     motion_limits = settings.get("motion_limits")
     if isinstance(motion_limits, dict):
         default_settings["motion_limits"].update(_clean_motion_limits(motion_limits))
@@ -3874,11 +4841,14 @@ def _load_app_settings() -> dict[str, Any]:
     _SETTINGS_CACHE = default_settings
     _SETTINGS_MTIME = mtime
     _REMOTE_SETTINGS_MTIME = remote_mtime
+    _POINTING_MODEL_MTIME = pointing_model_mtime
     return default_settings
 
 
-def _merge_app_settings(payload: dict[str, Any]) -> dict[str, Any]:
-    settings = _load_app_settings()
+def _merge_app_settings(payload: dict[str, Any], *, persist: bool = True) -> dict[str, Any]:
+    # Work on a copy so a rejected payload cannot partially alter the active
+    # runtime cache before all fields have passed validation.
+    settings = deepcopy(_load_app_settings())
     simulation_mode = payload.get("simulation_mode")
     if simulation_mode is not None:
         if not isinstance(simulation_mode, dict) or not isinstance(simulation_mode.get("enabled"), bool):
@@ -3915,6 +4885,16 @@ def _merge_app_settings(payload: dict[str, Any]) -> dict[str, Any]:
         if not isinstance(camera_metadata, dict):
             raise ValueError("camera_metadata must be an object.")
         settings["camera_metadata"] = _clean_camera_metadata(camera_metadata)
+    camera_calibration = payload.get("camera_calibration")
+    if camera_calibration is not None:
+        if not isinstance(camera_calibration, dict):
+            raise ValueError("camera_calibration must be an object.")
+        settings["camera_calibration"].update(_clean_camera_calibration(camera_calibration))
+    pointing_alignment = payload.get("pointing_alignment")
+    if pointing_alignment is not None:
+        if not isinstance(pointing_alignment, dict):
+            raise ValueError("pointing_alignment must be an object.")
+        settings["pointing_alignment"] = _clean_pointing_alignment(pointing_alignment)
     motion_limits = payload.get("motion_limits")
     if motion_limits is not None:
         if not isinstance(motion_limits, dict):
@@ -3934,13 +4914,50 @@ def _merge_app_settings(payload: dict[str, Any]) -> dict[str, Any]:
             settings["mount_agent"],
         )
 
-    with APP_SETTINGS_PATH.open("w", encoding="utf-8") as file:
-        json.dump(settings, file, indent=2, sort_keys=True)
-        file.write("\n")
-    global _SETTINGS_CACHE, _SETTINGS_MTIME
+    global _SETTINGS_CACHE, _SETTINGS_MTIME, _POINTING_MODEL_MTIME
+    if not persist:
+        # Keep the fully validated draft in-process. _load_app_settings() will
+        # serve it until Save persists it, an external config change invalidates
+        # the cache, or the service restarts. No disk or hardware I/O occurs.
+        _SETTINGS_CACHE = settings
+        return settings
+
+    if pointing_alignment is not None:
+        _write_pointing_model_file(settings["pointing_alignment"], settings)
+        _POINTING_MODEL_MTIME = _pointing_model_file_mtime()
+
+    fd, temporary = tempfile.mkstemp(prefix=".AppSetting.JSON.", dir=APP_SETTINGS_PATH.parent)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as file:
+            json.dump(_settings_document_without_pointing_model(settings), file, indent=2, sort_keys=True)
+            file.write("\n")
+            file.flush()
+            os.fsync(file.fileno())
+        os.replace(temporary, APP_SETTINGS_PATH)
+    finally:
+        try:
+            os.unlink(temporary)
+        except FileNotFoundError:
+            pass
     _SETTINGS_CACHE = settings
     _SETTINGS_MTIME = APP_SETTINGS_PATH.stat().st_mtime
     return settings
+
+
+def _station_configuration_changed_fields(payload: dict[str, Any]) -> list[str]:
+    """Return only public station fields that the Station Configuration protocol permits."""
+    fields: set[str] = set()
+    station = payload.get("station")
+    if isinstance(station, dict):
+        mapping = {"name": "station_name", "latitude": "latitude", "longitude": "longitude",
+                   "elevation_above_ground_m": "elevation_above_ground_m",
+                   "horizontal_fov_deg": "horizontal_fov_deg", "vertical_fov_deg": "vertical_fov_deg",
+                   "azimuth_north_offset_deg": "azimuth_north_offset_deg"}
+        fields.update(mapped for name, mapped in mapping.items() if name in station)
+    camera = payload.get("camera_metadata")
+    if isinstance(camera, dict):
+        fields.update(name for name in ("visible_camera", "thermal_camera") if name in camera)
+    return sorted(fields)
 
 
 def _clean_tuning_steps(tuning_steps: dict[str, Any]) -> dict[str, dict[str, float]]:
@@ -4057,6 +5074,14 @@ def _default_app_settings() -> dict[str, Any]:
             "azimuth_north_offset_deg": 0.0,
         },
         "camera_metadata": {},
+        "camera_calibration": {
+            "visible_offset_x_px": 0,
+            "visible_offset_y_px": 0,
+            "step_px": 10,
+            "visible_crop_width_px": 640,
+            "visible_crop_height_px": 512,
+        },
+        "pointing_alignment": {"latest": None, "points": [], "model": {"active": False, "point_count": 0}},
         "motion_limits": {
             "azimuth_ccw_limit_deg": -100.0,
             "azimuth_cw_limit_deg": 100.0,
@@ -4071,6 +5096,7 @@ def _default_app_settings() -> dict[str, Any]:
             "slew_rate_deg_per_sec": SAFE_MAX_SLEW_RATE_DEG_PER_SEC,
         },
         "azimuth_sensors": {
+            "source": "gpio",
             "ccw_pin": None,
             "cw_pin": None,
             "ccw_active_high": True,
@@ -4173,6 +5199,11 @@ def _clean_mount_agent_settings(
 
 def _clean_sensor_settings(settings: dict[str, Any]) -> dict[str, Any]:
     clean: dict[str, Any] = {}
+    if "source" in settings:
+        source = str(settings["source"]).strip().lower().replace("-", "_")
+        if source not in ("gpio", "node_red"):
+            raise ValueError("azimuth_sensors.source must be one of: gpio, node_red.")
+        clean["source"] = source
     for key in ("ccw_pin", "cw_pin"):
         value = settings.get(key)
         if value in (None, ""):
@@ -4260,6 +5291,319 @@ def _clean_station_settings(settings: dict[str, Any]) -> dict[str, Any]:
     return clean
 
 
+def _required_finite_number(
+    payload: dict[str, Any],
+    key: str,
+    *,
+    minimum: float,
+    maximum: float,
+) -> float:
+    try:
+        number = float(payload[key])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ValueError(f"{key} must be a number.") from exc
+    if not math.isfinite(number) or number < minimum or number > maximum:
+        raise ValueError(f"{key} must be between {minimum:g} and {maximum:g}.")
+    return number
+
+
+def _calculate_alignment_position_offsets(
+    *,
+    target_azimuth_deg: float,
+    target_altitude_deg: float,
+    telemetry_azimuth_deg: float,
+    telemetry_altitude_deg: float,
+    previous_azimuth_offset_deg: float,
+    previous_altitude_offset_deg: float,
+    azimuth_scale: float,
+    altitude_scale: float,
+) -> dict[str, float]:
+    """Calculate software encoder zero offsets for one reviewed DEM point."""
+    values = {
+        "target_azimuth_deg": target_azimuth_deg,
+        "target_altitude_deg": target_altitude_deg,
+        "telemetry_azimuth_deg": telemetry_azimuth_deg,
+        "telemetry_altitude_deg": telemetry_altitude_deg,
+        "previous_azimuth_position_offset_deg": previous_azimuth_offset_deg,
+        "previous_altitude_position_offset_deg": previous_altitude_offset_deg,
+        "azimuth_position_scale": azimuth_scale,
+        "altitude_position_scale": altitude_scale,
+    }
+    if not all(math.isfinite(float(value)) for value in values.values()):
+        raise ValueError("Alignment position offset inputs must be finite numbers.")
+    if azimuth_scale not in (-1.0, 1.0) or altitude_scale not in (-1.0, 1.0):
+        raise ValueError("Alignment position scales must be either -1 or 1.")
+
+    residual_azimuth = _signed_degree_delta(target_azimuth_deg, telemetry_azimuth_deg)
+    residual_altitude = target_altitude_deg - telemetry_altitude_deg
+    # Azimuth display = raw * scale - offset.
+    calculated_azimuth = previous_azimuth_offset_deg - residual_azimuth
+    # Altitude display = (raw + offset) * scale.
+    calculated_altitude = previous_altitude_offset_deg + (residual_altitude / altitude_scale)
+    if abs(calculated_azimuth) > 1440.0 or abs(calculated_altitude) > 1440.0:
+        raise ValueError("Calculated position offset exceeds the safe software calibration range.")
+    return {
+        **{key: round(float(value), 6) for key, value in values.items()},
+        "residual_azimuth_deg": round(residual_azimuth, 6),
+        "residual_altitude_deg": round(residual_altitude, 6),
+        "calculated_azimuth_position_offset_deg": round(calculated_azimuth, 6),
+        "calculated_altitude_position_offset_deg": round(calculated_altitude, 6),
+    }
+
+
+def _clean_pointing_alignment(settings: dict[str, Any]) -> dict[str, Any]:
+    """Validate alignment history and rebuild the derived mount rotation model."""
+    latest = settings.get("latest")
+    if latest is not None and not isinstance(latest, dict):
+        raise ValueError("pointing_alignment.latest must be an object or null.")
+    ranges = {
+        "latitude": (-90.0, 90.0),
+        "longitude": (-180.0, 180.0),
+        "dem_azimuth_deg": (-720.0, 720.0),
+        "dem_altitude_deg": (-180.0, 180.0),
+        "camera_offset_azimuth_deg": (-360.0, 360.0),
+        "camera_offset_altitude_deg": (-180.0, 180.0),
+        "expected_mount_azimuth_deg": (-720.0, 720.0),
+        "expected_mount_altitude_deg": (-180.0, 180.0),
+        "telemetry_azimuth_deg": (-720.0, 720.0),
+        "telemetry_altitude_deg": (-180.0, 180.0),
+        "residual_azimuth_deg": (-360.0, 360.0),
+        "residual_altitude_deg": (-180.0, 180.0),
+    }
+    clean_latest: dict[str, Any] | None = None
+    if latest is not None:
+        clean_latest = {
+            "grid_cell": str(latest.get("grid_cell") or "")[:80],
+            "saved_at": str(latest.get("saved_at") or "")[:64],
+        }
+        for key, (minimum, maximum) in ranges.items():
+            if key not in latest:
+                raise ValueError(f"pointing_alignment.latest.{key} is required.")
+            try:
+                number = float(latest[key])
+            except (TypeError, ValueError) as exc:
+                raise ValueError(f"pointing_alignment.latest.{key} must be a number.") from exc
+            if not math.isfinite(number) or number < minimum or number > maximum:
+                raise ValueError(
+                    f"pointing_alignment.latest.{key} must be between {minimum:g} and {maximum:g}."
+                )
+            clean_latest[key] = round(number, 6)
+        for key, minimum, maximum in (
+            ("previous_azimuth_position_offset_deg", -1440.0, 1440.0),
+            ("previous_altitude_position_offset_deg", -1440.0, 1440.0),
+            ("calculated_azimuth_position_offset_deg", -1440.0, 1440.0),
+            ("calculated_altitude_position_offset_deg", -1440.0, 1440.0),
+            ("raw_azimuth_encoder_deg", -10000000.0, 10000000.0),
+            ("raw_altitude_encoder_deg", -10000000.0, 10000000.0),
+        ):
+            if key in latest:
+                clean_latest[key] = round(_required_finite_number(
+                    latest, key, minimum=minimum, maximum=maximum,
+                ), 6)
+        for key in ("azimuth_position_scale", "altitude_position_scale"):
+            if key in latest:
+                scale = _required_finite_number(latest, key, minimum=-1.0, maximum=1.0)
+                if scale not in (-1.0, 1.0):
+                    raise ValueError(f"pointing_alignment.latest.{key} must be either -1 or 1.")
+                clean_latest[key] = scale
+
+    points = settings.get("points", [])
+    if not isinstance(points, list):
+        raise ValueError("pointing_alignment.points must be an array.")
+    clean_points = [_clean_pointing_alignment_point(point, index) for index, point in enumerate(points[:32])]
+    return {
+        "latest": clean_latest,
+        "points": clean_points,
+        "model": _fit_pointing_alignment_model(clean_points),
+    }
+
+
+def _clean_pointing_alignment_point(point: Any, index: int = 0) -> dict[str, Any]:
+    if not isinstance(point, dict):
+        raise ValueError(f"pointing_alignment.points[{index}] must be an object.")
+    ranges = {
+        "latitude": (-90.0, 90.0),
+        "longitude": (-180.0, 180.0),
+        "elevation_m": (-1000.0, 10000.0),
+        "distance_m": (0.0, 1000000.0),
+        "curvature_drop_m": (0.0, 100000.0),
+        "slant_range_m": (0.0, 1000000.0),
+        "reference_azimuth_deg": (-720.0, 720.0),
+        "reference_altitude_deg": (-180.0, 180.0),
+        "telemetry_azimuth_deg": (-720.0, 720.0),
+        "telemetry_altitude_deg": (-180.0, 180.0),
+        "camera_offset_azimuth_deg": (-360.0, 360.0),
+        "camera_offset_altitude_deg": (-180.0, 180.0),
+    }
+    clean = {
+        "id": str(point.get("id") or f"point-{index + 1}")[:80],
+        "grid_cell": str(point.get("grid_cell") or "")[:80],
+        "saved_at": str(point.get("saved_at") or "")[:64],
+    }
+    for key, (minimum, maximum) in ranges.items():
+        clean[key] = round(_required_finite_number(point, key, minimum=minimum, maximum=maximum), 6)
+    return clean
+
+
+def _direction_vector(azimuth_deg: float, altitude_deg: float) -> tuple[float, float, float]:
+    azimuth = math.radians(azimuth_deg)
+    altitude = math.radians(altitude_deg)
+    horizontal = math.cos(altitude)
+    return (
+        horizontal * math.sin(azimuth),
+        horizontal * math.cos(azimuth),
+        math.sin(altitude),
+    )
+
+
+def _direction_angles(vector: tuple[float, float, float] | list[float]) -> tuple[float, float]:
+    length = math.sqrt(sum(float(value) * float(value) for value in vector))
+    if length <= 1e-12:
+        raise ValueError("Pointing direction vector cannot be zero.")
+    east, north, up = (float(value) / length for value in vector)
+    return (
+        (math.degrees(math.atan2(east, north)) + 360.0) % 360.0,
+        math.degrees(math.asin(max(-1.0, min(1.0, up)))),
+    )
+
+
+def _rotation_matrix_from_quaternion(quaternion: tuple[float, float, float, float]) -> list[list[float]]:
+    w, x, y, z = quaternion
+    return [
+        [1.0 - 2.0 * (y * y + z * z), 2.0 * (x * y - w * z), 2.0 * (x * z + w * y)],
+        [2.0 * (x * y + w * z), 1.0 - 2.0 * (x * x + z * z), 2.0 * (y * z - w * x)],
+        [2.0 * (x * z - w * y), 2.0 * (y * z + w * x), 1.0 - 2.0 * (x * x + y * y)],
+    ]
+
+
+def _matrix_vector(matrix: list[list[float]], vector: tuple[float, float, float]) -> tuple[float, float, float]:
+    return tuple(sum(matrix[row][column] * vector[column] for column in range(3)) for row in range(3))
+
+
+def _vector_angle_deg(first: tuple[float, float, float], second: tuple[float, float, float]) -> float:
+    dot = max(-1.0, min(1.0, sum(first[index] * second[index] for index in range(3))))
+    return math.degrees(math.acos(dot))
+
+
+def _fit_pointing_alignment_model(points: list[dict[str, Any]]) -> dict[str, Any]:
+    """Fit the rigid mount-to-world rotation using Davenport's q-method."""
+    base = {
+        "active": False,
+        "point_count": len(points),
+        "required_point_count": 2,
+        "recommended_point_count": 3,
+        "status": "Add at least two well-separated reference points.",
+    }
+    if len(points) < 2:
+        return base
+    mount_vectors = [
+        _direction_vector(point["telemetry_azimuth_deg"], point["telemetry_altitude_deg"])
+        for point in points
+    ]
+    reference_vectors = [
+        _direction_vector(point["reference_azimuth_deg"], point["reference_altitude_deg"])
+        for point in points
+    ]
+    maximum_separation = max(
+        _vector_angle_deg(reference_vectors[first], reference_vectors[second])
+        for first in range(len(points))
+        for second in range(first + 1, len(points))
+    )
+    if maximum_separation < 5.0:
+        return {
+            **base,
+            "maximum_point_separation_deg": round(maximum_separation, 3),
+            "status": "Reference points are too close; add a point at least 5 degrees away.",
+        }
+
+    s = [[0.0] * 3 for _ in range(3)]
+    for mount, reference in zip(mount_vectors, reference_vectors):
+        for row in range(3):
+            for column in range(3):
+                s[row][column] += reference[row] * mount[column]
+    sxx, sxy, sxz = s[0]
+    syx, syy, syz = s[1]
+    szx, szy, szz = s[2]
+    k = [
+        [sxx + syy + szz, syz - szy, szx - sxz, sxy - syx],
+        [syz - szy, sxx - syy - szz, sxy + syx, szx + sxz],
+        [szx - sxz, sxy + syx, -sxx + syy - szz, syz + szy],
+        [sxy - syx, szx + sxz, syz + szy, -sxx - syy + szz],
+    ]
+    # A positive diagonal shift makes ordinary power iteration converge on the
+    # largest algebraic eigenvalue rather than the largest absolute eigenvalue.
+    shift = 4.0 * len(points) + 1.0
+    quaternion = [1.0, 0.0, 0.0, 0.0]
+    for _ in range(100):
+        candidate = [
+            sum(k[row][column] * quaternion[column] for column in range(4))
+            + shift * quaternion[row]
+            for row in range(4)
+        ]
+        length = math.sqrt(sum(value * value for value in candidate))
+        if length <= 1e-12:
+            return {**base, "status": "Reference geometry could not produce a stable model."}
+        candidate = [value / length for value in candidate]
+        if sum((candidate[index] - quaternion[index]) ** 2 for index in range(4)) < 1e-24:
+            quaternion = candidate
+            break
+        quaternion = candidate
+    if quaternion[0] < 0.0:
+        quaternion = [-value for value in quaternion]
+    # With the east/north/up convention above, Davenport's covariance form
+    # yields the world-to-mount quaternion. Store its inverse so the public
+    # model consistently maps measured mount directions into world directions.
+    quaternion = [quaternion[0], -quaternion[1], -quaternion[2], -quaternion[3]]
+    matrix = _rotation_matrix_from_quaternion(tuple(quaternion))
+    errors = [
+        _vector_angle_deg(_matrix_vector(matrix, mount), reference)
+        for mount, reference in zip(mount_vectors, reference_vectors)
+    ]
+    rms_error = math.sqrt(sum(error * error for error in errors) / len(errors))
+    w, x, y, z = quaternion
+    roll = math.degrees(math.atan2(2.0 * (w * x + y * z), 1.0 - 2.0 * (x * x + y * y)))
+    pitch = math.degrees(math.asin(max(-1.0, min(1.0, 2.0 * (w * y - z * x)))))
+    yaw = math.degrees(math.atan2(2.0 * (w * z + x * y), 1.0 - 2.0 * (y * y + z * z)))
+    active = rms_error <= 5.0
+    return {
+        **base,
+        "active": active,
+        "status": "Mount compensation active." if active else "Point fit error exceeds 5 degrees; review the saved points.",
+        "maximum_point_separation_deg": round(maximum_separation, 3),
+        "quaternion": [round(value, 12) for value in quaternion],
+        "rotation_matrix": [[round(value, 12) for value in row] for row in matrix],
+        "rms_error_deg": round(rms_error, 4),
+        "max_error_deg": round(max(errors), 4),
+        "yaw_deg": round(yaw, 4),
+        "pitch_deg": round(pitch, 4),
+        "roll_deg": round(roll, 4),
+    }
+
+
+def _apply_pointing_alignment_model(
+    azimuth_deg: float,
+    altitude_deg: float,
+    model: dict[str, Any] | None,
+) -> tuple[float, float, bool]:
+    """Convert a nominal world direction into the compensated mount command."""
+    if not isinstance(model, dict) or model.get("active") is not True:
+        return azimuth_deg, altitude_deg, False
+    matrix = model.get("rotation_matrix")
+    if not isinstance(matrix, list) or len(matrix) != 3:
+        return azimuth_deg, altitude_deg, False
+    try:
+        nominal = _direction_vector(azimuth_deg, altitude_deg)
+        # The fitted matrix maps mount -> world, so commands use its transpose.
+        command = tuple(sum(float(matrix[row][column]) * nominal[row] for row in range(3)) for column in range(3))
+        corrected_azimuth, corrected_altitude = _direction_angles(command)
+    except (TypeError, ValueError, IndexError):
+        return azimuth_deg, altitude_deg, False
+    correction = _vector_angle_deg(nominal, _direction_vector(corrected_azimuth, corrected_altitude))
+    if correction > 20.0:
+        return azimuth_deg, altitude_deg, False
+    return corrected_azimuth, corrected_altitude, True
+
+
 def _clean_camera_metadata(metadata: dict[str, Any]) -> dict[str, dict[str, Any]]:
     """Validate static camera facts advertised to the remote device registry."""
     schemas = {
@@ -4323,6 +5667,37 @@ def _clean_camera_metadata(metadata: dict[str, Any]) -> dict[str, dict[str, Any]
                 raise ValueError("camera_metadata.thermal_camera.temperature_measurement is invalid.")
             camera["temperature_measurement"] = temperature_measurement
         clean[camera_name] = camera
+    return clean
+
+
+def _clean_camera_calibration(settings: dict[str, Any]) -> dict[str, int]:
+    """Validate the visible-image pixel offset relative to the thermal center."""
+    clean: dict[str, int] = {}
+    ranges = {
+        "visible_offset_x_px": (-32768, 32768),
+        "visible_offset_y_px": (-32768, 32768),
+        "step_px": (1, 1000),
+        "visible_crop_width_px": (1, 32768),
+        "visible_crop_height_px": (1, 32768),
+    }
+    for key, (minimum, maximum) in ranges.items():
+        if key not in settings:
+            continue
+        value = settings.get(key)
+        if isinstance(value, bool):
+            raise ValueError(f"camera_calibration.{key} must be a whole number.")
+        try:
+            number = float(value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"camera_calibration.{key} must be a whole number.") from exc
+        if not math.isfinite(number) or not number.is_integer():
+            raise ValueError(f"camera_calibration.{key} must be a whole number.")
+        integer = int(number)
+        if integer < minimum or integer > maximum:
+            raise ValueError(
+                f"camera_calibration.{key} must be between {minimum} and {maximum}."
+            )
+        clean[key] = integer
     return clean
 
 
@@ -4428,6 +5803,7 @@ def _apply_position_offsets_to_payload(data: dict[str, Any], unwrap_state: dict[
     if not isinstance(axes, (list, tuple)):
         return
     azimuth_sensors = data.get("azimuth_sensors")
+    motion_limits = _load_app_settings().get("motion_limits", {})
     for axis in axes:
         if not isinstance(axis, dict):
             continue
@@ -4463,12 +5839,18 @@ def _apply_position_offsets_to_payload(data: dict[str, Any], unwrap_state: dict[
             offset,
             unwrap_state,
             azimuth_sensors,
+            motion_limits.get("azimuth_ccw_limit_deg"),
+            motion_limits.get("azimuth_cw_limit_deg"),
         )
         axis["unwrapped_position_deg"] = unwrapped_position
         axis["absolute_position_deg"] = absolute_position
         axis["position_deg"] = unwrapped_position if label == "Azimuth" else _axis_display_position_deg(label, position_number, offset, azimuth_sensors)
         if label == "Azimuth":
             axis["azimuth_region"] = _azimuth_region_label(azimuth_sensors)
+            axis["azimuth_region_confirmed"] = bool(
+                unwrap_state
+                and unwrap_state.get(label, {}).get("region_confirmed", False)
+            )
 
 
 def _axis_display_position_deg(label: str, position_deg: float, offset_deg: float, azimuth_sensors: dict[str, Any] | None) -> float:
@@ -4501,6 +5883,9 @@ def _axis_unwrapped_display_position_deg(
     offset_deg: float,
     unwrap_state: dict[str, dict[str, float]] | None = None,
     azimuth_sensors: dict[str, Any] | None = None,
+    azimuth_ccw_limit_deg: float | None = None,
+    azimuth_cw_limit_deg: float | None = None,
+    allow_region_reconcile: bool = True,
 ) -> float:
     if label == "Altitude":
         return position_deg + (offset_deg * _axis_position_scale(label))
@@ -4515,31 +5900,84 @@ def _axis_unwrapped_display_position_deg(
         # angle.  Doing this in the opposite order would turn, for example,
         # Abs 70.762 with Offset 125 into -414.238 instead of -54.238.
         calibrated_absolute = _normalize_degrees(absolute - offset_deg)
-        initial = _azimuth_initial_unwrapped_position(calibrated_absolute, azimuth_sensors)
-        unwrap_state[label] = {"absolute": absolute, "unwrapped": initial}
+        initial = _azimuth_initial_unwrapped_position(
+            calibrated_absolute,
+            azimuth_sensors,
+            azimuth_ccw_limit_deg,
+            azimuth_cw_limit_deg,
+        )
+        unwrap_state[label] = {
+            "absolute": absolute,
+            "unwrapped": initial,
+            # Node-RED commonly publishes its first region sample shortly
+            # after the first encoder poll. Mark an ambiguous startup branch
+            # as provisional so that one valid one-hot sample can correct it.
+            "region_confirmed": _azimuth_sensor_region_is_valid(azimuth_sensors),
+            "sensor_region": (
+                _azimuth_region_label(azimuth_sensors)
+                if _azimuth_sensor_region_is_valid(azimuth_sensors)
+                else None
+            ),
+        }
         return initial
 
     previous_absolute = float(state.get("absolute", absolute))
     previous_unwrapped = float(state.get("unwrapped", position_deg - offset_deg))
     delta = _signed_degree_delta(absolute, previous_absolute)
     unwrapped = previous_unwrapped + delta
+    region_confirmed = bool(state.get("region_confirmed", True))
+    if _azimuth_sensor_region_is_valid(azimuth_sensors):
+        sensor_region = _azimuth_region_label(azimuth_sensors)
+        if not region_confirmed and allow_region_reconcile:
+            calibrated_absolute = _normalize_degrees(absolute - offset_deg)
+            unwrapped = _azimuth_initial_unwrapped_position(
+                calibrated_absolute,
+                azimuth_sensors,
+                azimuth_ccw_limit_deg,
+                azimuth_cw_limit_deg,
+            )
+        # Once startup has selected a branch, encoder continuity is
+        # authoritative. A one-hot region transition is only recorded for
+        # diagnostics; it must never add or subtract a full turn from a live
+        # position. Late startup confirmation may select the sensor branch
+        # only while the axis is stationary. Re-selecting during motion used
+        # to create +/-360 Deg jumps around a region sensor, and the position
+        # controller could consequently reverse direction.
+        region_confirmed = True
+        state["sensor_region"] = sensor_region
     state["absolute"] = absolute
     state["unwrapped"] = unwrapped
+    state["region_confirmed"] = region_confirmed
     return unwrapped
+
+
+def _azimuth_sensor_region_is_valid(
+    azimuth_sensors: dict[str, Any] | None,
+) -> bool:
+    if not isinstance(azimuth_sensors, dict):
+        return False
+    return bool(azimuth_sensors.get("ccw_sensor")) != bool(
+        azimuth_sensors.get("cw_sensor")
+    )
 
 
 def _azimuth_initial_unwrapped_position(
     absolute_deg: float,
     azimuth_sensors: dict[str, Any] | None,
+    azimuth_ccw_limit_deg: float | None = None,
+    azimuth_cw_limit_deg: float | None = None,
 ) -> float:
     if not isinstance(azimuth_sensors, dict):
         return absolute_deg
     ccw_active = bool(azimuth_sensors.get("ccw_sensor"))
     cw_active = bool(azimuth_sensors.get("cw_sensor"))
-    if ccw_active and not cw_active:
-        return absolute_deg - 360.0 if absolute_deg > 0.0 else 0.0
-    if cw_active and not ccw_active:
-        return absolute_deg
+    if ccw_active != cw_active:
+        return _azimuth_position_for_sensor_region(
+            absolute_deg,
+            azimuth_sensors,
+            azimuth_ccw_limit_deg,
+            azimuth_cw_limit_deg,
+        )
     # Both active (or both inactive) is an ambiguous/invalid region signal.
     # Prefer the signed representation so an angle just below 360 degrees
     # restarts near 0 instead of jumping by a full revolution.
@@ -4549,14 +5987,43 @@ def _azimuth_initial_unwrapped_position(
 def _azimuth_position_for_sensor_region(
     position_deg: float,
     azimuth_sensors: dict[str, Any] | None,
+    azimuth_ccw_limit_deg: float | None = None,
+    azimuth_cw_limit_deg: float | None = None,
 ) -> float:
     if not isinstance(azimuth_sensors, dict):
         return position_deg
     ccw_active = bool(azimuth_sensors.get("ccw_sensor"))
     cw_active = bool(azimuth_sensors.get("cw_sensor"))
+
+    lower = _finite_float(azimuth_ccw_limit_deg)
+    upper = _finite_float(azimuth_cw_limit_deg)
+    if lower is not None and upper is not None and lower <= upper:
+        normalized = _normalize_degrees(position_deg)
+        first_turn = math.floor((lower - normalized) / 360.0) - 1
+        last_turn = math.ceil((upper - normalized) / 360.0) + 1
+        candidates = [
+            normalized + (turn * 360.0)
+            for turn in range(first_turn, last_turn + 1)
+            if lower - 1e-9 <= normalized + (turn * 360.0) <= upper + 1e-9
+        ]
+        if candidates:
+            if ccw_active and not cw_active:
+                negative = [candidate for candidate in candidates if candidate <= 0.0]
+                # A CCW branch is valid only if its equivalent angle remains
+                # inside the configured envelope. With a -190 Deg limit, an
+                # equivalent -270 Deg branch must never be selected.
+                return min(negative) if negative else min(candidates, key=abs)
+            if cw_active and not ccw_active:
+                positive = [candidate for candidate in candidates if candidate >= 0.0]
+                return max(positive) if positive else min(candidates, key=abs)
+            return min(candidates, key=lambda candidate: abs(candidate - position_deg))
+
     if ccw_active and not cw_active and position_deg > 0.0:
         while position_deg > 0.0:
             position_deg -= 360.0
+    elif cw_active and not ccw_active and position_deg < 0.0:
+        while position_deg < 0.0:
+            position_deg += 360.0
     return position_deg
 
 
@@ -6108,7 +7575,7 @@ def _save_software_position_gain(label: str, gain: float) -> None:
     axis_settings = tuning_steps.setdefault(label, {})
     axis_settings["position_gain"] = gain
     with APP_SETTINGS_PATH.open("w", encoding="utf-8") as file:
-        json.dump(settings, file, indent=2, sort_keys=True)
+        json.dump(_settings_document_without_pointing_model(settings), file, indent=2, sort_keys=True)
         file.write("\n")
     global _SETTINGS_CACHE, _SETTINGS_MTIME
     _SETTINGS_CACHE = settings
@@ -6124,7 +7591,7 @@ def _save_command_velocity_limit(limit_deg_per_sec: float) -> None:
         return
     motion_limits["slew_rate_deg_per_sec"] = limit_deg_per_sec
     with APP_SETTINGS_PATH.open("w", encoding="utf-8") as file:
-        json.dump(settings, file, indent=2, sort_keys=True)
+        json.dump(_settings_document_without_pointing_model(settings), file, indent=2, sort_keys=True)
         file.write("\n")
     global _SETTINGS_CACHE, _SETTINGS_MTIME
     _SETTINGS_CACHE = settings
@@ -6135,6 +7602,7 @@ def _software_position_timeout_sec(
     positions_deg: dict[str, float],
     start_positions_deg: dict[str, float],
     max_speed_deg_per_sec: float,
+    position_tolerance_deg: float = SOFTWARE_POSITION_TOLERANCE_DEG,
 ) -> float:
     longest_move_sec = 0.0
     speed = max(abs(max_speed_deg_per_sec), 0.1)
@@ -6154,9 +7622,9 @@ def _software_position_timeout_sec(
         proportional_start_error = min(distance, speed / gain)
         full_speed_sec = max(0.0, distance - proportional_start_error) / speed
         proportional_sec = 0.0
-        if proportional_start_error > SOFTWARE_POSITION_TOLERANCE_DEG:
+        if proportional_start_error > position_tolerance_deg:
             proportional_sec = math.log(
-                proportional_start_error / SOFTWARE_POSITION_TOLERANCE_DEG
+                proportional_start_error / position_tolerance_deg
             ) / gain
         estimated_move_sec = full_speed_sec + proportional_sec
         longest_move_sec = max(longest_move_sec, estimated_move_sec)
@@ -6241,6 +7709,8 @@ def _hold_axis_at_current_position(axis: Any) -> None:
 
 def _read_azimuth_sensors() -> dict[str, Any]:
     settings = _load_app_settings().get("azimuth_sensors", {})
+    if str(settings.get("source", "gpio")).strip().lower().replace("-", "_") == "node_red":
+        return _read_azimuth_sensor_bridge(settings)
     ccw = _read_sensor_pin(
         settings.get("ccw_pin"),
         bool(settings.get("ccw_active_high", True)),
@@ -6262,6 +7732,71 @@ def _read_azimuth_sensors() -> dict[str, Any]:
         "cw_pin": settings.get("cw_pin"),
         "ccw_pull": settings.get("ccw_pull", "none"),
         "cw_pull": settings.get("cw_pull", "none"),
+        "source": "gpio",
+    }
+
+
+def _update_azimuth_sensor_bridge(payload: Any) -> dict[str, Any]:
+    if not isinstance(payload, dict):
+        raise ValueError("A JSON object is required.")
+
+    levels: dict[str, bool] = {}
+    for key in ("ccw_raw_level", "cw_raw_level"):
+        value = payload.get(key)
+        if isinstance(value, bool):
+            levels[key] = value
+        elif isinstance(value, int) and value in (0, 1):
+            levels[key] = bool(value)
+        else:
+            raise ValueError(f"{key} must be a boolean or 0/1.")
+
+    received_at = datetime.now().astimezone().isoformat(timespec="milliseconds")
+    with _AZIMUTH_SENSOR_BRIDGE_LOCK:
+        _AZIMUTH_SENSOR_BRIDGE_STATE.clear()
+        _AZIMUTH_SENSOR_BRIDGE_STATE.update(
+            **levels,
+            received_at=received_at,
+            received_monotonic=monotonic(),
+        )
+    return {**levels, "source": "node_red", "received_at": received_at}
+
+
+def _read_azimuth_sensor_bridge(settings: dict[str, Any]) -> dict[str, Any]:
+    with _AZIMUTH_SENSOR_BRIDGE_LOCK:
+        state = dict(_AZIMUTH_SENSOR_BRIDGE_STATE)
+
+    received_monotonic = state.get("received_monotonic")
+    age_sec = (
+        max(0.0, monotonic() - float(received_monotonic))
+        if isinstance(received_monotonic, (int, float))
+        else None
+    )
+    error = None
+    if age_sec is None:
+        error = "No sensor update has been received from Node-RED."
+    elif age_sec > AZIMUTH_SENSOR_BRIDGE_MAX_AGE_SEC:
+        error = f"Node-RED sensor update is stale ({age_sec:.1f}s old)."
+
+    ccw_level = state.get("ccw_raw_level") if error is None else None
+    cw_level = state.get("cw_raw_level") if error is None else None
+    return {
+        "ccw_sensor": (
+            ccw_level if bool(settings.get("ccw_active_high", True)) else not ccw_level
+        ) if ccw_level is not None else False,
+        "ccw_raw_level": ccw_level,
+        "ccw_error": error,
+        "cw_sensor": (
+            cw_level if bool(settings.get("cw_active_high", True)) else not cw_level
+        ) if cw_level is not None else False,
+        "cw_raw_level": cw_level,
+        "cw_error": error,
+        "ccw_pin": settings.get("ccw_pin"),
+        "cw_pin": settings.get("cw_pin"),
+        "ccw_pull": settings.get("ccw_pull", "none"),
+        "cw_pull": settings.get("cw_pull", "none"),
+        "source": "node_red",
+        "bridge_received_at": state.get("received_at"),
+        "bridge_age_sec": round(age_sec, 3) if age_sec is not None else None,
     }
 
 
@@ -6539,6 +8074,8 @@ def _pointing_model_raster_payload(resolution_m: float) -> dict[str, Any]:
         cache_key["digest"],
     )
     imagery_src = _arcgis_imagery_src(station, size, resolution_m, cache_key["digest"])
+    detail_imagery_src = _arcgis_detail_imagery_src(station, cache_key["digest"])
+    precision_imagery_src = _arcgis_precision_imagery_src(station, cache_key["digest"])
     payload = {
         "ok": True,
         "cached": False,
@@ -6576,6 +8113,9 @@ def _pointing_model_raster_payload(resolution_m: float) -> dict[str, Any]:
             "terrain_src": raster_sources["terrain"],
             "visibility_src": raster_sources["visibility"],
             "satellite_src": imagery_src,
+            "satellite_high_resolution_src": imagery_src,
+            "satellite_detail_src": detail_imagery_src,
+            "satellite_precision_src": precision_imagery_src,
             "height_src": raster_sources["height"],
             "height_width": raster_sources["height_width"],
             "height_height": raster_sources["height_height"],
@@ -6590,6 +8130,23 @@ def _pointing_model_raster_payload(resolution_m: float) -> dict[str, Any]:
             "available": imagery_src is not None,
             "source": "ArcGIS World Imagery",
             "attribution": "Tiles © Esri and imagery providers",
+            "texture_size_px": POINTING_IMAGERY_TEXTURE_SIZE,
+            "ground_resolution_m": round((radius_m * 2.0) / POINTING_IMAGERY_TEXTURE_SIZE, 3),
+            "detail_available": detail_imagery_src is not None,
+            "detail_radius_m": POINTING_DETAIL_IMAGERY_RADIUS_M,
+            "detail_texture_size_px": POINTING_IMAGERY_TEXTURE_SIZE,
+            "detail_ground_resolution_m": round(
+                (POINTING_DETAIL_IMAGERY_RADIUS_M * 2.0) / POINTING_IMAGERY_TEXTURE_SIZE,
+                3,
+            ),
+            "precision_available": precision_imagery_src is not None,
+            "precision_radius_m": POINTING_PRECISION_IMAGERY_RADIUS_M,
+            "precision_texture_size_px": POINTING_PRECISION_IMAGERY_TEXTURE_SIZE,
+            "precision_ground_resolution_m": round(
+                (POINTING_PRECISION_IMAGERY_RADIUS_M * 2.0)
+                / POINTING_PRECISION_IMAGERY_TEXTURE_SIZE,
+                3,
+            ),
         },
     }
     _save_pointing_raster_payload(cache_key["digest"], payload)
@@ -6635,13 +8192,50 @@ def _load_pointing_raster_payload(digest: str) -> dict[str, Any] | None:
     raster.setdefault("terrain_src", f"/api/pointing/cache/{image_path.name}")
     raster.setdefault("src", raster["terrain_src"])
     visibility_path = POINTING_CACHE_DIR / f"pointing_{digest}_visibility.png"
-    satellite_path = POINTING_CACHE_DIR / f"pointing_{digest}_satellite.png"
+    satellite_path = POINTING_CACHE_DIR / f"pointing_{digest}_satellite.jpg"
+    detail_satellite_path = POINTING_CACHE_DIR / f"pointing_{digest}_satellite_detail.jpg"
+    precision_satellite_path = POINTING_CACHE_DIR / f"pointing_{digest}_satellite_precision.jpg"
+    legacy_satellite_path = POINTING_CACHE_DIR / f"pointing_{digest}_satellite.png"
     height_path = POINTING_CACHE_DIR / f"pointing_{digest}_height.png"
     if visibility_path.exists():
         raster["visibility_src"] = f"/api/pointing/cache/{visibility_path.name}"
     if satellite_path.exists():
         raster["satellite_src"] = f"/api/pointing/cache/{satellite_path.name}"
+        raster["satellite_high_resolution_src"] = raster["satellite_src"]
         payload.setdefault("imagery", {})["available"] = True
+        payload["imagery"].update({
+            "texture_size_px": POINTING_IMAGERY_TEXTURE_SIZE,
+            "ground_resolution_m": round(
+                (float(payload.get("radius_km") or POINTING_RADIUS_KM) * 2000.0)
+                / POINTING_IMAGERY_TEXTURE_SIZE,
+                3,
+            ),
+        })
+    elif legacy_satellite_path.exists():
+        raster["satellite_src"] = f"/api/pointing/cache/{legacy_satellite_path.name}"
+    if detail_satellite_path.exists():
+        raster["satellite_detail_src"] = f"/api/pointing/cache/{detail_satellite_path.name}"
+        payload.setdefault("imagery", {}).update({
+            "detail_available": True,
+            "detail_radius_m": POINTING_DETAIL_IMAGERY_RADIUS_M,
+            "detail_texture_size_px": POINTING_IMAGERY_TEXTURE_SIZE,
+            "detail_ground_resolution_m": round(
+                (POINTING_DETAIL_IMAGERY_RADIUS_M * 2.0) / POINTING_IMAGERY_TEXTURE_SIZE,
+                3,
+            ),
+        })
+    if precision_satellite_path.exists():
+        raster["satellite_precision_src"] = f"/api/pointing/cache/{precision_satellite_path.name}"
+        payload.setdefault("imagery", {}).update({
+            "precision_available": True,
+            "precision_radius_m": POINTING_PRECISION_IMAGERY_RADIUS_M,
+            "precision_texture_size_px": POINTING_PRECISION_IMAGERY_TEXTURE_SIZE,
+            "precision_ground_resolution_m": round(
+                (POINTING_PRECISION_IMAGERY_RADIUS_M * 2.0)
+                / POINTING_PRECISION_IMAGERY_TEXTURE_SIZE,
+                3,
+            ),
+        })
     if height_path.exists():
         raster["height_src"] = f"/api/pointing/cache/{height_path.name}"
     return payload
@@ -6733,19 +8327,45 @@ def _blend_rgba(base: tuple[int, int, int, int], overlay: tuple[int, int, int, i
     )
 
 
-def _arcgis_imagery_src(station: dict[str, Any], size: int, resolution_m: float, digest: str) -> str | None:
-    image_path = POINTING_CACHE_DIR / f"pointing_{digest}_satellite.png"
+def _arcgis_imagery_src(station: dict[str, Any], _size: int, _resolution_m: float, digest: str) -> str | None:
+    image_path = POINTING_CACHE_DIR / f"pointing_{digest}_satellite.jpg"
+    return _arcgis_export_imagery(station, POINTING_RADIUS_KM * 1000.0, image_path)
+
+
+def _arcgis_detail_imagery_src(station: dict[str, Any], digest: str) -> str | None:
+    image_path = POINTING_CACHE_DIR / f"pointing_{digest}_satellite_detail.jpg"
+    return _arcgis_export_imagery(station, POINTING_DETAIL_IMAGERY_RADIUS_M, image_path)
+
+
+def _arcgis_precision_imagery_src(station: dict[str, Any], digest: str) -> str | None:
+    image_path = POINTING_CACHE_DIR / f"pointing_{digest}_satellite_precision.jpg"
+    return _arcgis_export_imagery(
+        station,
+        POINTING_PRECISION_IMAGERY_RADIUS_M,
+        image_path,
+        texture_size=POINTING_PRECISION_IMAGERY_TEXTURE_SIZE,
+    )
+
+
+def _arcgis_export_imagery(
+    station: dict[str, Any],
+    radius_m: float,
+    image_path: Path,
+    *,
+    texture_size: int = POINTING_IMAGERY_TEXTURE_SIZE,
+) -> str | None:
     if image_path.exists():
         return f"/api/pointing/cache/{image_path.name}"
     try:
-        bbox = _web_mercator_bbox(station["latitude"], station["longitude"], POINTING_RADIUS_KM * 1000.0)
+        bbox = _web_mercator_bbox(station["latitude"], station["longitude"], radius_m)
         query = urllib.parse.urlencode(
             {
                 "bbox": ",".join(f"{value:.6f}" for value in bbox),
                 "bboxSR": "3857",
                 "imageSR": "3857",
-                "size": f"{size},{size}",
-                "format": "png32",
+                "size": f"{texture_size},{texture_size}",
+                "format": "jpg",
+                "compressionQuality": str(POINTING_IMAGERY_JPEG_QUALITY),
                 "transparent": "false",
                 "f": "image",
             }
@@ -6757,7 +8377,7 @@ def _arcgis_imagery_src(station: dict[str, Any], size: int, resolution_m: float,
             if response.status != 200 or "image" not in content_type:
                 return None
             data = response.read()
-        if not data.startswith(b"\x89PNG"):
+        if not data.startswith(b"\xff\xd8\xff"):
             return None
         POINTING_CACHE_DIR.mkdir(parents=True, exist_ok=True)
         image_path.write_bytes(data)
@@ -6771,7 +8391,13 @@ def _web_mercator_bbox(latitude: float, longitude: float, radius_m: float) -> tu
     clamped_latitude = max(-85.05112878, min(85.05112878, latitude))
     x = earth_radius_m * math.radians(longitude)
     y = earth_radius_m * math.log(math.tan(math.pi / 4.0 + math.radians(clamped_latitude) / 2.0))
-    return (x - radius_m, y - radius_m, x + radius_m, y + radius_m)
+    projected_radius_m = radius_m / max(0.01, math.cos(math.radians(clamped_latitude)))
+    return (
+        x - projected_radius_m,
+        y - projected_radius_m,
+        x + projected_radius_m,
+        y + projected_radius_m,
+    )
 
 
 def _pointing_model_payload(size: int) -> dict[str, Any]:
@@ -6862,10 +8488,26 @@ def _pointing_sample(lat: float, lon: float) -> dict[str, Any]:
         else (azimuth_deg + station["azimuth_north_offset_deg"]) % 360.0
     )
     altitude_deg = None
+    curvature_drop_m = _earth_curvature_drop_m(distance_m)
+    slant_range_m = distance_m
+    corrected_device_azimuth_deg = device_azimuth_deg
+    corrected_altitude_deg = altitude_deg
+    alignment_applied = False
+    alignment_model: dict[str, Any] = {"active": False, "point_count": 0}
     visible = None
     blocker = None
     if elevation is not None and station_device_elevation is not None and distance_m >= 1.0:
-        altitude_deg = _sightline_angle_deg(elevation, station_device_elevation, distance_m)
+        geometry = _sightline_geometry(elevation, station_device_elevation, distance_m)
+        altitude_deg = geometry["altitude_deg"]
+        curvature_drop_m = geometry["curvature_drop_m"]
+        slant_range_m = geometry["slant_range_m"]
+        alignment_model = _load_app_settings().get("pointing_alignment", {}).get("model", alignment_model)
+        if device_azimuth_deg is not None:
+            corrected_device_azimuth_deg, corrected_altitude_deg, alignment_applied = _apply_pointing_alignment_model(
+                device_azimuth_deg,
+                altitude_deg,
+                alignment_model,
+            )
         visibility = _target_visibility(station, station_device_elevation, lat, lon, elevation, dem)
         visible = visibility["visible"]
         blocker = visibility["blocker"]
@@ -6878,9 +8520,21 @@ def _pointing_sample(lat: float, lon: float) -> dict[str, Any]:
         "station_elevation_m": None if station_device_elevation is None else round(station_device_elevation, 1),
         "distance_m": round(distance_m, 1),
         "distance_km": round(distance_m / 1000.0, 3),
+        "surface_distance_m": round(distance_m, 1),
+        "slant_range_m": round(slant_range_m, 1),
+        "curvature_drop_m": round(curvature_drop_m, 3),
+        "effective_earth_radius_m": round(_effective_earth_radius_m(), 1),
         "azimuth_deg": None if azimuth_deg is None else round(azimuth_deg, 3),
         "device_azimuth_deg": None if device_azimuth_deg is None else round(device_azimuth_deg, 3),
         "altitude_deg": None if altitude_deg is None else round(altitude_deg, 3),
+        "corrected_device_azimuth_deg": None if corrected_device_azimuth_deg is None else round(corrected_device_azimuth_deg, 3),
+        "corrected_altitude_deg": None if corrected_altitude_deg is None else round(corrected_altitude_deg, 3),
+        "alignment_applied": alignment_applied,
+        "alignment_model": {
+            "active": alignment_model.get("active") is True,
+            "point_count": int(alignment_model.get("point_count") or 0),
+            "rms_error_deg": alignment_model.get("rms_error_deg"),
+        },
         "visible": visible,
         "blocker": blocker,
         "inside_radius": distance_m <= POINTING_RADIUS_KM * 1000.0,
@@ -6960,15 +8614,36 @@ def _station_device_elevation(ground_elevation: float | None, station: dict[str,
 
 
 def _sightline_angle_deg(target_elevation: float, station_device_elevation: float, distance_m: float) -> float:
+    return _sightline_geometry(target_elevation, station_device_elevation, distance_m)["altitude_deg"]
+
+
+def _sightline_geometry(
+    target_elevation: float,
+    station_device_elevation: float,
+    distance_m: float,
+) -> dict[str, float]:
+    """Return curvature/refraction compensated elevation angle and ranges."""
     if distance_m < 1.0:
-        return 90.0
+        return {
+            "altitude_deg": 90.0,
+            "curvature_drop_m": 0.0,
+            "slant_range_m": abs(target_elevation - station_device_elevation),
+        }
     apparent_drop_m = _earth_curvature_drop_m(distance_m)
-    return math.degrees(math.atan2(target_elevation - station_device_elevation - apparent_drop_m, distance_m))
+    vertical_m = target_elevation - station_device_elevation - apparent_drop_m
+    return {
+        "altitude_deg": math.degrees(math.atan2(vertical_m, distance_m)),
+        "curvature_drop_m": apparent_drop_m,
+        "slant_range_m": math.hypot(distance_m, vertical_m),
+    }
+
+
+def _effective_earth_radius_m() -> float:
+    return EARTH_RADIUS_M / (1.0 - ATMOSPHERIC_REFRACTION_COEFFICIENT)
 
 
 def _earth_curvature_drop_m(distance_m: float) -> float:
-    effective_radius_m = EARTH_RADIUS_M / (1.0 - ATMOSPHERIC_REFRACTION_COEFFICIENT)
-    return (distance_m * distance_m) / (2.0 * effective_radius_m)
+    return (distance_m * distance_m) / (2.0 * _effective_earth_radius_m())
 
 
 def _viewshed_visibility(
@@ -7010,7 +8685,13 @@ def _target_visibility(
     if target_distance_m < 1.0:
         return {"visible": True, "blocker": None}
     target_angle = _sightline_angle_deg(target_elevation, station_device_elevation, target_distance_m)
-    samples = max(8, min(240, int(target_distance_m / 100.0)))
+    # Sample the selected sightline at the same 30 m spacing as the pointing
+    # model grid. The previous ~100 m / 240-sample cap could skip narrow ridges
+    # and disagree with the full viewshed near the 20 km boundary.
+    samples = max(
+        8,
+        min(800, int(math.ceil(target_distance_m / POINTING_GRID_RESOLUTION_M))),
+    )
     highest_angle: float | None = None
     blocker: dict[str, Any] | None = None
     for step in range(1, samples):

@@ -1,5 +1,6 @@
 import importlib.util
 from pathlib import Path
+from unittest.mock import patch
 
 MODULE_PATH = Path(__file__).parents[1] / "scripts" / "health_beacon.py"
 SPEC = importlib.util.spec_from_file_location("health_beacon", MODULE_PATH)
@@ -122,3 +123,35 @@ def test_disconnected_internet_uses_rapid_100ms_pattern():
     assert [health_beacon.pattern_output(mode, value) for value in (
         0.0, 0.099, 0.1, 0.199, 0.2, 0.299,
     )] == [True, True, False, False, True, True]
+
+
+def test_public_internet_check_does_not_depend_on_private_narit_endpoint():
+    calls = []
+
+    class Connection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+    def connect(endpoint, timeout):
+        calls.append((endpoint, timeout))
+        if endpoint == health_beacon.PUBLIC_INTERNET_ENDPOINTS[0]:
+            raise TimeoutError("primary probe timed out")
+        return Connection()
+
+    with patch.object(health_beacon.socket, "create_connection", side_effect=connect):
+        assert health_beacon.internet_reachable(0.5) is True
+
+    assert [entry[0] for entry in calls] == list(health_beacon.PUBLIC_INTERNET_ENDPOINTS)
+    assert all(timeout >= 2.0 for _, timeout in calls)
+
+
+def test_public_internet_check_requires_one_reachable_tcp_endpoint():
+    with patch.object(
+        health_beacon.socket,
+        "create_connection",
+        side_effect=TimeoutError("all probes timed out"),
+    ):
+        assert health_beacon.internet_reachable(0.5) is False

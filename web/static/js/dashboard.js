@@ -85,7 +85,7 @@ function installIndustrialDeckLayout() {
       <article><small>ALT POSITION</small><strong id="industrialAltitudeSummary">--</strong><span><i></i> TRACKING</span></article>
       <article class="industrial-velocity-error"><small>VELOCITY TRACKING ERROR</small><div><span>AZ <strong id="industrialAzimuthVelocityError">--</strong></span><span>ALT <strong id="industrialAltitudeVelocityError">--</strong></span></div></article>
       <article><small>AVERAGE VELOCITY</small><strong class="is-amber" id="industrialAverageVelocity">--</strong><span>NOMINAL</span></article>
-      <article class="industrial-internet-summary"><div class="industrial-internet-grid"><span><b>DOWN</b><small>EST CAP <strong id="industrialInternetDownloadCapacity">--</strong></small><small>USED <strong id="industrialInternetDownload">--</strong></small><small>FREE <strong id="industrialInternetDownloadAvailable">--</strong></small></span><span><b>UP</b><small>EST CAP <strong id="industrialInternetUploadCapacity">--</strong></small><small>USED <strong id="industrialInternetUpload">--</strong></small><small>FREE <strong id="industrialInternetUploadAvailable">--</strong></small></span></div><p><span id="industrialInternetAverage">BUILDING 15M ESTIMATE...</span> <em id="industrialInternetInterface">(--)</em></p></article>`;
+      <article class="industrial-internet-summary"><div class="industrial-internet-grid"><span><b>DOWN</b><small>15M PEAK <strong id="industrialInternetDownloadCapacity">--</strong></small><small>USED <strong id="industrialInternetDownload">--</strong></small><small>HEADROOM <strong id="industrialInternetDownloadAvailable">--</strong></small></span><span><b>UP</b><small>15M PEAK <strong id="industrialInternetUploadCapacity">--</strong></small><small>USED <strong id="industrialInternetUpload">--</strong></small><small>HEADROOM <strong id="industrialInternetUploadAvailable">--</strong></small></span></div><p><span id="industrialInternetAverage">PASSIVE 1S COUNTERS</span> <em id="industrialInternetInterface">(--)</em></p><button class="industrial-internet-test" id="industrialInternetTest" type="button" title="Run a manual bandwidth test">TEST</button></article>`;
     axisView.prepend(summary);
   }
 
@@ -451,8 +451,430 @@ const history = {
 let lastStreamTelemetrySequence = null;
 
 const historyWindowMs = 60000;
-let reportRequestInFlight = false;
+const reportRequestsInFlight = new Set();
+const reportRequestControllers = new Map();
+const REPORT_REQUEST_TIMEOUT_MS = 15000;
+const reportLoadingTimers = new Map();
+const reportLoadingCopy = {
+  current: ["Loading Current Using", "Loading 24-hour drive telemetry…"],
+  internet: ["Loading Internet Speed", "Loading 7-day network measurements…"],
+  power: ["Loading Power Consumption", "Loading 24-hour drive power history…"],
+  health: ["Loading Controller Health", "Loading 24-hour controller resource history…"],
+};
 let activeReportTab = "current";
+let latestInternetReport = null;
+let activeNetworkCategory = "used";
+let latestPowerReport = null;
+let activePowerDevice = "total";
+let latestHealthReport = null;
+let activeHealthMetric = "storage";
+const powerSeriesConfig = {
+  total: { key: "total_power_w", color: "#b2de72", legendClass: "total-key", optionLabel: "Total · All measured", label: "Total measured (W)" },
+  azimuth: { key: "azimuth_power_w", color: "#58c4df", legendClass: "current-key", optionLabel: "Azimuth", label: "Azimuth (W)" },
+  altitude: { key: "altitude_power_w", color: "#f3a84b", legendClass: "velocity-key", optionLabel: "Altitude", label: "Altitude (W)" },
+  raspberry_pi: { key: "raspberry_pi_power_w", color: "#60d889", legendClass: "pi-key", optionLabel: "Raspberry Pi · PMIC est.", label: "Raspberry Pi est. (W)" },
+};
+const networkCategoryConfig = {
+  capacity: { label: "Capacity", optionLabel: "Capacity · Manual test", detail: "Manual speed test" },
+  used: { label: "Used", optionLabel: "Used · Actual traffic", detail: "Interface traffic" },
+  free: { label: "Free", optionLabel: "Free · Capacity minus used", detail: "Capacity minus used" },
+};
+const healthMetricConfig = {
+  storage: { key: "storage_percent", label: "Storage Usage", unit: "%", color: "#58c4df", warning: 80, danger: 90 },
+  cpu: { key: "cpu_percent", label: "CPU Usage", unit: "%", color: "#f3a84b", warning: 85, danger: 95 },
+  memory: { key: "memory_percent", label: "RAM Usage", unit: "%", color: "#c78bfa", warning: 85, danger: 95 },
+  temperature: { key: "cpu_temp_c", label: "CPU Temperature", unit: "°C", color: "#ff776e", warning: 75, danger: 85 },
+  load: { key: "load_1m_percent", label: "System Load", unit: "%", color: "#60d889", warning: 80, danger: 100 },
+  swap: { key: "swap_percent", label: "Swap Usage", unit: "%", color: "#b2de72", warning: 50, danger: 80 },
+};
+
+function networkCategorySeries(report, category = activeNetworkCategory) {
+  if (report?.series?.[category]) return report.series[category];
+  return category === "capacity"
+    ? { points: report?.points || [], latest: report?.latest || null, average: report?.average || {} }
+    : { points: [], latest: null, average: {} };
+}
+
+function handleNetworkCategoryChange(event) {
+  activeNetworkCategory = networkCategoryConfig[event.target.value] ? event.target.value : "used";
+  if (latestInternetReport) applyInternetReport(latestInternetReport);
+}
+
+function ensureNetworkCategorySelector() {
+  let select = document.getElementById("reportNetworkCategorySelect");
+  if (!select) {
+    const header = document.querySelector(".report-network-chart > header");
+    const oldLegend = header?.querySelector(":scope > .report-chart-legend");
+    if (!header || !oldLegend) return null;
+    const controls = document.createElement("div");
+    controls.className = "report-network-chart-controls";
+    select = document.createElement("select");
+    select.className = "mc-select";
+    select.id = "reportNetworkCategorySelect";
+    select.setAttribute("aria-label", "Internet graph category");
+    const legend = document.createElement("span");
+    legend.className = "report-chart-legend";
+    legend.id = "reportNetworkChartLegend";
+    legend.innerHTML = '<i class="current-key"></i><span data-network-download-legend>Capacity Download</span><i class="velocity-key"></i><span data-network-upload-legend>Capacity Upload</span>';
+    controls.append(select, legend);
+    oldLegend.replaceWith(controls);
+  }
+  Object.entries(networkCategoryConfig).forEach(([value, category]) => {
+    let option = select.querySelector(`option[value="${value}"]`);
+    if (!option) {
+      option = document.createElement("option");
+      option.value = value;
+      select.append(option);
+    }
+    option.textContent = category.optionLabel;
+  });
+  select.value = activeNetworkCategory;
+  if (select.dataset.networkSelectBound !== "true") {
+    select.dataset.networkSelectBound = "true";
+    select.addEventListener("change", handleNetworkCategoryChange);
+  }
+  return select;
+}
+
+function applyInternetReport(report) {
+  ensureNetworkCategorySelector();
+  const config = networkCategoryConfig[activeNetworkCategory] || networkCategoryConfig.capacity;
+  const series = networkCategorySeries(report);
+  const latest = series.latest || {};
+  const downloadLabel = document.getElementById("reportNetworkDownloadLabel");
+  const uploadLabel = document.getElementById("reportNetworkUploadLabel");
+  const cadence = document.getElementById("reportNetworkCadence");
+  if (downloadLabel) downloadLabel.textContent = `${config.label.toUpperCase()} DOWNLOAD`;
+  if (uploadLabel) uploadLabel.textContent = `${config.label.toUpperCase()} UPLOAD`;
+  document.getElementById("reportNetworkDownload").textContent = formatReportValue(latest.download_mbps, "Mbps");
+  document.getElementById("reportNetworkUpload").textContent = formatReportValue(latest.upload_mbps, "Mbps");
+  const detail = activeNetworkCategory === "capacity"
+    ? `Latency ${formatReportValue(latest.latency_ms, "ms")}`
+    : config.detail;
+  document.getElementById("reportNetworkLatency").textContent = detail;
+  if (cadence) cadence.textContent = activeNetworkCategory === "capacity"
+    ? "Manual test only"
+    : activeNetworkCategory === "used"
+      ? "Sampled every 1 sec"
+      : "Capacity − used";
+  const legend = document.getElementById("reportNetworkChartLegend");
+  const downloadLegend = legend?.querySelector("[data-network-download-legend]");
+  const uploadLegend = legend?.querySelector("[data-network-upload-legend]");
+  if (downloadLegend) downloadLegend.textContent = `${config.label} Download`;
+  if (uploadLegend) uploadLegend.textContent = `${config.label} Upload`;
+  drawNetworkReportChart(
+    series.points || [], report.from_ms, report.to_ms, report.bucket_ms, config.label,
+  );
+}
+
+function chartAxisScale(values, targetIntervals = 8) {
+  const finiteValues = values.map(Number).filter(Number.isFinite);
+  const rawMax = Math.max(1, ...finiteValues);
+  const roughStep = rawMax / Math.max(2, targetIntervals);
+  const magnitude = 10 ** Math.floor(Math.log10(roughStep));
+  const normalizedStep = roughStep / magnitude;
+  const niceFactor = normalizedStep <= 1
+    ? 1
+    : normalizedStep <= 2
+      ? 2
+      : normalizedStep <= 2.5
+        ? 2.5
+        : normalizedStep <= 5
+          ? 5
+          : 10;
+  const step = niceFactor * magnitude;
+  const intervals = Math.max(1, Math.ceil(rawMax / step));
+  const max = intervals * step;
+  const decimals = step >= 1 ? (step % 1 === 0 ? 0 : 1) : 2;
+  return { max, step, intervals, decimals };
+}
+
+function handlePowerDeviceChange(event) {
+  activePowerDevice = powerSeriesConfig[event.target.value] ? event.target.value : "total";
+  stylePowerDeviceSelect(event.target);
+  if (latestPowerReport) {
+    drawPowerReportChart(
+      latestPowerReport.points || [],
+      latestPowerReport.from_ms,
+      latestPowerReport.to_ms,
+      latestPowerReport.bucket_ms,
+    );
+  }
+}
+
+function stylePowerDeviceSelect(select) {
+  if (!select) return;
+  const series = powerSeriesConfig[activePowerDevice] || powerSeriesConfig.total;
+  select.style.setProperty("color", series.color, "important");
+}
+
+function bindPowerDeviceSelect(select) {
+  if (!select || select.dataset.powerSelectBound === "true") return;
+  select.dataset.powerSelectBound = "true";
+  select.addEventListener("change", handlePowerDeviceChange);
+  stylePowerDeviceSelect(select);
+}
+
+function ensurePowerDeviceSelector() {
+  let select = document.getElementById("reportPowerDeviceSelect");
+  if (!select) {
+    const header = document.querySelector(".report-power-chart > header");
+    const oldLegend = header?.querySelector(":scope > .report-chart-legend");
+    if (!header || !oldLegend) return null;
+    const controls = document.createElement("div");
+    controls.className = "report-power-chart-controls";
+    select = document.createElement("select");
+    select.className = "mc-select";
+    select.id = "reportPowerDeviceSelect";
+    select.setAttribute("aria-label", "Power graph device");
+    const legend = document.createElement("span");
+    legend.className = "report-chart-legend";
+    legend.id = "reportPowerChartLegend";
+    legend.innerHTML = '<i class="total-key"></i><span data-power-legend-label>Total measured (W)</span>';
+    controls.append(select, legend);
+    oldLegend.replaceWith(controls);
+  }
+  Object.entries(powerSeriesConfig).forEach(([value, series]) => {
+    let option = select.querySelector(`option[value="${value}"]`);
+    if (!option) {
+      option = document.createElement("option");
+      option.value = value;
+      select.append(option);
+    }
+    option.textContent = `● ${series.optionLabel}`;
+    option.style.color = series.color;
+  });
+  select.value = activePowerDevice;
+  bindPowerDeviceSelect(select);
+  return select;
+}
+
+function updatePowerDeviceSelector(report) {
+  const select = ensurePowerDeviceSelector();
+  if (!select) return;
+  const points = report?.points || [];
+  const hasSeriesData = (key) => points.some((point) => {
+    const value = point?.[key];
+    return value !== null && value !== "" && Number.isFinite(Number(value));
+  });
+  const deviceEntries = Object.entries(powerSeriesConfig).filter(([value]) => value !== "total");
+  const measuredCount = deviceEntries.filter(([, series]) => hasSeriesData(series.key)).length;
+  deviceEntries.forEach(([value, series]) => {
+    const option = select.querySelector(`option[value="${value}"]`);
+    if (!option) return;
+    const available = hasSeriesData(series.key);
+    option.textContent = `● ${series.optionLabel}${available ? "" : " · No data yet"}`;
+    option.disabled = !available;
+  });
+  const totalOption = select.querySelector('option[value="total"]');
+  if (totalOption) totalOption.textContent = `● Total · ${measuredCount} measured device${measuredCount === 1 ? "" : "s"}`;
+  const totalSeries = powerSeriesConfig.total;
+  totalSeries.label = `Total measured · ${measuredCount} device${measuredCount === 1 ? "" : "s"} (W)`;
+  stylePowerDeviceSelect(select);
+}
+
+function formatDataSize(bytes) {
+  const value = Number(bytes);
+  if (!Number.isFinite(value) || value < 0) return "--";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let scaled = value;
+  let index = 0;
+  while (scaled >= 1000 && index < units.length - 1) {
+    scaled /= 1000;
+    index += 1;
+  }
+  return `${scaled.toFixed(index >= 3 ? 1 : 0)} ${units[index]}`;
+}
+
+function formatUptime(seconds) {
+  const value = Number(seconds);
+  if (!Number.isFinite(value) || value < 0) return "--";
+  const days = Math.floor(value / 86400);
+  const hours = Math.floor((value % 86400) / 3600);
+  const minutes = Math.floor((value % 3600) / 60);
+  return days > 0 ? `${days}d ${hours}h` : `${hours}h ${minutes}m`;
+}
+
+function healthMetricDetail(metric, latest = {}) {
+  if (metric === "storage") {
+    return `${formatDataSize(latest.storage_used_bytes)} used of ${formatDataSize(latest.storage_total_bytes)}`;
+  }
+  if (metric === "memory") {
+    return `${formatDataSize(latest.memory_used_bytes)} used of ${formatDataSize(latest.memory_total_bytes)}`;
+  }
+  if (metric === "swap") {
+    if (Number(latest.swap_total_bytes) === 0) return "Swap is not configured";
+    return `${formatDataSize(latest.swap_used_bytes)} used of ${formatDataSize(latest.swap_total_bytes)}`;
+  }
+  if (metric === "temperature") return "Controller CPU thermal sensor";
+  if (metric === "load") return "1-minute load normalized by CPU cores";
+  return "Total processor utilization";
+}
+
+function updateHealthState(value, config) {
+  const state = document.getElementById("reportHealthState");
+  if (!state) return;
+  const numericValue = Number(value);
+  let label = "NO DATA";
+  let className = "is-unknown";
+  if (Number.isFinite(numericValue)) {
+    if (numericValue >= config.danger) {
+      label = "CRITICAL";
+      className = "is-critical";
+    } else if (numericValue >= config.warning) {
+      label = "WATCH";
+      className = "is-warning";
+    } else {
+      label = "HEALTHY";
+      className = "is-healthy";
+    }
+  }
+  state.className = `report-health-state ${className}`;
+  state.innerHTML = `<i></i> ${label}`;
+}
+
+function applyHealthReport(report) {
+  const config = healthMetricConfig[activeHealthMetric] || healthMetricConfig.storage;
+  const latest = report?.latest || {};
+  const summary = report?.metrics?.[activeHealthMetric] || {};
+  const currentValue = latest[config.key];
+  const title = document.getElementById("reportHealthTitle");
+  const current = document.getElementById("reportHealthCurrent");
+  const average = document.getElementById("reportHealthAverage");
+  const peak = document.getElementById("reportHealthPeak");
+  const detail = document.getElementById("reportHealthDetail");
+  const uptime = document.getElementById("reportHealthUptime");
+  const legend = document.getElementById("reportHealthChartLegend");
+  const select = document.getElementById("reportHealthMetricSelect");
+  if (title) title.textContent = `${config.label} • Last 24 Hours`;
+  if (current) current.textContent = formatReportValue(currentValue, config.unit);
+  if (average) average.textContent = formatReportValue(summary.average, config.unit);
+  if (peak) peak.textContent = formatReportValue(summary.peak, config.unit);
+  if (detail) detail.textContent = healthMetricDetail(activeHealthMetric, latest);
+  if (uptime) uptime.textContent = `Uptime ${formatUptime(latest.uptime_sec)}`;
+  if (legend) {
+    const key = legend.querySelector("i");
+    const label = legend.querySelector("span");
+    if (key) key.style.background = config.color;
+    if (label) label.textContent = `${config.label} (${config.unit})`;
+  }
+  if (select) select.style.setProperty("color", config.color, "important");
+  updateHealthState(currentValue, config);
+  drawHealthReportChart(report?.points || [], report?.from_ms, report?.to_ms, report?.bucket_ms);
+}
+
+function ensureHealthMetricSelector() {
+  const select = document.getElementById("reportHealthMetricSelect");
+  if (!select) return null;
+  Object.entries(healthMetricConfig).forEach(([value, metric]) => {
+    const option = select.querySelector(`option[value="${value}"]`);
+    if (option) option.style.color = metric.color;
+  });
+  select.value = activeHealthMetric;
+  if (select.dataset.healthSelectBound !== "true") {
+    select.dataset.healthSelectBound = "true";
+    select.addEventListener("change", (event) => {
+      activeHealthMetric = healthMetricConfig[event.target.value] ? event.target.value : "storage";
+      if (latestHealthReport) applyHealthReport(latestHealthReport);
+    });
+  }
+  return select;
+}
+
+function reportTabTitle(tab = activeReportTab) {
+  if (tab === "internet") return "INTERNET SPEED";
+  if (tab === "power") return "POWER CONSUMPTION";
+  if (tab === "health") return "CONTROLLER HEALTH";
+  return "CURRENT USING";
+}
+
+function renderActiveReport(options = {}) {
+  if (activeReportTab === "internet") return renderInternetReport(options);
+  if (activeReportTab === "power") return renderPowerReport(options);
+  if (activeReportTab === "health") return renderHealthReport(options);
+  return renderCurrentReport(options);
+}
+
+function beginReportLoading(tab) {
+  const loader = document.querySelector(`[data-report-loader="${tab}"]`);
+  const startedAt = performance.now();
+  if (!loader) return startedAt;
+  const elapsedLabel = loader.querySelector("[data-report-loading-elapsed]");
+  const title = loader.querySelector("[data-report-loading-title]");
+  const detail = loader.querySelector("[data-report-loading-detail]");
+  const copy = reportLoadingCopy[tab] || ["Loading report", "Loading report data…"];
+  const previousTimer = reportLoadingTimers.get(tab);
+  if (previousTimer) clearInterval(previousTimer);
+  loader.classList.remove("is-error");
+  if (title) title.textContent = copy[0];
+  if (detail) detail.textContent = copy[1];
+  loader.hidden = false;
+  const updateElapsed = () => {
+    const elapsedSec = Math.max(0, performance.now() - startedAt) / 1000;
+    if (elapsedLabel) {
+      elapsedLabel.textContent = elapsedSec < 5
+        ? `Elapsed ${elapsedSec.toFixed(1)}s • Usually under 5s`
+        : `Elapsed ${elapsedSec.toFixed(1)}s • Taking longer than usual`;
+    }
+  };
+  updateElapsed();
+  reportLoadingTimers.set(tab, setInterval(updateElapsed, 100));
+  return startedAt;
+}
+
+async function finishReportLoading(tab, startedAt, error = null) {
+  const minimumVisibleMs = 450;
+  const remainingMs = minimumVisibleMs - (performance.now() - startedAt);
+  if (remainingMs > 0) await new Promise((resolve) => setTimeout(resolve, remainingMs));
+  const timer = reportLoadingTimers.get(tab);
+  if (timer) clearInterval(timer);
+  reportLoadingTimers.delete(tab);
+  const loader = document.querySelector(`[data-report-loader="${tab}"]`);
+  if (!loader) return;
+  if (!error) {
+    loader.hidden = true;
+    return;
+  }
+  loader.classList.add("is-error");
+  const title = loader.querySelector("[data-report-loading-title]");
+  const detail = loader.querySelector("[data-report-loading-detail]");
+  const elapsed = loader.querySelector("[data-report-loading-elapsed]");
+  if (title) title.textContent = "Report data unavailable";
+  if (detail) detail.textContent = error.message || "The report could not be loaded.";
+  if (elapsed) elapsed.textContent = "The dashboard will retry automatically in 30 seconds.";
+}
+
+async function fetchReport(tab, url) {
+  if (!navigator.onLine || dashboardConnectionSuspended) {
+    throw new Error("Dashboard connection is offline. Reconnect and refresh the page.");
+  }
+  const request = { controller: new AbortController(), reason: null };
+  reportRequestControllers.set(tab, request);
+  const timeout = setTimeout(() => {
+    request.reason = "Report request timed out after 15 seconds. Refresh to retry.";
+    request.controller.abort();
+  }, REPORT_REQUEST_TIMEOUT_MS);
+  try {
+    return await fetch(url, { cache: "no-store", signal: request.controller.signal });
+  } catch (error) {
+    if (error.name === "AbortError") {
+      throw new Error(request.reason || "Report request was cancelled.");
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+    if (reportRequestControllers.get(tab) === request) {
+      reportRequestControllers.delete(tab);
+    }
+  }
+}
+
+function cancelPendingReportRequests(reason = "Dashboard connection went offline. Refresh after reconnecting.") {
+  reportRequestControllers.forEach((request) => {
+    request.reason = reason;
+    request.controller.abort();
+  });
+}
 const PLOT_REFRESH_INTERVAL_MS = 25;
 const STATUS_FALLBACK_REFRESH_MS = 500;
 const STATUS_WS_RECONNECT_MS = 1200;
@@ -485,6 +907,7 @@ let statusSocket = null;
 let statusFallbackTimer = null;
 let statusReconnectTimer = null;
 let statusStreamConnected = false;
+let dashboardConnectionSuspended = false;
 let pendingStreamStatus = null;
 let statusRenderTimer = null;
 let lastServerStartedAt = null;
@@ -947,18 +1370,21 @@ async function refreshInternetSummary() {
       ? Number(data.estimated_download_mbps) : null;
     const uploadCapacity = Number.isFinite(Number(data.estimated_upload_mbps))
       ? Number(data.estimated_upload_mbps) : null;
+    const hasManualCapacity = data.capacity_source === "manual";
     const available = (capacity, used) => Number.isFinite(capacity) && Number.isFinite(Number(used))
       ? Math.max(0, capacity - Number(used))
       : null;
     if (fields.industrialInternetDownloadCapacity) fields.industrialInternetDownloadCapacity.textContent = speed(downloadCapacity);
     if (fields.industrialInternetUploadCapacity) fields.industrialInternetUploadCapacity.textContent = speed(uploadCapacity);
-    if (fields.industrialInternetDownloadAvailable) fields.industrialInternetDownloadAvailable.textContent = speed(available(downloadCapacity, data.download_mbps));
-    if (fields.industrialInternetUploadAvailable) fields.industrialInternetUploadAvailable.textContent = speed(available(uploadCapacity, data.upload_mbps));
+    if (fields.industrialInternetDownloadAvailable) fields.industrialInternetDownloadAvailable.textContent = speed(hasManualCapacity ? available(downloadCapacity, data.download_mbps) : null);
+    if (fields.industrialInternetUploadAvailable) fields.industrialInternetUploadAvailable.textContent = speed(hasManualCapacity ? available(uploadCapacity, data.upload_mbps) : null);
     if (fields.industrialInternetInterface) {
       fields.industrialInternetInterface.textContent = `(${data.interface || "NO ROUTE"})`;
     }
     if (fields.industrialInternetSummary) {
-      fields.industrialInternetSummary.title = `15-minute rolling capacity estimate on ${data.interface || "no default interface"}, calculated from ${data.capacity_sample_count || 0} active tests plus observed traffic. Usage is sampled over ${data.sample_window_ms || "--"} ms.`;
+      fields.industrialInternetSummary.title = hasManualCapacity
+        ? `Manual capacity result plus passive usage on ${data.interface || "no default interface"}. Usage is sampled over ${data.sample_window_ms || "--"} ms.`
+        : `Passive ${data.interface || "interface"} byte counters only. 15M PEAK is observed traffic, not the line limit; headroom requires a manual test with publishers stopped.`;
     }
   } catch (error) {
     fields.industrialInternetDownload.textContent = "--";
@@ -974,13 +1400,85 @@ async function refreshInternetSpeedTestAverage() {
     const response = await fetch("/api/reports/internet-speed?hours=168", { cache: "no-store" });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
-    const latest = data.latest || {};
-    const measuredMs = Number(latest.time_ms) || null;
-    const measured = measuredMs ? new Date(measuredMs).toLocaleTimeString() : "--";
-    fields.industrialInternetAverage.textContent = `15M ESTIMATE • TESTED ${measured}`;
+    fields.industrialInternetAverage.textContent = "PASSIVE 1S COUNTERS • NO AUTO TEST";
     refreshInternetSummary();
   } catch (error) {
     fields.industrialInternetAverage.textContent = "PIPE CAPACITY UNAVAILABLE";
+  }
+}
+
+let manualCapacityTestPollTimer = null;
+
+function renderManualCapacityTestState(state) {
+  const buttons = [
+    document.getElementById("reportCapacityTest"),
+    document.getElementById("industrialInternetTest"),
+  ].filter(Boolean);
+  const label = document.getElementById("reportCapacityTestStatus");
+  if (!buttons.length && !label) return;
+  const blocked = Array.isArray(state?.blocked_by) && state.blocked_by.length > 0;
+  const running = state?.status === "running";
+  buttons.forEach((button) => {
+    button.disabled = blocked || running;
+    button.classList.toggle("is-running", running);
+    if (button.id === "industrialInternetTest") {
+      button.textContent = running ? "…" : "TEST";
+      button.title = blocked
+        ? "Stop both RTSP publishers before running the bandwidth test"
+        : running
+          ? "Bandwidth test is running"
+          : state?.status === "complete"
+            ? `Last test: ${formatReportValue(state.download_mbps, "Mbps")} down / ${formatReportValue(state.upload_mbps, "Mbps")} up`
+            : "Run a manual bandwidth test";
+    }
+  });
+  if (!label) return;
+  if (blocked) {
+    label.textContent = "Stop both publishers before testing";
+  } else if (running) {
+    label.textContent = "Capacity test running…";
+  } else if (state?.status === "complete") {
+    label.textContent = `Last: ${formatReportValue(state.download_mbps, "Mbps")} down / ${formatReportValue(state.upload_mbps, "Mbps")} up`;
+  } else if (state?.status === "failed") {
+    label.textContent = state.error || "Capacity test failed";
+  } else {
+    label.textContent = "Ready while publishers are stopped";
+  }
+}
+
+async function refreshManualCapacityTestStatus() {
+  clearTimeout(manualCapacityTestPollTimer);
+  manualCapacityTestPollTimer = null;
+  try {
+    const response = await fetch("/api/network/capacity-test", { cache: "no-store" });
+    const state = await response.json();
+    renderManualCapacityTestState(state);
+    if (state.status === "running") {
+      manualCapacityTestPollTimer = setTimeout(refreshManualCapacityTestStatus, 2000);
+    } else if (state.status === "complete") {
+      renderInternetReport({ background: true });
+      refreshInternetSummary();
+    }
+  } catch (error) {
+    renderManualCapacityTestState({ status: "failed", error: error.message });
+  }
+}
+
+async function runManualCapacityTest() {
+  const button = document.getElementById("reportCapacityTest");
+  if (button) button.disabled = true;
+  try {
+    const response = await fetch("/api/network/capacity-test", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    });
+    const state = await response.json();
+    renderManualCapacityTestState(state);
+    if (!response.ok) return;
+    manualCapacityTestPollTimer = setTimeout(refreshManualCapacityTestStatus, 2000);
+  } catch (error) {
+    renderManualCapacityTestState({ status: "failed", error: error.message });
   }
 }
 
@@ -996,13 +1494,13 @@ function stopStatusFallbackPolling() {
 }
 
 function startStatusFallbackPolling() {
-  if (statusFallbackTimer) return;
+  if (statusFallbackTimer || !navigator.onLine || dashboardConnectionSuspended) return;
   refreshStatus();
   statusFallbackTimer = setInterval(refreshStatus, STATUS_FALLBACK_REFRESH_MS);
 }
 
 function scheduleStatusReconnect() {
-  if (statusReconnectTimer) return;
+  if (statusReconnectTimer || !navigator.onLine || dashboardConnectionSuspended) return;
   statusReconnectTimer = setTimeout(() => {
     statusReconnectTimer = null;
     connectStatusStream();
@@ -1010,6 +1508,7 @@ function scheduleStatusReconnect() {
 }
 
 function connectStatusStream() {
+  if (!navigator.onLine || dashboardConnectionSuspended) return;
   if (!("WebSocket" in window)) {
     startStatusFallbackPolling();
     return;
@@ -1075,6 +1574,10 @@ function captureStreamHistory(data) {
 
 function renderStatus(data) {
   latestStatus = data;
+  const liveAzimuth = Array.isArray(data?.axes)
+    ? data.axes.find((axis) => axis?.label === "Azimuth" && axis?.available)
+    : null;
+  window.pointingTerrain3D?.setMountAzimuth(data?.connected ? liveAzimuth?.position_deg : null);
   const timestamp = data.timestamp ? new Date(data.timestamp) : new Date();
   resetHistoryWhenServerRestarts(data.server_started_at);
   renderDriveErrorEvents(data.drive_error_events);
@@ -1422,11 +1925,13 @@ function pruneHistory(label, now) {
   history[label] = history[label].filter((sample) => sample.timeMs >= cutoff);
 }
 
-async function renderCurrentReport() {
-  if (reportRequestInFlight || !fields.reportView || fields.reportView.hidden || activeReportTab !== "current") return;
-  reportRequestInFlight = true;
+async function renderCurrentReport({ background = false } = {}) {
+  if (reportRequestsInFlight.has("current") || !fields.reportView || fields.reportView.hidden || activeReportTab !== "current") return;
+  reportRequestsInFlight.add("current");
+  const loadingStartedAt = background ? performance.now() : beginReportLoading("current");
+  let loadingError = null;
   try {
-    const response = await fetch("/api/reports/current-using?hours=24&buckets=288", { cache: "no-store" });
+    const response = await fetchReport("current", "/api/reports/current-using?hours=24&buckets=288");
     if (!response.ok) throw new Error(`Report request failed (${response.status})`);
     const report = await response.json();
     ["Azimuth", "Altitude"].forEach((label) => {
@@ -1445,42 +1950,254 @@ async function renderCurrentReport() {
     const updated = document.getElementById("reportUpdatedAt");
     if (updated) updated.textContent = `Updated ${new Date(report.to_ms).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`;
   } catch (error) {
+    loadingError = error;
     const updated = document.getElementById("reportUpdatedAt");
     if (updated) updated.textContent = error.message;
   } finally {
-    reportRequestInFlight = false;
+    if (!background) await finishReportLoading("current", loadingStartedAt, loadingError);
+    reportRequestsInFlight.delete("current");
   }
 }
 
-async function renderInternetReport() {
-  if (reportRequestInFlight || !fields.reportView || fields.reportView.hidden || activeReportTab !== "internet") return;
-  reportRequestInFlight = true;
+async function renderInternetReport({ background = false } = {}) {
+  if (reportRequestsInFlight.has("internet") || !fields.reportView || fields.reportView.hidden || activeReportTab !== "internet") return;
+  ensureNetworkCategorySelector();
+  reportRequestsInFlight.add("internet");
+  const loadingStartedAt = background ? performance.now() : beginReportLoading("internet");
+  let loadingError = null;
   try {
-    const response = await fetch("/api/reports/internet-speed?hours=168", { cache: "no-store" });
+    const response = await fetchReport("internet", "/api/reports/internet-speed?hours=168&buckets=2016");
     if (!response.ok) throw new Error(`Internet report failed (${response.status})`);
     const report = await response.json();
-    const latest = report.latest || {};
-    document.getElementById("reportNetworkDownload").textContent = formatReportValue(latest.download_mbps, "Mbps");
-    document.getElementById("reportNetworkUpload").textContent = formatReportValue(latest.upload_mbps, "Mbps");
-    document.getElementById("reportNetworkLatency").textContent = `Latency ${formatReportValue(latest.latency_ms, "ms")}`;
-    drawNetworkReportChart(report.points || [], report.from_ms, report.to_ms);
-  } finally { reportRequestInFlight = false; }
+    latestInternetReport = report;
+    applyInternetReport(report);
+  } catch (error) {
+    loadingError = error;
+  } finally {
+    if (!background) await finishReportLoading("internet", loadingStartedAt, loadingError);
+    reportRequestsInFlight.delete("internet");
+  }
 }
 
-function drawNetworkReportChart(points, fromMs, toMs) {
+async function renderPowerReport({ background = false } = {}) {
+  if (reportRequestsInFlight.has("power") || !fields.reportView || fields.reportView.hidden || activeReportTab !== "power") return;
+  ensurePowerDeviceSelector();
+  reportRequestsInFlight.add("power");
+  const loadingStartedAt = background ? performance.now() : beginReportLoading("power");
+  let loadingError = null;
+  try {
+    const response = await fetchReport("power", "/api/reports/power-consumption?hours=24&interval_sec=5&max_points=5000");
+    if (!response.ok) throw new Error(`Power report failed (${response.status})`);
+    const report = await response.json();
+    latestPowerReport = report;
+    updatePowerDeviceSelector(report);
+    const latest = report.latest || {};
+    const azimuth = latest.azimuth || {};
+    const altitude = latest.altitude || {};
+    document.getElementById("reportPowerCurrent").textContent = formatReportValue(latest.total_power_w, "W");
+    document.getElementById("reportPowerAxes").textContent = `AZ ${formatReportValue(azimuth.power_w, "W")} • ALT ${formatReportValue(altitude.power_w, "W")}`;
+    document.getElementById("reportPowerEnergy").textContent = formatReportValue(report.energy?.total_kwh, "kWh");
+    document.getElementById("reportPowerAverage").textContent = `Average ${formatReportValue(report.average?.total_power_w, "W")}`;
+    document.getElementById("reportPowerWattHours").textContent = formatReportValue(report.energy?.total_wh, "Wh");
+    document.getElementById("reportPowerAxisWattHours").textContent = `AZ ${formatReportValue(report.energy?.azimuth_wh, "Wh")} • ALT ${formatReportValue(report.energy?.altitude_wh, "Wh")}`;
+    drawPowerReportChart(report.points || [], report.from_ms, report.to_ms, report.bucket_ms);
+  } catch (error) {
+    loadingError = error;
+  } finally {
+    if (!background) await finishReportLoading("power", loadingStartedAt, loadingError);
+    reportRequestsInFlight.delete("power");
+  }
+}
+
+async function renderHealthReport({ background = false } = {}) {
+  if (reportRequestsInFlight.has("health") || !fields.reportView || fields.reportView.hidden || activeReportTab !== "health") return;
+  ensureHealthMetricSelector();
+  reportRequestsInFlight.add("health");
+  const loadingStartedAt = background ? performance.now() : beginReportLoading("health");
+  let loadingError = null;
+  try {
+    const response = await fetchReport("health", "/api/reports/controller-health?hours=24&buckets=288");
+    if (!response.ok) throw new Error(`Controller health report failed (${response.status})`);
+    latestHealthReport = await response.json();
+    applyHealthReport(latestHealthReport);
+  } catch (error) {
+    loadingError = error;
+  } finally {
+    if (!background) await finishReportLoading("health", loadingStartedAt, loadingError);
+    reportRequestsInFlight.delete("health");
+  }
+}
+
+function drawNetworkReportChart(points, fromMs, toMs, bucketMs = 300000, categoryLabel = "Capacity") {
   const canvas = document.getElementById("reportNetworkChart");
   const chart = canvas ? prepareChartCanvas(canvas) : null;
   if (!chart) return;
   const { ctx, width, height } = chart;
-  const pad = { left: 58, right: 24, top: 20, bottom: 34 };
+  const pad = { left: 70, right: 52, top: 20, bottom: 46 };
   ctx.clearRect(0, 0, width, height); ctx.fillStyle = "#0b1217"; ctx.fillRect(0, 0, width, height);
   ctx.strokeStyle = "rgba(133,153,164,.13)";
-  for (let i=0;i<=7;i+=1) { const x=pad.left+(i/7)*(width-pad.left-pad.right); ctx.beginPath();ctx.moveTo(x,pad.top);ctx.lineTo(x,height-pad.bottom);ctx.stroke(); const d=new Date(fromMs+(i/7)*(toMs-fromMs));ctx.fillStyle="#75858e";ctx.textAlign="center";ctx.font="10px Inter";ctx.fillText(d.toLocaleDateString([], {weekday:"short"}),x,height-10); }
-  for (let i=0;i<=4;i+=1) { const y=pad.top+(i/4)*(height-pad.top-pad.bottom);ctx.beginPath();ctx.moveTo(pad.left,y);ctx.lineTo(width-pad.right,y);ctx.stroke(); }
-  const max=Math.max(1,...points.flatMap(p=>[Number(p.download_mbps)||0,Number(p.upload_mbps)||0]));
-  const draw=(key,color)=>{ctx.beginPath();ctx.strokeStyle=color;ctx.lineWidth=2;let started=false;points.forEach(p=>{const v=Number(p[key]);if(!Number.isFinite(v))return;const x=pad.left+((p.time_ms-fromMs)/Math.max(1,toMs-fromMs))*(width-pad.left-pad.right);const y=height-pad.bottom-(v/max)*(height-pad.top-pad.bottom);started?ctx.lineTo(x,y):ctx.moveTo(x,y);started=true;});ctx.stroke();};
+  for (let i=0;i<=7;i+=1) { const x=pad.left+(i/7)*(width-pad.left-pad.right); ctx.beginPath();ctx.moveTo(x,pad.top);ctx.lineTo(x,height-pad.bottom);ctx.stroke(); const d=new Date(fromMs+(i/7)*(toMs-fromMs));ctx.fillStyle="#75858e";ctx.textAlign="center";ctx.textBaseline="alphabetic";ctx.font="10px Inter";ctx.fillText(d.toLocaleDateString([], {weekday:"short"}),x,height-12); }
+  const scale = chartAxisScale(points.flatMap((point) => [
+    point.download_mbps == null ? NaN : point.download_mbps,
+    point.upload_mbps == null ? NaN : point.upload_mbps,
+  ]));
+  for (let index = 0; index <= scale.intervals; index += 1) {
+    const ratio = index / scale.intervals;
+    const y = pad.top + ratio * (height - pad.top - pad.bottom);
+    const value = scale.max - index * scale.step;
+    ctx.strokeStyle="rgba(133,153,164,.13)";ctx.beginPath();ctx.moveTo(pad.left,y);ctx.lineTo(width-pad.right,y);ctx.stroke();
+    ctx.fillStyle="#58c4df";ctx.textAlign="right";ctx.textBaseline="middle";ctx.font="10px Inter";ctx.fillText(`${Math.max(0,value).toFixed(scale.decimals)} Mbps`,pad.left-7,y);
+  }
+  if (points.length < 1) {
+    ctx.fillStyle="#7f9098";ctx.textAlign="center";ctx.textBaseline="alphabetic";ctx.font="12px Inter";ctx.fillText(`Collecting ${categoryLabel.toLowerCase()} samples…`,width/2,height/2);return;
+  }
+  const gapMs=Math.max(20*60*1000,Number(bucketMs)*2.5);
+  const draw=(key,color)=>{ctx.beginPath();ctx.strokeStyle=color;ctx.lineWidth=2;let previousTime=null,lastPoint=null,count=0;points.forEach(p=>{const raw=p[key],v=Number(raw),timeMs=Number(p.time_ms);if(raw==null||!Number.isFinite(v)||!Number.isFinite(timeMs))return;const x=pad.left+((timeMs-fromMs)/Math.max(1,toMs-fromMs))*(width-pad.left-pad.right);const y=height-pad.bottom-(v/scale.max)*(height-pad.top-pad.bottom);if(previousTime===null||timeMs-previousTime>gapMs)ctx.moveTo(x,y);else ctx.lineTo(x,y);previousTime=timeMs;lastPoint={x,y};count+=1;});ctx.stroke();if(count===1&&lastPoint){ctx.beginPath();ctx.fillStyle=color;ctx.arc(lastPoint.x,lastPoint.y,3.5,0,Math.PI*2);ctx.fill();}};
   draw("download_mbps","#58c4df"); draw("upload_mbps","#f3a84b");
-  ctx.fillStyle="#58c4df";ctx.textAlign="right";ctx.font="10px Inter";ctx.fillText(`${max.toFixed(1)} Mbps`,pad.left-6,pad.top+4);ctx.fillText("0",pad.left-6,height-pad.bottom);
+  ctx.textBaseline="alphabetic";
+}
+
+function drawPowerReportChart(points, fromMs, toMs, bucketMs = 5000) {
+  const canvas = document.getElementById("reportPowerChart");
+  const chart = canvas ? prepareChartCanvas(canvas) : null;
+  if (!chart) return;
+  const { ctx, width, height } = chart;
+  const pad = { left: 64, right: 52, top: 20, bottom: 46 };
+  ctx.clearRect(0, 0, width, height);
+  ctx.fillStyle = "#0b1217";
+  ctx.fillRect(0, 0, width, height);
+  ctx.strokeStyle = "rgba(133,153,164,.13)";
+  const visibleSpanMs = Math.max(1, toMs - fromMs);
+  const tickTimeOptions = visibleSpanMs <= 30 * 60 * 1000
+    ? { hour: "2-digit", minute: "2-digit", second: "2-digit" }
+    : visibleSpanMs <= 24 * 60 * 60 * 1000
+      ? { hour: "2-digit", minute: "2-digit" }
+      : { weekday: "short" };
+  for (let index = 0; index <= 7; index += 1) {
+    const x = pad.left + (index / 7) * (width - pad.left - pad.right);
+    ctx.beginPath(); ctx.moveTo(x, pad.top); ctx.lineTo(x, height - pad.bottom); ctx.stroke();
+    const date = new Date(fromMs + (index / 7) * (toMs - fromMs));
+    ctx.fillStyle = "#75858e"; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic"; ctx.font = "10px Inter";
+    ctx.fillText(date.toLocaleString([], tickTimeOptions), x, height - 12);
+  }
+  if (points.length < 1) {
+    ctx.fillStyle = "#7f9098"; ctx.font = "12px Inter"; ctx.textAlign = "center";
+    ctx.fillText("Collecting drive power samples…", width / 2, height / 2);
+    return;
+  }
+  const series = powerSeriesConfig[activePowerDevice] || powerSeriesConfig.total;
+  const scale = chartAxisScale(points.map((point) => (
+    point[series.key] == null ? NaN : point[series.key]
+  )));
+  for (let index = 0; index <= scale.intervals; index += 1) {
+    const ratio = index / scale.intervals;
+    const y = pad.top + ratio * (height - pad.top - pad.bottom);
+    const value = scale.max - index * scale.step;
+    ctx.strokeStyle = "rgba(133,153,164,.13)";
+    ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(width - pad.right, y); ctx.stroke();
+    ctx.fillStyle = series.color; ctx.textAlign = "right"; ctx.textBaseline = "middle"; ctx.font = "10px Inter";
+    ctx.fillText(`${Math.max(0, value).toFixed(scale.decimals)} W`, pad.left - 7, y);
+  }
+  const gapMs = Math.max(15_000, Number(bucketMs) * 2.5);
+  const draw = (key, color) => {
+    ctx.beginPath(); ctx.strokeStyle = color; ctx.lineWidth = 2;
+    let previousTime = null;
+    let lastPoint = null;
+    let pointCount = 0;
+    points.forEach((point) => {
+      const rawValue = point[key];
+      const value = Number(rawValue);
+      const timeMs = Number(point.time_ms);
+      if (rawValue == null || !Number.isFinite(value) || !Number.isFinite(timeMs)) return;
+      const x = pad.left + ((timeMs - fromMs) / Math.max(1, toMs - fromMs)) * (width - pad.left - pad.right);
+      const y = height - pad.bottom - (value / scale.max) * (height - pad.top - pad.bottom);
+      if (previousTime === null || timeMs - previousTime > gapMs) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+      previousTime = timeMs;
+      lastPoint = { x, y };
+      pointCount += 1;
+    });
+    ctx.stroke();
+    if (pointCount === 1 && lastPoint) {
+      ctx.beginPath(); ctx.fillStyle = color;
+      ctx.arc(lastPoint.x, lastPoint.y, 3.5, 0, Math.PI * 2); ctx.fill();
+    }
+  };
+  draw(series.key, series.color);
+  const legend = document.getElementById("reportPowerChartLegend");
+  const legendKey = legend?.querySelector("i");
+  const legendLabel = legend?.querySelector("[data-power-legend-label]");
+  if (legendKey) legendKey.className = series.legendClass;
+  if (legendLabel) legendLabel.textContent = series.label;
+  ctx.textBaseline = "alphabetic";
+}
+
+function drawHealthReportChart(points, fromMs, toMs, bucketMs = 300000) {
+  const canvas = document.getElementById("reportHealthChart");
+  const chart = canvas ? prepareChartCanvas(canvas) : null;
+  if (!chart) return;
+  const { ctx, width, height } = chart;
+  const config = healthMetricConfig[activeHealthMetric] || healthMetricConfig.storage;
+  const pad = { left: 64, right: 52, top: 20, bottom: 46 };
+  const safeToMs = Number.isFinite(Number(toMs)) ? Number(toMs) : Date.now();
+  const safeFromMs = Number.isFinite(Number(fromMs)) ? Number(fromMs) : safeToMs - 86400000;
+  ctx.clearRect(0, 0, width, height);
+  ctx.fillStyle = "#0b1217";
+  ctx.fillRect(0, 0, width, height);
+  ctx.strokeStyle = "rgba(133,153,164,.13)";
+  for (let index = 0; index <= 7; index += 1) {
+    const x = pad.left + (index / 7) * (width - pad.left - pad.right);
+    ctx.beginPath(); ctx.moveTo(x, pad.top); ctx.lineTo(x, height - pad.bottom); ctx.stroke();
+    const date = new Date(safeFromMs + (index / 7) * (safeToMs - safeFromMs));
+    ctx.fillStyle = "#75858e"; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic"; ctx.font = "10px Inter";
+    ctx.fillText(date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }), x, height - 12);
+  }
+  const values = points.map((point) => point?.[config.key]);
+  const measuredScale = chartAxisScale(values, 5);
+  const fixedPercentScale = config.unit === "%" && activeHealthMetric !== "load";
+  const scale = fixedPercentScale
+    ? { max: 100, step: 20, intervals: 5, decimals: 0 }
+    : measuredScale;
+  for (let index = 0; index <= scale.intervals; index += 1) {
+    const ratio = index / scale.intervals;
+    const y = pad.top + ratio * (height - pad.top - pad.bottom);
+    const value = scale.max - index * scale.step;
+    ctx.strokeStyle = "rgba(133,153,164,.13)";
+    ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(width - pad.right, y); ctx.stroke();
+    ctx.fillStyle = config.color; ctx.textAlign = "right"; ctx.textBaseline = "middle"; ctx.font = "10px Inter";
+    ctx.fillText(`${Math.max(0, value).toFixed(scale.decimals)} ${config.unit}`, pad.left - 7, y);
+  }
+  if (points.length < 1) {
+    ctx.fillStyle = "#7f9098"; ctx.font = "12px Inter"; ctx.textAlign = "center";
+    ctx.fillText("Collecting controller health samples…", width / 2, height / 2);
+    return;
+  }
+  const gapMs = Math.max(15 * 60 * 1000, Number(bucketMs) * 2.5);
+  ctx.beginPath();
+  ctx.strokeStyle = config.color;
+  ctx.lineWidth = 2;
+  let previousTime = null;
+  let lastPoint = null;
+  let pointCount = 0;
+  points.forEach((point) => {
+    const rawValue = point?.[config.key];
+    const value = Number(rawValue);
+    const timeMs = Number(point?.time_ms);
+    if (rawValue == null || !Number.isFinite(value) || !Number.isFinite(timeMs)) return;
+    const x = pad.left + ((timeMs - safeFromMs) / Math.max(1, safeToMs - safeFromMs)) * (width - pad.left - pad.right);
+    const y = height - pad.bottom - (value / scale.max) * (height - pad.top - pad.bottom);
+    if (previousTime === null || timeMs - previousTime > gapMs) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+    previousTime = timeMs;
+    lastPoint = { x, y };
+    pointCount += 1;
+  });
+  ctx.stroke();
+  if (pointCount === 1 && lastPoint) {
+    ctx.beginPath(); ctx.fillStyle = config.color;
+    ctx.arc(lastPoint.x, lastPoint.y, 3.5, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.textBaseline = "alphabetic";
 }
 
 function formatReportValue(value, unit) {
@@ -1492,7 +2209,7 @@ function drawCurrentReportChart(label, points, fromMs, toMs) {
   const chart = canvas ? prepareChartCanvas(canvas) : null;
   if (!chart) return;
   const { ctx, width, height } = chart;
-  const pad = { left: 54, right: 58, top: 18, bottom: 34 };
+  const pad = { left: 64, right: 78, top: 18, bottom: 42 };
   ctx.clearRect(0, 0, width, height);
   ctx.fillStyle = "#0b1217";
   ctx.fillRect(0, 0, width, height);
@@ -1502,20 +2219,32 @@ function drawCurrentReportChart(label, points, fromMs, toMs) {
     const x = pad.left + (index / 6) * (width - pad.left - pad.right);
     ctx.beginPath(); ctx.moveTo(x, pad.top); ctx.lineTo(x, height - pad.bottom); ctx.stroke();
     const tick = new Date(fromMs + (index / 6) * (toMs - fromMs));
-    ctx.fillStyle = "#75858e"; ctx.font = "10px Inter, Segoe UI, sans-serif"; ctx.textAlign = "center";
+    ctx.fillStyle = "#75858e"; ctx.font = "10px Inter, Segoe UI, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
     ctx.fillText(tick.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }), x, height - 10);
   }
-  for (let index = 0; index <= 4; index += 1) {
-    const y = pad.top + (index / 4) * (height - pad.top - pad.bottom);
+  const currentScale = chartAxisScale(points.map((point) => point.current_a), 6);
+  const velocityScale = chartAxisScale(points.map((point) => point.velocity_deg_per_sec), 6);
+  const gridIntervals = Math.max(currentScale.intervals, velocityScale.intervals);
+  const currentMax = currentScale.step * gridIntervals;
+  const velocityMax = velocityScale.step * gridIntervals;
+  for (let index = 0; index <= gridIntervals; index += 1) {
+    const ratio = index / gridIntervals;
+    const y = pad.top + ratio * (height - pad.top - pad.bottom);
+    const currentValue = currentMax - index * currentScale.step;
+    const velocityValue = velocityMax - index * velocityScale.step;
+    ctx.strokeStyle = "rgba(133, 153, 164, .13)";
     ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(width - pad.right, y); ctx.stroke();
+    ctx.font = "9px Inter, Segoe UI, sans-serif"; ctx.textBaseline = "middle";
+    ctx.fillStyle = "#58c4df"; ctx.textAlign = "right";
+    ctx.fillText(`${Math.max(0, currentValue).toFixed(currentScale.decimals)} A`, pad.left - 7, y);
+    ctx.fillStyle = "#f3a84b"; ctx.textAlign = "left";
+    ctx.fillText(`${Math.max(0, velocityValue).toFixed(velocityScale.decimals)} °/s`, width - pad.right + 7, y);
   }
   if (points.length < 1) {
-    ctx.fillStyle = "#7f9098"; ctx.font = "12px Inter, Segoe UI, sans-serif"; ctx.textAlign = "center";
+    ctx.fillStyle = "#7f9098"; ctx.font = "12px Inter, Segoe UI, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
     ctx.fillText("Collecting 100 ms telemetry samples…", width / 2, height / 2);
     return;
   }
-  const currentMax = Math.max(1, ...points.map((point) => Number(point.current_a) || 0));
-  const velocityMax = Math.max(1, ...points.map((point) => Number(point.velocity_deg_per_sec) || 0));
   const draw = (key, max, color) => {
     ctx.beginPath(); ctx.strokeStyle = color; ctx.lineWidth = 2; let started = false;
     let lastPoint = null;
@@ -1533,9 +2262,7 @@ function drawCurrentReportChart(label, points, fromMs, toMs) {
   };
   draw("velocity_deg_per_sec", velocityMax, "#f3a84b");
   draw("current_a", currentMax, "#58c4df");
-  ctx.font = "10px Inter, Segoe UI, sans-serif";
-  ctx.fillStyle = "#58c4df"; ctx.textAlign = "right"; ctx.fillText(`${currentMax.toFixed(1)} A`, pad.left - 7, pad.top + 4); ctx.fillText("0 A", pad.left - 7, height - pad.bottom);
-  ctx.fillStyle = "#f3a84b"; ctx.textAlign = "left"; ctx.fillText(`${velocityMax.toFixed(1)} °/s`, width - pad.right + 7, pad.top + 4); ctx.fillText("0 °/s", width - pad.right + 7, height - pad.bottom);
+  ctx.textBaseline = "alphabetic";
 }
 
 function prepareChartCanvas(canvas) {
@@ -2414,7 +3141,7 @@ function setViewMode(mode, { persist = true } = {}) {
         : activeViewMode === "camera"
           ? "CAMERA VIEW"
           : activeViewMode === "report"
-            ? `REPORTS / ${activeReportTab === "internet" ? "INTERNET SPEED" : "CURRENT USING"}`
+            ? `REPORTS / ${reportTabTitle()}`
         : "DASHBOARD";
   }
   hideFloatingWindowsOutsideView(activeViewMode);
@@ -2444,7 +3171,7 @@ function setViewMode(mode, { persist = true } = {}) {
         : activeViewMode === "camera"
           ? "Camera View"
           : activeViewMode === "report"
-            ? "Current Using Report"
+            ? `${reportTabTitle()} Report`
           : "Axis View";
     addLog("message", `Dashboard view changed to ${label}`);
   }
@@ -2458,7 +3185,7 @@ function setViewMode(mode, { persist = true } = {}) {
   } else if (activeViewMode === "camera") {
     if (fields.cameraLiveWindow?.hidden) openCameraLiveWindow();
   } else if (activeViewMode === "report") {
-    requestAnimationFrame(activeReportTab === "internet" ? renderInternetReport : renderCurrentReport);
+    requestAnimationFrame(() => renderActiveReport());
   }
 }
 
@@ -4343,6 +5070,10 @@ function updatePointingReadouts() {
 }
 
 function renderPointingModel() {
+  const liveAzimuth = axesByLabel().Azimuth;
+  window.pointingTerrain3D?.setMountAzimuth(
+    latestStatus?.connected && liveAzimuth?.available ? liveAzimuth.position_deg : null,
+  );
   if (pointing3DReady && window.pointingTerrain3D) {
     window.pointingTerrain3D.applyLayers(pointingLayerState());
     window.pointingTerrain3D.showSelection(selectedPointingSample);
@@ -5369,18 +6100,8 @@ let cameraRecordingStatus = "idle";
 let cameraRecordingPollTimer = null;
 let cameraSourceMode = "live";
 let cameraSourceAutoSelected = false;
-let cameraStreamSocket = null;
-let cameraStreamReconnectTimer = null;
 let cameraStreamMetadata = { thermal: {}, visible: {} };
-
-function cameraStreamWebSocketUrl() {
-  const configured = fields.cameraLiveWindow?.dataset.cameraStreamUrl || "/ws/camera-stream";
-  if (/^wss?:\/\//i.test(configured)) return configured;
-  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-  const path = configured.startsWith("/") ? configured : `/${configured}`;
-  const separator = path.includes("?") ? "&" : "?";
-  return `${protocol}//${window.location.host}${path}${separator}role=viewer&source=${encodeURIComponent(cameraSourceMode)}`;
-}
+const cameraMetadataStreams = new Map();
 
 function cameraStreamTargets() {
   return cameraSourceMode === "simulation"
@@ -5395,70 +6116,37 @@ function clearCameraStreamFrames() {
   });
 }
 
+function subscribeCameraMetadata(camera) {
+  cameraMetadataStreams.get(camera)?.close();
+  const stream = new EventSource(`/api/camera-stream/metadata-stream/${cameraSourceMode}/${camera}`);
+  cameraMetadataStreams.set(camera, stream);
+  stream.onmessage = (event) => {
+    if (cameraMetadataStreams.get(camera) !== stream) return;
+    try {
+      const result = JSON.parse(event.data);
+      if (result.ok === true && result.metadata && typeof result.metadata === "object") {
+        cameraStreamMetadata[camera] = result.metadata;
+      }
+    } catch (_error) {
+      // Keep the last metadata alongside the last retained pool frame.
+    }
+  };
+}
+
 function setCameraConnectionStatus(message, connected = false) {
   if (!fields.cameraRecordStatus) return;
   fields.cameraRecordStatus.querySelector("i")?.classList.toggle("is-disconnected", !connected);
   fields.cameraRecordStatus.lastChild.textContent = ` ${message}`;
 }
 
-function applyCameraFrame(message) {
-  const camera = message.camera === "thermal" ? "thermal" : message.camera === "visible" ? "visible" : null;
-  if (!camera) return;
-  const simulated = message.metadata?.simulated === true;
-  if (simulated !== (cameraSourceMode === "simulation")) return;
-  const target = camera === "thermal"
-    ? (simulated ? fields.thermalLiveImage : fields.thermalRealImage)
-    : (simulated ? fields.visibleLiveImage : fields.visibleRealImage);
-  const image = message.image || {};
-  const dataUrl = image.data_url || (image.data && `data:${image.mime_type || "image/jpeg"};base64,${image.data}`);
-  if (target && dataUrl) {
-    target.src = dataUrl;
-    target.classList.remove("is-stream-disconnected");
-  }
-  cameraStreamMetadata[camera] = message.metadata && typeof message.metadata === "object" ? message.metadata : {};
-}
-
 function connectCameraStream() {
-  clearTimeout(cameraStreamReconnectTimer);
-  if (!fields.cameraLiveWindow || fields.cameraLiveWindow.hidden) return;
-  if (cameraStreamSocket && [WebSocket.CONNECTING, WebSocket.OPEN].includes(cameraStreamSocket.readyState)) return;
-  setCameraConnectionStatus("Connecting to camera service…");
-  cameraStreamSocket = new WebSocket(cameraStreamWebSocketUrl());
-  cameraStreamSocket.addEventListener("open", () => {
-    cameraStreamSocket.send(JSON.stringify({ type: "subscribe", streams: ["thermal", "visible"], include_metadata: true }));
-    setCameraConnectionStatus("Live camera service connected", true);
-  });
-  cameraStreamSocket.addEventListener("message", (event) => {
-    if (typeof event.data !== "string") return;
-    try {
-      const message = JSON.parse(event.data);
-      if (message.type === "frame") applyCameraFrame(message);
-      if (message.type === "status" && message.message) {
-        const connected = message.connected !== false;
-        setCameraConnectionStatus(message.message, connected);
-        if (!connected) clearCameraStreamFrames();
-      }
-    } catch (error) {
-      addLog("warning", "Camera service sent invalid JSON");
-    }
-  });
-  cameraStreamSocket.addEventListener("close", () => {
-    cameraStreamSocket = null;
-    clearCameraStreamFrames();
-    setCameraConnectionStatus("Camera service disconnected — retrying…");
-    cameraStreamReconnectTimer = setTimeout(connectCameraStream, 2000);
-  });
-  cameraStreamSocket.addEventListener("error", () => cameraStreamSocket?.close());
+  if (!navigator.onLine || dashboardConnectionSuspended || !fields.cameraLiveWindow || fields.cameraLiveWindow.hidden) return;
+  if (cameraStreamTargets().some((image) => image && !image.getAttribute("src"))) renderCameraSourceMode();
 }
 
 function disconnectCameraStream() {
-  clearTimeout(cameraStreamReconnectTimer);
-  cameraStreamReconnectTimer = null;
-  if (cameraStreamSocket) {
-    cameraStreamSocket.onclose = null;
-    cameraStreamSocket.close();
-    cameraStreamSocket = null;
-  }
+  cameraMetadataStreams.forEach((stream) => stream.close());
+  cameraMetadataStreams.clear();
   clearCameraStreamFrames();
 }
 
@@ -5497,6 +6185,7 @@ function renderCameraSourceMode() {
       setCameraConnectionStatus(`AIV ${camera} stream unavailable`);
     };
     image.src = `/api/camera-mjpeg/${cameraSourceMode}/${camera}?session=${Date.now()}`;
+    subscribeCameraMetadata(camera);
   });
 }
 
@@ -5881,12 +6570,16 @@ document.querySelectorAll("[data-mission-nav]").forEach((control) => {
 document.querySelectorAll("[data-report-tab]").forEach((button) => {
   button.addEventListener("click", () => {
     activeReportTab = button.dataset.reportTab;
-    if (fields.industrialSectionTitle) fields.industrialSectionTitle.textContent = `REPORTS / ${activeReportTab === "internet" ? "INTERNET SPEED" : "CURRENT USING"}`;
+    if (fields.industrialSectionTitle) fields.industrialSectionTitle.textContent = `REPORTS / ${reportTabTitle()}`;
     document.querySelectorAll("[data-report-tab]").forEach(tab => { const active=tab===button;tab.classList.toggle("active",active);tab.setAttribute("aria-selected",active?"true":"false"); });
     document.querySelectorAll("[data-report-panel]").forEach(panel => { panel.hidden = panel.dataset.reportPanel !== activeReportTab; });
-    if (activeReportTab === "internet") renderInternetReport(); else renderCurrentReport();
+    renderActiveReport();
   });
 });
+
+ensureNetworkCategorySelector();
+ensurePowerDeviceSelector();
+ensureHealthMetricSelector();
 
 document.getElementById("systemLogFilter")?.addEventListener("change", (event) => {
   const selectedLevel = event.target.value;
@@ -5936,6 +6629,13 @@ document.addEventListener("keydown", (event) => {
 }, { capture: true });
 
 window.addEventListener("pagehide", () => {
+  dashboardConnectionSuspended = true;
+  cancelPendingReportRequests("Page closed before the report completed.");
+  clearTimeout(statusReconnectTimer);
+  statusReconnectTimer = null;
+  stopStatusFallbackPolling();
+  statusSocket?.close();
+  disconnectCameraStream();
   if (activeDirectionJog) {
     stopActiveDirectionJog(false);
     fetch("/api/motors/velocity-command", {
@@ -5967,6 +6667,28 @@ window.addEventListener("pagehide", () => {
   });
 });
 
+window.addEventListener("offline", () => {
+  dashboardConnectionSuspended = true;
+  cancelPendingReportRequests();
+  clearTimeout(statusReconnectTimer);
+  statusReconnectTimer = null;
+  stopStatusFallbackPolling();
+  statusSocket?.close();
+  disconnectCameraStream();
+  addLog("warning", "Dashboard network offline; stale sessions were closed.");
+});
+
+// Do not automatically recreate sockets merely because the OS reports that a
+// network interface returned. The first deliberate interaction (or a page
+// refresh) establishes fresh protocol sessions, as opposed to reviving stale
+// requests from the disconnected page.
+document.addEventListener("pointerdown", () => {
+  if (!navigator.onLine) return;
+  dashboardConnectionSuspended = false;
+  connectStatusStream();
+  if (fields.cameraLiveWindow && !fields.cameraLiveWindow.hidden) connectCameraStream();
+}, { passive: true });
+
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden) return;
   stopActiveDirectionJog();
@@ -5989,6 +6711,9 @@ window.addEventListener("resize", () => {
   Object.keys(axisFields).forEach((label) => drawChart(label, new Date()));
   if (activeViewMode === "sky") renderSkySphere(latestStatus);
   if (activeViewMode === "pointing") renderPointingModel();
+  if (activeViewMode === "report" && activeReportTab === "health" && latestHealthReport) {
+    applyHealthReport(latestHealthReport);
+  }
 });
 
 initializeFloatingWindows();
@@ -5998,8 +6723,15 @@ if (!document.documentElement.classList.contains("mobile-browser") && !fields.po
 initializeAxisColumnResizer();
 setViewMode(activeViewMode, { persist: false });
 setInterval(() => {
-  if (activeViewMode === "report") activeReportTab === "internet" ? renderInternetReport() : renderCurrentReport();
+  if (activeViewMode === "report" && activeReportTab !== "power") {
+    renderActiveReport({ background: true });
+  }
 }, 30000);
+setInterval(() => {
+  if (activeViewMode === "report" && activeReportTab === "power") {
+    renderPowerReport({ background: true });
+  }
+}, 5000);
 loadAppSettings();
 loadSystemInfo({ quiet: true });
 refreshBeaconStatus();
@@ -6008,5 +6740,8 @@ refreshInternetSummary();
 setInterval(refreshInternetSummary, 1000);
 refreshInternetSpeedTestAverage();
 setInterval(refreshInternetSpeedTestAverage, 10000);
+document.getElementById("reportCapacityTest")?.addEventListener("click", runManualCapacityTest);
+document.getElementById("industrialInternetTest")?.addEventListener("click", runManualCapacityTest);
+refreshManualCapacityTestStatus();
 addLog("message", "Page loaded successfully. Fire Detector dashboard is ready.");
 connectStatusStream();

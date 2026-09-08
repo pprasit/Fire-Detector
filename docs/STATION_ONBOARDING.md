@@ -19,6 +19,11 @@ The Station does not expose a remote Mount control port. The Mount Agent opens
 the TLS connection to the Receiver, validates its CA, completes an HMAC
 challenge, and reconnects with backoff if it is interrupted.
 
+Daily runtime-data backup is a separate HMAC-authenticated pull API exposed
+only through the Station's Tailscale path. See
+[`BACKUP_PULL_API_TH.md`](BACKUP_PULL_API_TH.md) for the checksum,
+durable-confirmation, and delete-after-confirm contract.
+
 ## Prerequisites
 
 On the Station:
@@ -207,6 +212,65 @@ sudo systemctl enable --now fire-detector-simulated-visible.service
 
 Do not enable simulated feeds on an operational Station after real cameras are
 installed.
+
+## Live RTSP publisher profiles
+
+The production live feeds use local latest-frame MJPEG input and publish H.264
+at an adaptive 3–15 FPS over RTSP/TCP. REST is used to obtain publisher credentials but is
+not part of the steady-state media path. `scripts/publish_live_stream.py`
+supports three bounded bitrate profiles through `NARIT_STREAM_PROFILE`:
+
+| Profile | Thermal | Visible | Use when |
+| --- | ---: | ---: | --- |
+| `relay` (default) | 400 kbps | 800 kbps | Tailscale reports `via DERP` or upload capacity is unstable below 2.5 Mbps. Visible is reduced to 1280x720. |
+| `constrained` | 1 Mbps | 2.5 Mbps | The measured path sustains at least 4.5 Mbps. |
+| `full` | 2 Mbps | 4 Mbps | Tailscale is direct and a sustained test proves at least 7 Mbps upload headroom. |
+
+At startup, each publisher reads the most recent operator-run upload capacity
+test (valid for up to six hours) and selects `15`, `12`, `10`, `8`, `5`, or
+`3` FPS. The policy reserves 20 percent of the measured upload and another
+150 kbps for control traffic, then scales each camera bitrate with its selected
+cadence. When no recent manual result exists, it starts at 15 FPS. The
+publisher limits its RTSP socket buffer, flushes packets immediately, and uses
+a 10-second I/O timeout. A watchdog also replaces the publisher connection when
+its RTSP send queue remains above 128 KiB for three consecutive two-second
+checks. Before reconnecting it moves down one FPS step, preventing a recovering
+link from replaying old frames indefinitely. Recovery uses hysteresis: the send
+queue must remain at or below 32 KiB for three continuous minutes before the
+publisher reconnects one FPS step higher. The local manual-capacity ceiling is
+rechecked every 15 seconds. This produces fast reductions and cautious
+step-by-step recovery instead of oscillating on a variable 4G link.
+Each publisher also writes its effective cadence and current queue depth to a
+runtime state file. `GET /api/stream/policy` exposes the lower of the Thermal
+and Visible rates to the IIV `frame_publisher`, so capture delivery and RTSP
+encoding use the same adaptive ceiling instead of manufacturing duplicate
+frames at the Station.
+Restart both publisher services after changing the profile. Never select
+`full` from an ISP speed-test result alone; verify the actual Station-to-NARIT
+path and RTSP send queues.
+
+RTSP/TCP remains the compatibility transport accepted by the current Server.
+For persistently relayed or high-jitter links, the next protocol revision
+should expose an SRT caller/listener ingest with bounded latency on the Server;
+that migration requires coordinated Server routing and cannot be enabled only
+on the Station.
+
+Production network graphs use passive `eth0` RX/TX byte counters sampled once
+per second. They measure traffic already crossing the interface and do not
+generate test traffic. Scheduled active speed tests are disabled. The Internet
+Speed report exposes a manual capacity test, but the API refuses to start it
+while either production publisher service is active. Stop both publishers,
+run one manual test, record the result, and then start the publishers again.
+This prevents the 5 MB download and 1 MB upload probe from competing with live
+RTSP traffic on a constrained 4G link.
+
+The header health beacon does not use ICMP ping or the private Tailscale media
+API as its sole Internet test. It confirms public routing with lightweight TCP
+443 connections to `operations.narit.or.th`, then `1.1.1.1` as a fallback,
+using three consecutive results for state changes. Reachability of the private
+NARIT telemetry endpoint is reported separately as `TELEMETRY OFFLINE`, so a
+slow or unavailable Tailscale service does not incorrectly produce `INTERNET
+OFFLINE` while the public Internet is working.
 
 ## Acceptance checks
 

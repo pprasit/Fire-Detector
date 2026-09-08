@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>NARIT Camera Monitor</title>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/narit-smart-wildfire-favicon.png') }}?v=2">
+    <meta name="theme-color" content="#071014">
+    <link rel="stylesheet" href="{{ url_for('static', filename='desktop/css/camera_monitor.css') }}?v=1">
+  </head>
+  <body>
+    <main class="camera-monitor-shell">
+      <header class="camera-monitor-header">
+        <div class="camera-monitor-brand">
+          <img src="{{ url_for('static', filename='img/narit-smart-wildfire-mark.png') }}" alt="NARIT Fire Detector">
+          <div><small>POINTING MODEL / SECOND DISPLAY</small><h1>Live Camera View</h1></div>
+        </div>
+        <div class="camera-monitor-status">
+          <span><small>Camera Pool</small><strong id="cameraPoolStatus"><i></i>CONNECTING</strong></span>
+          <span><small>Mount</small><strong id="mountStatus">WAITING</strong></span>
+          <span><small>Azimuth</small><strong id="mountAzimuth">--</strong></span>
+          <span><small>Altitude</small><strong id="mountAltitude">--</strong></span>
+        </div>
+      </header>
+
+      <section class="camera-monitor-workspace">
+        <div class="camera-monitor-feeds">
+          <article class="camera-monitor-feed is-thermal">
+            <header><span><i></i>THERMAL <b id="thermalZoom">ZOOM --.-%</b></span><em id="thermalResolution">640 × 512</em></header>
+            <div class="camera-monitor-viewport">
+              <img id="thermalImage" alt="Thermal camera live view">
+              <span class="camera-reticle" aria-hidden="true"></span>
+              <p class="camera-feed-state" id="thermalState">Connecting to central camera pool…</p>
+            </div>
+          </article>
+
+          <article class="camera-monitor-feed is-visible">
+            <header><span><i></i>VISIBLE <b id="visibleZoom">ZOOM --.-%</b></span><em id="visibleResolution">1920 × 1080</em></header>
+            <div class="camera-monitor-viewport">
+              <img id="visibleImage" alt="Visible camera live view">
+              <span class="camera-reticle" aria-hidden="true"></span>
+              <p class="camera-feed-state" id="visibleState">Connecting to central camera pool…</p>
+            </div>
+          </article>
+        </div>
+
+        <aside class="camera-monitor-direction" aria-label="Camera direction control">
+          <div class="direction-title"><div><small>MOUNT CONTROL</small><h2>Direction Control</h2></div><span id="armedStatus">DISARMED</span></div>
+          <label><span>Movement Type</span><select id="directionMode"><option value="jog">Jog</option><option value="offset">Offset</option></select></label>
+          <label><span id="directionValueLabel">Movement Speed</span><div><input id="directionValue" type="number" min="0.001" step="0.1" value="5.0" inputmode="decimal"><em id="directionUnit">Deg/Sec</em></div></label>
+          <div class="direction-pad" id="directionPad" aria-label="Press and hold a direction to move">
+            <button type="button" data-az="-1" data-alt="1" aria-label="Move up and left">↖</button>
+            <button type="button" data-az="0" data-alt="1" aria-label="Move up">↑</button>
+            <button type="button" data-az="1" data-alt="1" aria-label="Move up and right">↗</button>
+            <button type="button" data-az="-1" data-alt="0" aria-label="Move left">←</button>
+            <button class="is-stop" type="button" id="directionStop" aria-label="Stop mount">■</button>
+            <button type="button" data-az="1" data-alt="0" aria-label="Move right">→</button>
+            <button type="button" data-az="-1" data-alt="-1" aria-label="Move down and left">↙</button>
+            <button type="button" data-az="0" data-alt="-1" aria-label="Move down">↓</button>
+            <button type="button" data-az="1" data-alt="-1" aria-label="Move down and right">↘</button>
+          </div>
+          <p class="direction-message" id="directionMessage" aria-live="polite">Press and hold to move • Release to stop</p>
+          <small class="direction-safety">Diagonal commands are normalized. Server motion and runtime limits remain enforced.</small>
+        </aside>
+      </section>
+    </main>
+    <script src="{{ url_for('static', filename='desktop/js/camera_monitor.js') }}?v=4"></script>
+  </body>
+</html>

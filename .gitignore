@@ -5,3 +5,9 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 .update_state.json
+data/telemetry/*.sqlite3
+data/telemetry/*.sqlite3-shm
+data/telemetry/*.sqlite3-wal
+data/backups/*.tar.gz
+data/backups/*.tmp
+data/backups/state.json

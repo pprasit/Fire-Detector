@@ -88,7 +88,10 @@ class MotionCommandManager:
                 kwargs,
                 current_api_command_trace_id(),
             )
-        LOGGER.info(
+        # High-rate velocity control can submit many calls per second. Detailed
+        # timing remains available in ApiCommandMonitor without flooding the
+        # persistent system journal.
+        LOGGER.debug(
             "Motion command accepted sequence=%s epoch=%s source=%s action=%s",
             call.sequence,
             call.safety_epoch,
@@ -245,7 +248,7 @@ class MotionCommandManager:
                         return
 
                 started_at = monotonic()
-                LOGGER.info(
+                LOGGER.debug(
                     "Motion command started sequence=%s epoch=%s source=%s action=%s "
                     "queue_wait_ms=%.1f",
                     call.sequence,
@@ -263,15 +266,17 @@ class MotionCommandManager:
                     call.error = exc
                 finally:
                     finished_at = monotonic()
-                    LOGGER.info(
+                    log = LOGGER.warning if call.error is not None else LOGGER.debug
+                    log(
                         "Motion command finished sequence=%s epoch=%s source=%s action=%s "
-                        "elapsed_ms=%.1f ok=%s",
+                        "elapsed_ms=%.1f ok=%s%s",
                         call.sequence,
                         call.safety_epoch,
                         call.source,
                         call.method_name,
                         (finished_at - started_at) * 1000.0,
                         call.error is None,
+                        f" error={call.error}" if call.error is not None else "",
                     )
                     self._record_motion_timing(
                         call.trace_id,

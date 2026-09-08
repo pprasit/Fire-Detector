@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 import hashlib
 import hmac
+import ipaddress
 import json
 import logging
 import math
@@ -39,6 +40,14 @@ DEFAULT_HEARTBEAT_SEC = 15.0
 DEFAULT_TELEMETRY_SEC = 1.0
 MAX_COMMANDS_PER_SECOND = 20
 MAX_TERRAIN_BYTES = 128 * 1024 * 1024
+TAILSCALE_IPV4_NETWORK = ipaddress.ip_network("100.64.0.0/10")
+DEFAULT_BACKUP_API_PORT = 8000
+STATION_CONFIG_STATE_PATH = Path(__file__).resolve().parents[2] / ".station_config_sync.json"
+STATION_CONFIG_FIELDS = frozenset({
+    "station_name", "latitude", "longitude", "elevation_above_ground_m",
+    "horizontal_fov_deg", "vertical_fov_deg", "azimuth_north_offset_deg",
+    "visible_camera", "thermal_camera",
+})
 MUTATING_PREFIXES = ("mount.", "axis.", "pointing.", "calibration.", "tuning.")
 LEASE_EXEMPT_ACTIONS = {
     "mount.stop",
@@ -159,6 +168,75 @@ class MountAgent:
         self._local_socket: socket.socket | None = None
         self._outbound_events: Queue[dict[str, Any]] = Queue(maxsize=128)
         self._camera_telemetry_sequence = 0
+        self._station_config_lock = Lock()
+        self._station_config_revision = 0
+        self._station_config_synced_revision = 0
+        self._station_config_changed_fields: list[str] = []
+        self._station_config_requests: dict[str, int] = {}
+        self._station_config_retry_at = 0.0
+        self._station_config_retry_delay = 5.0
+        self._load_station_config_sync_state()
+
+    def station_configuration_saved(self, changed_fields: list[str]) -> None:
+        """Mark a locally, atomically saved public station configuration for sync.
+
+        This method never sends on the socket itself; the authenticated remote
+        session owns all writes so telemetry and configuration NDJSON messages
+        cannot interleave.
+        """
+        fields = sorted(set(changed_fields) & STATION_CONFIG_FIELDS)
+        if not fields:
+            return
+        with self._station_config_lock:
+            self._station_config_revision += 1
+            self._station_config_changed_fields = fields
+            self._save_station_config_sync_state()
+            revision = self._station_config_revision
+            self._station_config_retry_at = monotonic() + 5.0
+            self._station_config_retry_delay = 5.0
+        self._enqueue_station_config_changed(revision, fields)
+
+    def _load_station_config_sync_state(self) -> None:
+        try:
+            state = json.loads(STATION_CONFIG_STATE_PATH.read_text(encoding="utf-8"))
+            self._station_config_revision = max(0, int(state.get("revision", 0)))
+            self._station_config_synced_revision = max(0, int(state.get("synced_revision", 0)))
+        except (OSError, TypeError, ValueError, json.JSONDecodeError):
+            pass
+
+    def _save_station_config_sync_state(self) -> None:
+        state = {"revision": self._station_config_revision, "synced_revision": self._station_config_synced_revision}
+        fd, temporary = tempfile.mkstemp(prefix=".station-config-sync.", dir=STATION_CONFIG_STATE_PATH.parent)
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as output:
+                json.dump(state, output, sort_keys=True)
+                output.write("\n")
+                output.flush()
+                os.fsync(output.fileno())
+            os.replace(temporary, STATION_CONFIG_STATE_PATH)
+        finally:
+            try:
+                os.unlink(temporary)
+            except FileNotFoundError:
+                pass
+
+    def _enqueue_station_config_changed(self, revision: int, fields: list[str]) -> None:
+        event = {"type": "station_config_changed", "payload": {"revision": revision, "changed_fields": fields}}
+        try:
+            self._outbound_events.put_nowait(event)
+        except Exception:
+            LOGGER.warning("Station configuration sync queue is full; revision %s remains pending.", revision)
+
+    def _retry_station_config_if_due(self) -> None:
+        with self._station_config_lock:
+            if self._station_config_revision <= self._station_config_synced_revision or monotonic() < self._station_config_retry_at:
+                return
+            revision = self._station_config_revision
+            fields = list(self._station_config_changed_fields)
+            delay = self._station_config_retry_delay
+            self._station_config_retry_at = monotonic() + delay
+            self._station_config_retry_delay = min(delay * 2.0, 60.0)
+        self._enqueue_station_config_changed(revision, fields)
 
     def start(self) -> None:
         settings = self._agent_settings()
@@ -434,6 +512,9 @@ class MountAgent:
                     "payload": {
                         "device_type": "fire-detection-mount",
                         "capabilities": _capabilities(),
+                        "services": {
+                            "backup_pull_api": _backup_pull_service(remote),
+                        },
                         **_station_registration(self._settings_provider()),
                         "terrain": _terrain_registration(self._terrain_path),
                     },
@@ -484,6 +565,12 @@ class MountAgent:
                     max(2.0, float(remote.get("heartbeat_sec", DEFAULT_HEARTBEAT_SEC))),
                     max(0.1, float(remote.get("telemetry_sec", DEFAULT_TELEMETRY_SEC))),
                 )
+                with self._station_config_lock:
+                    pending_revision = self._station_config_revision
+                    pending_fields = list(self._station_config_changed_fields)
+                    needs_sync = pending_revision > self._station_config_synced_revision
+                if needs_sync:
+                    self._enqueue_station_config_changed(pending_revision, pending_fields)
                 self._serve_remote_authenticated(secure, {"source": "remote", "owner": owner, "device_id": device_id}, remote)
 
     def _serve_remote_authenticated(self, secure: socket.socket, context: dict[str, Any], remote: dict[str, Any]) -> None:
@@ -499,6 +586,7 @@ class MountAgent:
         try:
             while not self._stop.is_set():
                 now = monotonic()
+                self._retry_station_config_if_due()
                 if now >= next_heartbeat:
                     _send_json(secure, {
                         "version": PROTOCOL_VERSION,
@@ -530,6 +618,13 @@ class MountAgent:
                     raw, _, remainder = buffer.partition(b"\n")
                     buffer = bytearray(remainder)
                     message = _decode_message(raw)
+                    message_type = str(message.get("type") or "")
+                    if message_type == "station_config_request":
+                        self._send_station_config_snapshot(secure, context["device_id"], message)
+                        continue
+                    if message_type == "station_config_result":
+                        self._handle_station_config_result(message)
+                        continue
                     now = monotonic()
                     while command_times and now - command_times[0] > 1.0:
                         command_times.popleft()
@@ -573,6 +668,43 @@ class MountAgent:
                 "payload": event["payload"],
             })
             LOGGER.info("Sent %s event for device_id=%s.", event["type"], device_id)
+
+    def _send_station_config_snapshot(self, secure: socket.socket, device_id: str, request: dict[str, Any]) -> None:
+        payload = request.get("payload")
+        if not isinstance(payload, dict) or not isinstance(payload.get("request_id"), str):
+            raise ProtocolError("INVALID_CONFIG_REQUEST", "station_config_request requires payload.request_id.")
+        with self._station_config_lock:
+            revision = self._station_config_revision
+            self._station_config_requests[payload["request_id"]] = revision
+        metadata = _station_config_snapshot(self._settings_provider())
+        canonical = json.dumps(metadata, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+        _send_json(secure, {
+            "version": PROTOCOL_VERSION,
+            "type": "station_config_snapshot",
+            "message_id": _message_id("station-config-snapshot"),
+            "device_id": device_id,
+            "timestamp": _timestamp(),
+            "payload": {
+                "request_id": payload["request_id"],
+                "revision": revision,
+                "config_hash": hashlib.sha256(canonical).hexdigest(),
+                "station_metadata": metadata,
+            },
+        })
+
+    def _handle_station_config_result(self, message: dict[str, Any]) -> None:
+        payload = message.get("payload")
+        if not isinstance(payload, dict) or not isinstance(payload.get("request_id"), str):
+            return
+        with self._station_config_lock:
+            revision = self._station_config_requests.pop(payload["request_id"], None)
+            if not payload.get("accepted") or revision is None:
+                return
+            self._station_config_synced_revision = max(self._station_config_synced_revision, revision)
+            self._station_config_retry_at = 0.0
+            self._station_config_retry_delay = 5.0
+            self._save_station_config_sync_state()
+        LOGGER.info("Station configuration revision %s synchronized.", self._station_config_synced_revision)
 
     def _camera_telemetry_event(self, snapshot: dict[str, Any], device_id: str) -> dict[str, Any] | None:
         metadata = self._settings_provider().get("camera_metadata")
@@ -731,6 +863,33 @@ def _validate_expiry(message: dict[str, Any]) -> None:
         raise ProtocolError("COMMAND_EXPIRED", "The command expired before it reached the mount.")
 
 
+def _backup_pull_service(remote: dict[str, Any]) -> dict[str, Any]:
+    """Describe the pull API and advertise the Station's tailnet URL."""
+    service: dict[str, Any] = {
+        "version": "1.0",
+        "base_path": "/api/v1/backups",
+        "authentication": "HMAC-SHA256",
+        "transport": "tailscale-http",
+    }
+    try:
+        remote_host = str(remote.get("host") or "")
+        remote_port = int(remote.get("port") or 1)
+        remote_address = ipaddress.ip_address(remote_host)
+        if remote_address.version != 4 or remote_address not in TAILSCALE_IPV4_NETWORK:
+            return service
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:
+            probe.connect((remote_host, remote_port))
+            local_address = ipaddress.ip_address(probe.getsockname()[0])
+        if local_address not in TAILSCALE_IPV4_NETWORK:
+            return service
+        url = f"http://{local_address}:{DEFAULT_BACKUP_API_PORT}/api/v1/backups"
+        service["url"] = url
+        service["base_url"] = url
+    except (OSError, TypeError, ValueError):
+        pass
+    return service
+
+
 def _load_remote_secret(remote: dict[str, Any]) -> bytes:
     secret_file = remote.get("secret_file")
     env_name = str(remote.get("secret_env") or "FIRE_DETECTOR_DEVICE_SECRET")
@@ -816,6 +975,45 @@ def _station_registration(settings: dict[str, Any]) -> dict[str, Any]:
             if isinstance(camera, dict):
                 registration[camera_name] = camera
     return registration
+
+
+def _station_config_snapshot(settings: dict[str, Any]) -> dict[str, Any]:
+    """Build the strict allowlisted public snapshot used for receiver sync."""
+    station = settings.get("station") if isinstance(settings.get("station"), dict) else {}
+    metadata = settings.get("camera_metadata") if isinstance(settings.get("camera_metadata"), dict) else {}
+    result: dict[str, Any] = {}
+    field_map = {
+        "station_name": "name",
+        "latitude": "latitude",
+        "longitude": "longitude",
+        "elevation_above_ground_m": "elevation_above_ground_m",
+        "horizontal_fov_deg": "horizontal_fov_deg",
+        "vertical_fov_deg": "vertical_fov_deg",
+        "azimuth_north_offset_deg": "azimuth_north_offset_deg",
+    }
+    for output_name, source_name in field_map.items():
+        value = station.get(source_name)
+        if output_name == "station_name":
+            value = str(value or "").strip()
+            if value:
+                result[output_name] = value
+        elif isinstance(value, (int, float)) and math.isfinite(value):
+            result[output_name] = float(value)
+    camera_fields = {
+        "visible_camera": (
+            "native_width", "native_height", "horizontal_fov_min_deg", "horizontal_fov_max_deg",
+            "vertical_fov_min_deg", "vertical_fov_max_deg",
+        ),
+        "thermal_camera": ("native_width", "native_height"),
+    }
+    for camera_name, allowed_fields in camera_fields.items():
+        camera = metadata.get(camera_name)
+        if not isinstance(camera, dict):
+            continue
+        safe_camera = {key: camera[key] for key in allowed_fields if isinstance(camera.get(key), (int, float)) and math.isfinite(camera[key])}
+        if safe_camera:
+            result[camera_name] = safe_camera
+    return result
 
 
 def _terrain_registration(path: Path | None) -> dict[str, Any]:

@@ -1,7 +1,25 @@
-# Camera stream WebSocket
+# Camera stream ingest and central frame pool
 
-The dashboard connects to `/ws/camera-stream?role=viewer`. A physical-camera
-service publishes frames to the same endpoint with `role=producer`.
+The physical-camera service is the only live-image ingest owner. It publishes
+each thermal and visible frame once to the Station through either the producer
+WebSocket or the HTTP compatibility API. The Station replaces the retained
+latest frame in its central `CameraFramePool`; it never builds a playback FIFO.
+
+All application consumers read from that pool:
+
+- Camera View uses `/api/camera-mjpeg/<source>/<camera>`.
+- Pointing Model uses `/api/camera-frame/latest/<source>/<camera>?preview=pointing`.
+- Metadata panels use `/api/camera-stream/metadata-stream/<source>/<camera>`.
+- The outbound MediaMTX publisher reads the loopback MJPEG pool endpoint.
+
+Dashboard modules must not open `/dev/video*`, RTSP, or any camera vendor API.
+Multiple Station endpoints are views of the same retained frame, not additional
+connections to the camera source. `GET /api/camera-stream` exposes the pool
+contract, freshness, retained-frame count, and centrally controlled profiles.
+
+The producer WebSocket endpoint remains available at
+`/ws/camera-stream?role=producer`. Read-only protocol clients may also use the
+viewer role, although the bundled dashboards use the pool endpoints above.
 
 Each frame is a JSON text message. `metadata` is intentionally extensible while
 the camera contract is being finalized.

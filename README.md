@@ -10,6 +10,9 @@ For the current project state and handoff notes, read [HANDOFF.md](HANDOFF.md).
 For provisioning a Station for the central Receiver and media services, read
 [Station onboarding runbook](docs/STATION_ONBOARDING.md).
 
+For the authenticated daily pull-backup and confirm-before-delete workflow,
+read [Station Backup Pull API](docs/BACKUP_PULL_API_TH.md).
+
 ## Simulated fire events
 
 Generate three fire events at random times during the next 15 minutes. Each

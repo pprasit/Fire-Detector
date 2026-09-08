@@ -13,6 +13,12 @@ class PointingTerrain3D {
     this.visibility = null;
     this.grid = null;
     this.station = null;
+    this.scanCoverage = null;
+    this.northIndicator = null;
+    this.northLabel = null;
+    this.northLabelTexture = null;
+    this.mountDirectionIndicator = null;
+    this.mountAzimuthDeg = null;
     this.selection = null;
     this.raycaster = new THREE.Raycaster();
     this.pointer = new THREE.Vector2();
@@ -166,6 +172,190 @@ class PointingTerrain3D {
     stationRing.renderOrder = 21;
     this.scene.add(stationRing);
 
+    // Initial scan-area concept: a north-facing 180 degree sector centered on
+    // the station. It intentionally uses lines only so the terrain remains
+    // readable beneath the operational overlay.
+    const scanRadius = Math.min(
+      Number(model.radius_km || 20) * 1000 * 0.75,
+      Math.min(widthM, depthM) * 0.375,
+    );
+    const scanY = stationGround + Math.max(120, markerHeight + 70);
+    const scanColor = 0x2ee6c4;
+    const scanOuterMaterial = new THREE.MeshBasicMaterial({
+      color: scanColor,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.92,
+      depthTest: false,
+      depthWrite: false,
+    });
+    const scanGuideMaterial = new THREE.MeshBasicMaterial({
+      color: scanColor,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.34,
+      depthTest: false,
+      depthWrite: false,
+    });
+    const makeArcRibbon = (radius, width, material, renderOrder) => {
+      const segments = 96;
+      const positions = [];
+      const indices = [];
+      const innerRadius = Math.max(0, radius - width / 2);
+      const outerRadius = radius + width / 2;
+      for (let index = 0; index <= segments; index += 1) {
+        const azimuth = -Math.PI / 2 + (Math.PI * index) / segments;
+        const sin = Math.sin(azimuth);
+        const cos = Math.cos(azimuth);
+        positions.push(
+          sin * innerRadius, scanY, -cos * innerRadius,
+          sin * outerRadius, scanY, -cos * outerRadius,
+        );
+        if (index < segments) {
+          const base = index * 2;
+          indices.push(base, base + 1, base + 3, base, base + 3, base + 2);
+        }
+      }
+      const arcGeometry = new THREE.BufferGeometry();
+      arcGeometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+      arcGeometry.setIndex(indices);
+      const arc = new THREE.Mesh(arcGeometry, material);
+      arc.renderOrder = renderOrder;
+      return arc;
+    };
+    const makeRadialRibbon = (azimuthDeg, startRadius, endRadius, width, material, renderOrder) => {
+      const azimuth = THREE.MathUtils.degToRad(azimuthDeg);
+      const direction = new THREE.Vector3(Math.sin(azimuth), 0, -Math.cos(azimuth));
+      const perpendicular = new THREE.Vector3(-direction.z, 0, direction.x).multiplyScalar(width / 2);
+      const start = direction.clone().multiplyScalar(startRadius);
+      const end = direction.clone().multiplyScalar(endRadius);
+      const radialGeometry = new THREE.BufferGeometry().setFromPoints([
+        start.clone().add(perpendicular).setY(scanY),
+        start.clone().sub(perpendicular).setY(scanY),
+        end.clone().sub(perpendicular).setY(scanY),
+        end.clone().add(perpendicular).setY(scanY),
+      ]);
+      radialGeometry.setIndex([0, 1, 2, 0, 2, 3]);
+      const radial = new THREE.Mesh(radialGeometry, material);
+      radial.renderOrder = renderOrder;
+      return radial;
+    };
+
+    this.scanCoverage = new THREE.Group();
+    this.scanCoverage.name = "station-scan-coverage";
+    this.scanCoverage.add(makeArcRibbon(scanRadius, 125, scanOuterMaterial, 18));
+    this.scanCoverage.add(makeRadialRibbon(-90, 230, scanRadius, 105, scanOuterMaterial, 18));
+    this.scanCoverage.add(makeRadialRibbon(90, 230, scanRadius, 105, scanOuterMaterial, 18));
+    [scanRadius / 3, scanRadius * 2 / 3].forEach((radius) => {
+      this.scanCoverage.add(makeArcRibbon(radius, 58, scanGuideMaterial, 17));
+    });
+    [-60, -30, 0, 30, 60].forEach((azimuth) => {
+      this.scanCoverage.add(makeRadialRibbon(azimuth, 230, scanRadius, 42, scanGuideMaterial, 17));
+    });
+    this.scene.add(this.scanCoverage);
+
+    // North is -Z in the terrain coordinate system (see offsetLatLon/pick).
+    // Keep this marker in the 3D scene so it remains geographically correct
+    // while the operator rotates or zooms the model.
+    const northColor = 0x38a7ff;
+    const northLength = Math.min(widthM, depthM) * 0.18;
+    const northHeadLength = Math.min(760, northLength * 0.16);
+    const northShaftLength = northLength - northHeadLength;
+    const northY = stationGround + Math.max(180, markerHeight + 120);
+    this.northIndicator = new THREE.Group();
+    this.northIndicator.name = "station-north-indicator";
+
+    const northMaterial = new THREE.MeshBasicMaterial({
+      color: northColor,
+      depthTest: false,
+      transparent: true,
+      opacity: 0.98,
+    });
+    const northShaft = new THREE.Mesh(
+      new THREE.CylinderGeometry(76, 76, northShaftLength, 16),
+      northMaterial,
+    );
+    northShaft.position.set(0, northY, -northShaftLength / 2);
+    northShaft.rotation.x = -Math.PI / 2;
+    northShaft.renderOrder = 24;
+    this.northIndicator.add(northShaft);
+
+    const northHead = new THREE.Mesh(
+      new THREE.ConeGeometry(310, northHeadLength, 20),
+      northMaterial,
+    );
+    northHead.position.set(0, northY, -(northShaftLength + northHeadLength / 2));
+    northHead.rotation.x = -Math.PI / 2;
+    northHead.renderOrder = 25;
+    this.northIndicator.add(northHead);
+
+    const labelCanvas = document.createElement("canvas");
+    labelCanvas.width = 256;
+    labelCanvas.height = 128;
+    const labelContext = labelCanvas.getContext("2d");
+    if (labelContext) {
+      labelContext.fillStyle = "rgba(4, 15, 28, 0.88)";
+      labelContext.beginPath();
+      labelContext.roundRect(44, 8, 168, 112, 24);
+      labelContext.fill();
+      labelContext.strokeStyle = "#38a7ff";
+      labelContext.lineWidth = 7;
+      labelContext.stroke();
+      labelContext.fillStyle = "#dff3ff";
+      labelContext.font = "700 78px sans-serif";
+      labelContext.textAlign = "center";
+      labelContext.textBaseline = "middle";
+      labelContext.fillText("N", 128, 67);
+      this.northLabelTexture = new THREE.CanvasTexture(labelCanvas);
+      this.northLabelTexture.colorSpace = THREE.SRGBColorSpace;
+      const northLabel = new THREE.Sprite(new THREE.SpriteMaterial({
+        map: this.northLabelTexture,
+        depthTest: false,
+        transparent: true,
+      }));
+      northLabel.position.set(0, northY + 650, -(northLength + 260));
+      northLabel.renderOrder = 26;
+      this.northIndicator.add(northLabel);
+      this.northLabel = northLabel;
+    }
+    this.scene.add(this.northIndicator);
+
+    // The live camera/mount direction uses the direct azimuth convention:
+    // 0° north, 90° east, 180° south and 270° west.
+    const mountColor = 0x62ef9a;
+    const mountLength = northLength * 0.58;
+    const mountHeadLength = Math.min(560, mountLength * 0.2);
+    const mountShaftLength = mountLength - mountHeadLength;
+    const mountY = northY + 210;
+    const mountMaterial = new THREE.MeshBasicMaterial({
+      color: mountColor,
+      depthTest: false,
+      transparent: true,
+      opacity: 0.98,
+    });
+    this.mountDirectionIndicator = new THREE.Group();
+    this.mountDirectionIndicator.name = "mount-azimuth-indicator";
+
+    const mountShaft = new THREE.Mesh(
+      new THREE.CylinderGeometry(68, 68, mountShaftLength, 16),
+      mountMaterial,
+    );
+    mountShaft.position.set(0, mountY, -mountShaftLength / 2);
+    mountShaft.rotation.x = -Math.PI / 2;
+    mountShaft.renderOrder = 27;
+    this.mountDirectionIndicator.add(mountShaft);
+
+    const mountHead = new THREE.Mesh(
+      new THREE.ConeGeometry(265, mountHeadLength, 20),
+      mountMaterial,
+    );
+    mountHead.position.set(0, mountY, -(mountShaftLength + mountHeadLength / 2));
+    mountHead.rotation.x = -Math.PI / 2;
+    mountHead.renderOrder = 28;
+    this.mountDirectionIndicator.add(mountHead);
+    this.scene.add(this.mountDirectionIndicator);
+    this.setMountAzimuth(this.mountAzimuthDeg);
+
     const glow = new THREE.PointLight(0xffdf45, 3.2, 6000);
     glow.position.set(0, stationTop + 250, 0);
     this.scene.add(glow);
@@ -189,6 +379,18 @@ class PointingTerrain3D {
     this.applyLayers(layers);
     this.animate();
     return true;
+  }
+
+  setMountAzimuth(value) {
+    const azimuth = value === null || value === undefined || value === "" ? NaN : Number(value);
+    this.mountAzimuthDeg = Number.isFinite(azimuth)
+      ? ((azimuth % 360) + 360) % 360
+      : null;
+    if (!this.mountDirectionIndicator) return;
+    this.mountDirectionIndicator.visible = this.mountAzimuthDeg !== null;
+    if (this.mountAzimuthDeg !== null) {
+      this.mountDirectionIndicator.rotation.y = -THREE.MathUtils.degToRad(this.mountAzimuthDeg);
+    }
   }
 
   loadTexture(src, nearest = false) {
@@ -273,6 +475,14 @@ class PointingTerrain3D {
     this.animationFrame = requestAnimationFrame(() => this.animate());
     this.resize();
     this.controls?.update();
+    if (this.northLabel && this.camera) {
+      const labelHeight = THREE.MathUtils.clamp(
+        this.camera.position.distanceTo(this.northLabel.position) * 0.035,
+        520,
+        1800,
+      );
+      this.northLabel.scale.set(labelHeight * 2, labelHeight, 1);
+    }
     this.renderer.render(this.scene, this.camera);
   }
 
@@ -287,9 +497,15 @@ class PointingTerrain3D {
       else object.material?.dispose?.();
     });
     Object.values(this.maps || {}).forEach((texture) => texture?.dispose?.());
+    this.northLabelTexture?.dispose?.();
+    this.northLabelTexture = null;
     this.renderer = null;
     this.scene = null;
     this.terrain = null;
+    this.scanCoverage = null;
+    this.northIndicator = null;
+    this.northLabel = null;
+    this.mountDirectionIndicator = null;
   }
 }
 

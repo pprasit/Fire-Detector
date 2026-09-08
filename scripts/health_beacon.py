@@ -8,13 +8,10 @@ import json
 import logging
 import signal
 import socket
-import ssl
 import threading
 import time
 from pathlib import Path
 from typing import Any
-from urllib.error import HTTPError
-from urllib.parse import urlsplit
 from urllib.request import urlopen
 
 import RPi.GPIO as GPIO
@@ -28,6 +25,12 @@ STATUS_POLL_SECONDS = 0.2
 LED_TICK_SECONDS = 0.02
 INTERNET_CHECK_SECONDS = 2.0
 INTERNET_CONFIRMATIONS = 3
+PUBLIC_INTERNET_PROBE_TIMEOUT_SECONDS = 2.0
+NARIT_SERVICE_PROBE_TIMEOUT_SECONDS = 2.0
+PUBLIC_INTERNET_ENDPOINTS = (
+    ("operations.narit.or.th", 443),
+    ("1.1.1.1", 443),
+)
 RAPID_BLINK_SECONDS = 0.1
 MODE_HEALTHY = "healthy"
 MODE_THERMAL_MISSING = "thermal_missing"
@@ -112,29 +115,22 @@ def telemetry_endpoint_reachable(timeout: float) -> bool:
         return False
 
 
-def fire_detector_server_url() -> tuple[str, str]:
-    settings = json.loads(SETTINGS_PATH.read_text(encoding="utf-8"))
-    remote = settings.get("mount_agent", {}).get("remote", {})
-    upload_url = str(remote.get("media_upload_url") or "").strip()
-    parsed = urlsplit(upload_url)
-    if parsed.scheme != "https" or not parsed.netloc:
-        raise ValueError("Fire Detector media server URL is not configured")
-    return f"{parsed.scheme}://{parsed.netloc}/", str(remote.get("ca_file") or "").strip()
-
-
 def internet_reachable(timeout: float) -> bool:
-    """Treat an HTTPS response from the configured Fire Detector server as online."""
-    try:
-        server_url, ca_file = fire_detector_server_url()
-        context = ssl.create_default_context(cafile=ca_file or None)
-        with urlopen(server_url, timeout=timeout, context=context) as response:
-            # Any valid HTTP response proves the configured server is reachable.
-            return 100 <= response.status <= 599
-    except HTTPError:
-        # 401/403/404 still prove that the HTTPS server answered us.
-        return True
-    except (OSError, ValueError, json.JSONDecodeError):
-        return False
+    """Check public routing independently from the private NARIT service path.
+
+    ICMP is intentionally not used because mobile providers and firewalls may
+    drop ping while TCP/HTTPS traffic is healthy. Reaching either the production
+    dashboard or a public fallback over TCP 443 proves that Internet routing is
+    available; telemetry and media endpoints are evaluated separately.
+    """
+    probe_timeout = max(float(timeout), PUBLIC_INTERNET_PROBE_TIMEOUT_SECONDS)
+    for endpoint in PUBLIC_INTERNET_ENDPOINTS:
+        try:
+            with socket.create_connection(endpoint, timeout=probe_timeout):
+                return True
+        except OSError:
+            continue
+    return False
 
 
 def beacon_state(status: dict[str, Any], cameras: dict[str, Any],
@@ -232,7 +228,9 @@ def monitor_status(
     while not stopped.is_set():
         now = time.monotonic()
         if now >= next_internet_check:
-            if telemetry_endpoint_reachable(request_timeout):
+            if telemetry_endpoint_reachable(
+                max(request_timeout, NARIT_SERVICE_PROBE_TIMEOUT_SECONDS)
+            ):
                 telemetry_successes += 1
                 telemetry_failures = 0
                 if telemetry_successes >= INTERNET_CONFIRMATIONS:

@@ -1,0 +1,76 @@
+{
+  "cached": true,
+  "curvature": {
+    "drop_at_radius_m": 27.31,
+    "enabled": true,
+    "refraction_coefficient": 0.13
+  },
+  "dem": {
+    "available": true,
+    "bounds": {
+      "east": 98.20472222222222,
+      "north": 18.663611111111113,
+      "south": 18.304166666666667,
+      "west": 97.82555555555555
+    },
+    "elevation_max_m": 1648.5,
+    "elevation_min_m": 250.4,
+    "height": 1294,
+    "path": "data/dem/output_hh.tif",
+    "width": 1365
+  },
+  "grid_orientation": {
+    "column_direction": "east",
+    "crs": "local-east-north",
+    "device_azimuth_for_true_north_deg": 90.0,
+    "north_up": true,
+    "row_direction": "south"
+  },
+  "grid_resolution_m": 30.0,
+  "grid_size": 1334,
+  "imagery": {
+    "attribution": "Tiles \u00a9 Esri and imagery providers",
+    "available": true,
+    "detail_available": true,
+    "detail_ground_resolution_m": 2.441,
+    "detail_radius_m": 5000.0,
+    "detail_texture_size_px": 4096,
+    "ground_resolution_m": 9.766,
+    "precision_available": true,
+    "precision_ground_resolution_m": 0.977,
+    "precision_radius_m": 1000.0,
+    "precision_texture_size_px": 2048,
+    "source": "ArcGIS World Imagery",
+    "texture_size_px": 4096
+  },
+  "ok": true,
+  "radius_km": 20.0,
+  "raster": {
+    "depth_m": 40000.0,
+    "elevation_max_m": 1648.5,
+    "elevation_min_m": 250.4,
+    "height": 1334,
+    "height_height": 384,
+    "height_src": "/api/pointing/cache/pointing_a3b967f91a8aaafee85e_height.png",
+    "height_width": 384,
+    "satellite_detail_src": "/api/pointing/cache/pointing_a3b967f91a8aaafee85e_satellite_detail.jpg",
+    "satellite_high_resolution_src": "/api/pointing/cache/pointing_a3b967f91a8aaafee85e_satellite.jpg",
+    "satellite_precision_src": "/api/pointing/cache/pointing_a3b967f91a8aaafee85e_satellite_precision.jpg",
+    "satellite_src": "/api/pointing/cache/pointing_a3b967f91a8aaafee85e_satellite.jpg",
+    "src": "/api/pointing/cache/pointing_a3b967f91a8aaafee85e.png",
+    "terrain_src": "/api/pointing/cache/pointing_a3b967f91a8aaafee85e.png",
+    "visibility_src": "/api/pointing/cache/pointing_a3b967f91a8aaafee85e_visibility.png",
+    "width": 1334,
+    "width_m": 40000.0
+  },
+  "station": {
+    "azimuth_north_offset_deg": 90.0,
+    "elevation_above_ground_m": 10.0,
+    "elevation_m": 1022.3,
+    "ground_elevation_m": 1012.3,
+    "latitude": 18.48389,
+    "longitude": 98.01517,
+    "name": "NARIT#1",
+    "source": "settings"
+  }
+}

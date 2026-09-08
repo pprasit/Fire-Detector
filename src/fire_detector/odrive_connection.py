@@ -164,6 +164,7 @@ def read_dual_drive_status(
     *,
     telemetry_only: bool = False,
     previous: ODriveStatus | None = None,
+    refresh_power: bool = False,
 ) -> ODriveStatus:
     """Read Azimuth/Altitude status from two single-axis ODrive devices."""
 
@@ -173,16 +174,26 @@ def read_dual_drive_status(
         _read_axis_status(
             _get(azimuth_device, "axis0"), "azimuth.axis0", "Azimuth", azimuth_device,
             telemetry_only=telemetry_only, previous=previous.axes[0] if previous else None,
+            refresh_power=refresh_power,
         ),
         _read_axis_status(
             _get(altitude_device, "axis0"), "altitude.axis0", "Altitude", altitude_device,
             telemetry_only=telemetry_only, previous=previous.axes[1] if previous else None,
+            refresh_power=refresh_power,
         ),
     )
     if telemetry_only and previous is not None:
         serials = previous.device_serials
-        vbus_voltage = previous.vbus_voltage
-        ibus = previous.ibus
+        if refresh_power:
+            vbus_values = [
+                value for value in (axis.drive_vbus_voltage for axis in axes) if value is not None
+            ]
+            ibus_values = [value for value in (axis.drive_ibus for axis in axes) if value is not None]
+            vbus_voltage = min(vbus_values) if vbus_values else None
+            ibus = sum(ibus_values) if ibus_values else None
+        else:
+            vbus_voltage = previous.vbus_voltage
+            ibus = previous.ibus
         serial_number = previous.serial_number
         firmware_version = previous.firmware_version
         hardware_version = previous.hardware_version
@@ -226,9 +237,15 @@ def _read_axis_status(
     *,
     telemetry_only: bool = False,
     previous: AxisStatus | None = None,
+    refresh_power: bool = False,
 ) -> AxisStatus:
     def config_value(field: str, getter: Any) -> Any:
         if telemetry_only and previous is not None:
+            return getattr(previous, field)
+        return getter()
+
+    def power_value(field: str, getter: Any) -> Any:
+        if telemetry_only and previous is not None and not refresh_power:
             return getattr(previous, field)
         return getter()
 
@@ -302,8 +319,8 @@ def _read_axis_status(
         drive_serial=config_value("drive_serial", lambda: _get(device, "serial_number")),
         drive_firmware=config_value("drive_firmware", lambda: _version(device, "fw") if device is not None else "unknown"),
         drive_hardware=config_value("drive_hardware", lambda: _version(device, "hw") if device is not None else "unknown"),
-        drive_vbus_voltage=config_value("drive_vbus_voltage", lambda: _get_float(device, "vbus_voltage")),
-        drive_ibus=config_value("drive_ibus", lambda: _get_float(device, "ibus")),
+        drive_vbus_voltage=power_value("drive_vbus_voltage", lambda: _get_float(device, "vbus_voltage")),
+        drive_ibus=power_value("drive_ibus", lambda: _get_float(device, "ibus")),
         position_gain=config_value("position_gain", lambda: _get_path_float(axis, "controller.config.pos_gain")),
         velocity_gain=config_value("velocity_gain", lambda: _get_path_float(axis, "controller.config.vel_gain")),
         velocity_integrator_gain=config_value("velocity_integrator_gain", lambda: _get_path_float(axis, "controller.config.vel_integrator_gain")),

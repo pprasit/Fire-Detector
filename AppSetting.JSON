@@ -5,7 +5,15 @@
     "ccw_pull": "down",
     "cw_active_high": true,
     "cw_pin": 13,
-    "cw_pull": "down"
+    "cw_pull": "down",
+    "source": "node_red"
+  },
+  "camera_calibration": {
+    "step_px": 10,
+    "visible_crop_height_px": 700,
+    "visible_crop_width_px": 1200,
+    "visible_offset_x_px": -10,
+    "visible_offset_y_px": 170
   },
   "camera_metadata": {
     "thermal_camera": {
@@ -43,13 +51,13 @@
   "motion_limits": {
     "altitude_current_limit_amp": 20.0,
     "altitude_lower_limit_deg": -45.0,
-    "altitude_position_offset_deg": 178.0,
+    "altitude_position_offset_deg": 173.087364,
     "altitude_position_scale": 1.0,
     "altitude_upper_limit_deg": 155.0,
     "azimuth_ccw_limit_deg": -300.0,
     "azimuth_current_limit_amp": 20.0,
-    "azimuth_cw_limit_deg": 300.0,
-    "azimuth_position_offset_deg": 125.0,
+    "azimuth_cw_limit_deg": 330.0,
+    "azimuth_position_offset_deg": 22.881411,
     "azimuth_position_scale": -1.0,
     "slew_rate_deg_per_sec": 20.0
   },
@@ -81,12 +89,38 @@
       "telemetry_sec": 0.2
     }
   },
+  "pointing_alignment": {
+    "latest": {
+      "altitude_position_scale": 1.0,
+      "azimuth_position_scale": -1.0,
+      "calculated_altitude_position_offset_deg": 173.087364,
+      "calculated_azimuth_position_offset_deg": 22.881411,
+      "camera_offset_altitude_deg": 0.0,
+      "camera_offset_azimuth_deg": 0.0,
+      "dem_altitude_deg": -4.611,
+      "dem_azimuth_deg": 277.869,
+      "expected_mount_altitude_deg": -4.611,
+      "expected_mount_azimuth_deg": 277.869,
+      "grid_cell": "R0799C0648",
+      "latitude": 18.447984,
+      "longitude": 98.009939,
+      "previous_altitude_position_offset_deg": 178.0,
+      "previous_azimuth_position_offset_deg": 125.0,
+      "raw_altitude_encoder_deg": 182.301636,
+      "raw_azimuth_encoder_deg": 59.249589,
+      "residual_altitude_deg": -4.912636,
+      "residual_azimuth_deg": 102.118589,
+      "saved_at": "2026-09-02T14:39:50.309+07:00",
+      "telemetry_altitude_deg": 0.301636,
+      "telemetry_azimuth_deg": 175.750411
+    }
+  },
   "simulation_mode": {
     "enabled": false
   },
   "station": {
     "azimuth_north_offset_deg": 90.0,
-    "elevation_above_ground_m": 40.0,
+    "elevation_above_ground_m": 10.0,
     "latitude": 18.48389,
     "longitude": 98.01517,
     "name": "NARIT#1"

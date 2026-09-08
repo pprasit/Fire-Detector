@@ -19,7 +19,7 @@
     <link rel="shortcut icon" type="image/png" href="{{ url_for('static', filename='img/narit-smart-wildfire-favicon.png') }}?v=2">
     <meta name="theme-color" content="#071014">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}?v=85">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/mission_control.css') }}?v=32">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mission_control.css') }}?v=37">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/tabs.css') }}?v=2">
   </head>
   <body>
@@ -576,9 +576,18 @@
         <div class="report-tabs tab-list system-tabs" role="tablist" aria-label="Report type">
           <button class="tab-button system-tab active" type="button" role="tab" aria-selected="true" data-report-tab="current">Current Using</button>
           <button class="tab-button system-tab" type="button" role="tab" aria-selected="false" data-report-tab="internet">Internet Speed</button>
+          <button class="tab-button system-tab" type="button" role="tab" aria-selected="false" data-report-tab="power">Power Consumption</button>
+          <button class="tab-button system-tab" type="button" role="tab" aria-selected="false" data-report-tab="health">Controller Health</button>
         </div>
 
         <div class="report-current-panel" data-report-panel="current">
+          <div class="report-loading-overlay" data-report-loader="current" role="status" aria-live="polite" hidden>
+            <span class="report-loading-spinner" aria-hidden="true"></span>
+            <strong data-report-loading-title>Loading Current Using</strong>
+            <small data-report-loading-detail>Loading 24-hour drive telemetry…</small>
+            <span class="report-loading-progress" aria-hidden="true"><i></i></span>
+            <em data-report-loading-elapsed>Elapsed 0.0s • Usually under 5s</em>
+          </div>
           <article class="report-axis-chart">
             <header>
               <div class="report-axis-title"><h3>Azimuth</h3></div>
@@ -604,16 +613,96 @@
           </article>
         </div>
         <div class="report-internet-panel" data-report-panel="internet" hidden>
+          <div class="report-loading-overlay" data-report-loader="internet" role="status" aria-live="polite" hidden>
+            <span class="report-loading-spinner" aria-hidden="true"></span>
+            <strong data-report-loading-title>Loading Internet Speed</strong>
+            <small data-report-loading-detail>Loading 7-day network measurements…</small>
+            <span class="report-loading-progress" aria-hidden="true"><i></i></span>
+            <em data-report-loading-elapsed>Elapsed 0.0s • Usually under 5s</em>
+          </div>
           <article class="report-axis-chart report-network-chart">
             <header>
               <div class="report-axis-title"><h3>Internet Speed • Last 7 Days</h3></div>
               <div class="report-chart-metrics">
-                <span><small>DOWNLOAD</small><strong id="reportNetworkDownload">-- Mbps</strong><em id="reportNetworkLatency">Latency -- ms</em></span>
-                <span><small>UPLOAD</small><strong id="reportNetworkUpload">-- Mbps</strong><em>Measured every 15 min</em></span>
+                <span><small id="reportNetworkDownloadLabel">USED DOWNLOAD</small><strong id="reportNetworkDownload">-- Mbps</strong><em id="reportNetworkLatency">Interface traffic</em></span>
+                <span><small id="reportNetworkUploadLabel">USED UPLOAD</small><strong id="reportNetworkUpload">-- Mbps</strong><em id="reportNetworkCadence">Sampled every 1 sec</em></span>
               </div>
-              <span class="report-chart-legend"><i class="current-key"></i> Download (Mbps)<i class="velocity-key"></i> Upload (Mbps)</span>
+              <div class="report-network-chart-controls">
+                <select class="mc-select" id="reportNetworkCategorySelect" aria-label="Internet graph category">
+                  <option value="capacity">Capacity · Tested limit</option>
+                  <option value="used" selected>Used · Actual traffic</option>
+                  <option value="free">Free · Capacity minus used</option>
+                </select>
+                <button class="report-capacity-test" id="reportCapacityTest" type="button">Run Manual Test</button>
+                <small class="report-capacity-test-status" id="reportCapacityTestStatus">Requires both publishers stopped</small>
+                <span class="report-chart-legend" id="reportNetworkChartLegend"><i class="current-key"></i><span data-network-download-legend>Capacity Download</span><i class="velocity-key"></i><span data-network-upload-legend>Capacity Upload</span></span>
+              </div>
             </header>
             <canvas id="reportNetworkChart" width="1400" height="620"></canvas>
+          </article>
+        </div>
+        <div class="report-power-panel" data-report-panel="power" hidden>
+          <div class="report-loading-overlay" data-report-loader="power" role="status" aria-live="polite" hidden>
+            <span class="report-loading-spinner" aria-hidden="true"></span>
+            <strong data-report-loading-title>Loading Power Consumption</strong>
+            <small data-report-loading-detail>Loading 24-hour measured power history…</small>
+            <span class="report-loading-progress" aria-hidden="true"><i></i></span>
+            <em data-report-loading-elapsed>Elapsed 0.0s • Usually under 5s</em>
+          </div>
+          <article class="report-axis-chart report-power-chart">
+            <header>
+              <div class="report-axis-title"><h3>Power Consumption • Last 24 Hours</h3></div>
+              <div class="report-chart-metrics">
+                <span><small>5 SEC AVG POWER</small><strong id="reportPowerCurrent">-- W</strong><em id="reportPowerAxes">AZ -- W • ALT -- W</em></span>
+                <span><small>24 HOUR ENERGY</small><strong id="reportPowerEnergy">-- kWh</strong><em id="reportPowerAverage">Average -- W</em></span>
+                <span><small>ENERGY USED</small><strong id="reportPowerWattHours">-- Wh</strong><em id="reportPowerAxisWattHours">AZ -- Wh • ALT -- Wh</em></span>
+              </div>
+              <div class="report-power-chart-controls">
+                <select class="mc-select" id="reportPowerDeviceSelect" aria-label="Power graph device">
+                  <option value="total">● Total · All measured</option>
+                  <option value="azimuth">● Azimuth</option>
+                  <option value="altitude">● Altitude</option>
+                  <option value="raspberry_pi">● Raspberry Pi · PMIC est.</option>
+                </select>
+                <span class="report-chart-legend" id="reportPowerChartLegend"><i class="total-key"></i><span data-power-legend-label>Total measured (W)</span></span>
+              </div>
+            </header>
+            <canvas id="reportPowerChart" width="1400" height="620"></canvas>
+          </article>
+        </div>
+        <div class="report-health-panel" data-report-panel="health" hidden>
+          <div class="report-loading-overlay" data-report-loader="health" role="status" aria-live="polite" hidden>
+            <span class="report-loading-spinner" aria-hidden="true"></span>
+            <strong data-report-loading-title>Loading Controller Health</strong>
+            <small data-report-loading-detail>Loading 24-hour controller resource history…</small>
+            <span class="report-loading-progress" aria-hidden="true"><i></i></span>
+            <em data-report-loading-elapsed>Elapsed 0.0s • Usually under 5s</em>
+          </div>
+          <article class="report-axis-chart report-health-chart">
+            <header>
+              <div class="report-axis-title">
+                <h3 id="reportHealthTitle">Storage Usage • Last 24 Hours</h3>
+                <span class="report-health-state is-healthy" id="reportHealthState"><i></i> HEALTHY</span>
+              </div>
+              <div class="report-chart-metrics" aria-label="Controller health summary">
+                <span><small>CURRENT</small><strong id="reportHealthCurrent">-- %</strong><em id="reportHealthDetail">Waiting for samples</em></span>
+                <span><small>24 HOUR AVG</small><strong id="reportHealthAverage">-- %</strong><em id="reportHealthUptime">Uptime --</em></span>
+                <span><small>24 HOUR PEAK</small><strong id="reportHealthPeak">-- %</strong><em>Rolling 24-hour window</em></span>
+              </div>
+              <div class="report-health-chart-controls">
+                <label for="reportHealthMetricSelect">HEALTH METRIC</label>
+                <select class="mc-select" id="reportHealthMetricSelect" aria-label="Controller health graph metric">
+                  <option value="storage">● Storage Usage</option>
+                  <option value="cpu">● CPU Usage</option>
+                  <option value="memory">● RAM Usage</option>
+                  <option value="temperature">● CPU Temperature</option>
+                  <option value="load">● System Load</option>
+                  <option value="swap">● Swap Usage</option>
+                </select>
+                <span class="report-chart-legend" id="reportHealthChartLegend"><i></i><span>Storage Usage (%)</span></span>
+              </div>
+            </header>
+            <canvas id="reportHealthChart" width="1400" height="620"></canvas>
           </article>
         </div>
         </section>
@@ -1263,8 +1352,8 @@
       </footer>
     </section>
 
-    <script type="module" src="{{ url_for('static', filename='js/pointing_terrain_3d.js') }}?v=4"></script>
-  <script src="{{ url_for('static', filename='js/dashboard.js') }}?v=62"></script>
+    <script type="module" src="{{ url_for('static', filename='js/pointing_terrain_3d.js') }}?v=8"></script>
+  <script src="{{ url_for('static', filename='js/dashboard.js') }}?v=74"></script>
     <script src="{{ url_for('static', filename='js/mobile_panels.js') }}?v=12"></script>
   </body>
 </html>
