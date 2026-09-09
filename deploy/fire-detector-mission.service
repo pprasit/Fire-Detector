@@ -1,0 +1,19 @@
+[Unit]
+Description=Fire Detector Mission Control worker
+Wants=network-online.target
+After=network-online.target fire-detector.service
+Requires=fire-detector.service
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/Public/Fire-Detector
+ExecStart=/home/pi/Public/Fire-Detector/.venv/bin/python /home/pi/Public/Fire-Detector/scripts/mission_worker.py --poll-seconds 3 --timeout 8
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

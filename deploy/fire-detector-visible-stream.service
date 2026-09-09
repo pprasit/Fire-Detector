@@ -1,0 +1,17 @@
+[Unit]
+Description=Publish live visible H.264 stream to MediaMTX
+Wants=network-online.target
+After=network-online.target tailscaled.service fire-detector.service
+Requires=fire-detector.service
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/Public/Fire-Detector
+ExecStart=/home/pi/Public/Fire-Detector/.venv/bin/python /home/pi/Public/Fire-Detector/scripts/publish_live_stream.py --camera visible
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

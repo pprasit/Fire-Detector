@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<title>คู่มือ Mount Agent API</title>
+<style>
+  @page { size: A4; margin: 16mm 15mm 18mm; @bottom-right { content: "หน้า " counter(page); color:#607080; font-size:9px; } }
+  * { box-sizing: border-box; }
+  body { margin:0; color:#17252c; font-family:"Noto Sans Thai","FreeSans",sans-serif; font-size:10.5pt; line-height:1.52; }
+  h1,h2,h3 { color:#0d5544; page-break-after:avoid; }
+  h1 { font-size:26pt; line-height:1.15; margin:0 0 12px; }
+  h2 { font-size:17pt; border-bottom:2px solid #35a36f; padding-bottom:5px; margin-top:26px; }
+  h3 { font-size:12.5pt; margin:18px 0 6px; }
+  p { margin:6px 0 10px; }
+  ul,ol { margin:5px 0 12px 24px; }
+  li { margin:3px 0; }
+  code { font-family:"Noto Sans Mono","FreeMono",monospace; font-size:8.6pt; }
+  pre { background:#0d1b20; color:#e8f7f1; border-left:4px solid #35a36f; padding:10px 12px; white-space:pre-wrap; overflow-wrap:anywhere; page-break-inside:avoid; line-height:1.42; }
+  table { width:100%; border-collapse:collapse; margin:9px 0 17px; font-size:9.2pt; }
+  th { background:#0d5544; color:white; text-align:left; }
+  th,td { border:1px solid #b8c9c3; padding:6px 7px; vertical-align:top; }
+  tr:nth-child(even) td { background:#f2f8f5; }
+  .cover { height:252mm; display:flex; flex-direction:column; justify-content:center; page-break-after:always; background:linear-gradient(145deg,#edf8f3 0%,#fff 58%); padding:20mm; border-top:12px solid #136d55; }
+  .cover .eyebrow { color:#d86c25; font-weight:bold; letter-spacing:1px; }
+  .cover .subtitle { font-size:14pt; color:#49645c; max-width:135mm; }
+  .cover .meta { margin-top:32mm; color:#60736d; }
+  .notice { border:1px solid #e2a36f; background:#fff5eb; padding:10px 12px; margin:12px 0; page-break-inside:avoid; }
+  .good { border-color:#65aa87; background:#edf8f2; }
+  .tag { display:inline-block; border-radius:10px; padding:1px 7px; color:white; background:#287f61; font-size:8pt; }
+  .danger { background:#a43e36; }
+  .muted { color:#61746e; }
+  .page-break { page-break-before:always; }
+  .small { font-size:8.7pt; }
+</style>
+</head>
+<body>
+<section class="cover">
+  <div class="eyebrow">FIRE DETECTION SYSTEM</div>
+  <h1>คู่มือการใช้งาน<br>Mount Agent API</h1>
+  <p class="subtitle">Local Control Interface และ Remote Device Protocol<br>รูปแบบ JSON สำหรับควบคุม Mount และรับข้อมูล Telemetry</p>
+  <div class="meta">
+    <b>Protocol version:</b> 1.0<br>
+    <b>เอกสาร:</b> ฉบับเริ่มต้นสำหรับนักพัฒนาระบบ<br>
+    <b>อัปเดต:</b> 6 สิงหาคม 2026
+  </div>
+</section>
+
+<h2>1. ภาพรวม</h2>
+<p>Mount Agent เริ่มทำงานพร้อม <code>fire-detector.service</code> และเชื่อมคำสั่ง API เข้ากับ safety layer เดียวกับ Dashboard/ODriveMonitor เพื่อให้ motion limit, สถานะการเชื่อมต่อ Drive และเงื่อนไข enable ถูกตรวจในจุดเดียวกัน</p>
+<table>
+<tr><th>Interface</th><th>การเชื่อมต่อ</th><th>วัตถุประสงค์</th><th>สถานะเริ่มต้น</th></tr>
+<tr><td>Local Control Interface</td><td>Unix domain socket<br><code>/run/fire-detector/mount-agent.sock</code></td><td>App ที่ทำงานในเครื่อง Mount เดียวกัน มี latency ต่ำและไม่ผ่าน network stack ภายนอก</td><td>เปิด</td></tr>
+<tr><td>Remote Device Protocol</td><td>Mount เชื่อม TCP/TLS ออกไปหา Socket Receiver</td><td>ควบคุมและรับ telemetry จากศูนย์กลาง/LAN/Internet โดยไม่เปิด inbound port ที่ Mount</td><td>ปิดจนกว่าจะตั้งค่า credential</td></tr>
+</table>
+<div class="notice good"><b>หลักสำคัญ:</b> ทั้งสอง interface ใช้ JSON schema และชื่อคำสั่งเหมือนกัน แต่ Remote เพิ่ม TLS, device authentication และ command allowlist</div>
+<h3>Transport และ latency</h3>
+<ul><li>Client บนเครื่อง Mount ควรเปิด Unix domain socket ค้างไว้หนึ่ง connection เป็นช่องทาง control ที่ overhead ต่ำสุดและไม่เปิด network port</li><li>งานระยะไกลใช้ TCP/TLS connection แบบ persistent ที่ Mount เชื่อมออกไปหา Receiver จึงไม่ handshake ใหม่ทุกคำสั่งและใช้ได้หลัง router/CGNAT</li><li>Local subscription ตั้งช่วงได้ 100–60,000 ms (สูงสุด 10 Hz); Remote telemetry ตั้ง <code>telemetry_sec</code> ได้ต่ำสุด 0.1 วินาที</li><li>WebSocket <code>/ws/status</code> ของ dashboard เป็น read-only status stream ไม่ใช่ Mount Agent control transport</li></ul>
+<p>TCP เป็น byte stream: client ต้องสะสมข้อมูลจนพบ newline และห้ามสมมติว่า <code>recv()</code> หนึ่งครั้งคือ JSON หนึ่ง message ควรใช้ connection เดิมตลอด lease/control session</p>
+
+<h2>2. Message framing และโครงสร้าง JSON</h2>
+<p>Protocol ใช้ NDJSON: หนึ่ง JSON object ต่อหนึ่งบรรทัดและปิดท้ายด้วย newline (<code>\n</code>) ข้อความหนึ่งมีขนาดไม่เกิน 64 KiB</p>
+<h3>Command</h3>
+<pre>{
+  "version": "1.0",
+  "type": "command",
+  "message_id": "cmd-0001",
+  "action": "mount.get_status",
+  "params": {}
+}</pre>
+<table>
+<tr><th>Field</th><th>Required</th><th>คำอธิบาย</th></tr>
+<tr><td><code>version</code></td><td>ใช่</td><td>ต้องเป็น <code>1.0</code></td></tr>
+<tr><td><code>type</code></td><td>ใช่</td><td>คำสั่งต้องเป็น <code>command</code></td></tr>
+<tr><td><code>message_id</code></td><td>ใช่</td><td>ค่าที่ไม่ซ้ำ ใช้ตรวจคำสั่งซ้ำและจับคู่ response</td></tr>
+<tr><td><code>action</code></td><td>ใช่</td><td>ชื่อคำสั่ง เช่น <code>axis.goto</code></td></tr>
+<tr><td><code>params</code></td><td>ใช่</td><td>JSON object; ใช้ <code>{}</code> เมื่อไม่มี parameter</td></tr>
+<tr><td><code>control_lease_id</code></td><td>บางคำสั่ง</td><td>บังคับสำหรับคำสั่งเปลี่ยน state/เคลื่อนที่</td></tr>
+<tr><td><code>expires_at</code></td><td>แนะนำ</td><td>ISO 8601 พร้อม timezone ป้องกันคำสั่งค้างมาทำงานภายหลัง</td></tr>
+</table>
+
+<h3>Response สำเร็จ</h3>
+<pre>{
+  "version": "1.0",
+  "type": "response",
+  "message_id": "rsp-a81...",
+  "correlation_id": "cmd-0001",
+  "action": "mount.get_status",
+  "timestamp": "2026-07-23T15:23:19.632Z",
+  "ok": true,
+  "result": { "...": "..." }
+}</pre>
+<h3>Response ผิดพลาด</h3>
+<pre>{
+  "version": "1.0",
+  "type": "response",
+  "correlation_id": "cmd-0002",
+  "action": "mount.goto",
+  "ok": false,
+  "error": {
+    "code": "CONTROL_LEASE_REQUIRED",
+    "message": "Acquire and maintain a control lease before sending this command.",
+    "details": {}
+  }
+}</pre>
+
+<h2>3. Control lease</h2>
+<p>ในหนึ่งช่วงเวลาจะมีผู้ควบคุมได้เพียงรายเดียว คำสั่งอ่านข้อมูลและคำสั่งหยุดฉุกเฉินไม่ต้องใช้ lease</p>
+<ol>
+  <li>เรียก <code>control.acquire</code> และเก็บ <code>lease_id</code></li>
+  <li>แนบ <code>control_lease_id</code> กับคำสั่งควบคุม</li>
+  <li>เรียก <code>control.renew</code> ก่อน lease หมดอายุ</li>
+  <li>เมื่อจบงาน เรียก <code>control.release</code></li>
+</ol>
+<pre>{"version":"1.0","type":"command","message_id":"lease-1",
+ "action":"control.acquire","params":{"lease_ms":5000}}</pre>
+<p>ช่วง lease ที่ระบบยอมรับคือ 500–30,000 ms หาก connection ปิด lease ของ session นั้นจะถูกปล่อยอัตโนมัติ</p>
+<div class="notice"><b>Fail-safe:</b> <code>mount.stop</code>, <code>mount.disable</code>, <code>axis.stop</code> และ <code>axis.disable</code> เรียกได้โดยไม่ต้องมี lease เพื่อให้หยุดระบบได้เสมอ</div>
+
+<h2>4. รายการคำสั่ง System และสถานะ</h2>
+<table>
+<tr><th>Action</th><th>Lease</th><th>Params / ผลลัพธ์</th></tr>
+<tr><td><code>system.hello</code></td><td>ไม่</td><td>คืน protocol version, device type และ capabilities</td></tr>
+<tr><td><code>system.ping</code></td><td>ไม่</td><td>ตรวจว่า Agent ตอบสนอง พร้อม timestamp</td></tr>
+<tr><td><code>system.get_info</code></td><td>ไม่</td><td>ข้อมูลระบบ/อุปกรณ์</td></tr>
+<tr><td><code>system.get_health</code></td><td>ไม่</td><td>snapshot สุขภาพระบบและ Drive</td></tr>
+<tr><td><code>system.get_capabilities</code></td><td>ไม่</td><td>รายการ action ที่ implementation รองรับ</td></tr>
+<tr><td><code>mount.get_status</code></td><td>ไม่</td><td>snapshot ปัจจุบันของ Mount, axes, sensors และ errors</td></tr>
+</table>
+
+<h3>การตรวจ Run Mode ผ่าน API</h3>
+<p>ทุก snapshot จาก <code>mount.get_status</code>, <code>system.get_health</code>, REST <code>GET /api/status</code> และ WebSocket <code>/ws/status</code> มี field ต่อไปนี้เสมอ:</p>
+<table>
+<tr><th>Field</th><th>Type</th><th>ความหมาย</th></tr>
+<tr><td><code>run_mode</code></td><td>string</td><td><code>simulation</code> เมื่อใช้โมเดลจำลอง หรือ <code>hardware</code> เมื่ออ่าน Drive/Encoder จริง</td></tr>
+<tr><td><code>simulation_mode</code></td><td>boolean</td><td><code>true</code> เฉพาะ Simulation Mode; <code>false</code> ใน Hardware Mode</td></tr>
+</table>
+<p>หากต้องการอ่านเฉพาะโหมดโดยไม่รับ telemetry ทั้งชุด ให้เรียก <code>GET /api/system/run-mode</code>:</p>
+<pre>{
+  "ok": true,
+  "run_mode": "simulation",
+  "simulation_mode": true
+}</pre>
+<div class="notice"><b>ข้อควรระวัง:</b> Client ต้องตรวจ <code>run_mode</code> ก่อนใช้ข้อมูลทดสอบหรือสั่งงาน ห้ามถือว่า <code>connected: true</code> หมายถึงเชื่อมต่อ Hardware จริง เพราะ Simulation Mode รายงาน connected เพื่อให้ทดสอบ API ได้ครบถ้วน</div>
+
+<h2>5. คำสั่ง Mount</h2>
+<table>
+<tr><th>Action</th><th>Lease</th><th>Parameters</th></tr>
+<tr><td><code>mount.enable</code></td><td>ใช่</td><td><code>{}</code> เปิด closed-loop control ของแกนที่พร้อม</td></tr>
+<tr><td><code>mount.disable</code></td><td>ไม่</td><td><code>{}</code> disable ทั้ง Mount</td></tr>
+<tr><td><code>mount.stop</code></td><td>ไม่</td><td><code>{}</code> หยุดการเคลื่อนที่</td></tr>
+<tr><td><code>mount.goto</code></td><td>ใช่</td><td><code>azimuth_deg</code>, <code>altitude_deg</code> อย่างน้อยหนึ่งค่า และ optional <code>max_velocity_deg_per_sec</code></td></tr>
+<tr><td><code>mount.set_velocity</code></td><td>ใช่</td><td><code>azimuth_deg_per_sec</code>, <code>altitude_deg_per_sec</code> อย่างน้อยหนึ่งค่า; ค่าที่ไม่เป็นศูนย์ต้องมี <code>command_timeout_ms</code></td></tr>
+</table>
+<h3>ตัวอย่าง Goto สองแกน</h3>
+<pre>{
+  "version":"1.0", "type":"command", "message_id":"goto-1",
+  "action":"mount.goto", "control_lease_id":"LEASE_ID",
+  "expires_at":"2026-07-23T15:30:05.000Z",
+  "params":{
+    "azimuth_deg":30.0,
+    "altitude_deg":15.0,
+    "max_velocity_deg_per_sec":10.0
+  }
+}</pre>
+<h3>ตัวอย่าง Velocity พร้อม watchdog</h3>
+<pre>{
+  "version":"1.0", "type":"command", "message_id":"vel-1",
+  "action":"mount.set_velocity", "control_lease_id":"LEASE_ID",
+  "params":{
+    "azimuth_deg_per_sec":2.0,
+    "altitude_deg_per_sec":0.0,
+    "command_timeout_ms":500
+  }
+}</pre>
+<p>App ต้องส่งคำสั่ง velocity ใหม่ก่อน 500 ms หากขาดการสื่อสาร watchdog จะสั่งแกนนั้นเป็น 0 โดยอัตโนมัติ ช่วงที่อนุญาตคือ 100–5,000 ms</p>
+
+<h2>6. คำสั่งรายแกน</h2>
+<p>ค่า <code>axis</code> ใช้ <code>azimuth</code>/<code>azm</code> หรือ <code>altitude</code>/<code>alt</code></p>
+<table>
+<tr><th>Action</th><th>Lease</th><th>Parameters</th></tr>
+<tr><td><code>axis.enable</code></td><td>ใช่</td><td><code>{"axis":"azimuth"}</code></td></tr>
+<tr><td><code>axis.disable</code></td><td>ไม่</td><td><code>{"axis":"azimuth"}</code></td></tr>
+<tr><td><code>axis.stop</code></td><td>ไม่</td><td><code>{"axis":"azimuth"}</code></td></tr>
+<tr><td><code>axis.goto</code></td><td>ใช่</td><td><code>axis</code>, <code>position_deg</code>, optional <code>max_velocity_deg_per_sec</code></td></tr>
+<tr><td><code>axis.set_velocity</code></td><td>ใช่</td><td><code>axis</code>, <code>velocity_deg_per_sec</code>, <code>command_timeout_ms</code></td></tr>
+</table>
+<pre>{"version":"1.0","type":"command","message_id":"axis-1",
+ "action":"axis.goto","control_lease_id":"LEASE_ID",
+ "params":{"axis":"altitude","position_deg":20,"max_velocity_deg_per_sec":5}}</pre>
+
+<h2>7. Pointing, Calibration และ Tuning</h2>
+<table>
+<tr><th>Action</th><th>Parameters</th><th>หมายเหตุ</th></tr>
+<tr><td><code>pointing.goto_altaz</code></td><td>เหมือน <code>mount.goto</code></td><td>ต้องมี lease</td></tr>
+<tr><td><code>calibration.start</code></td><td><code>axis</code>, <code>minimum_position_deg</code>, <code>maximum_position_deg</code>, <code>current_amp</code>, <code>velocity_deg_per_sec</code></td><td>ต้องมี lease และผ่าน motion/current limits</td></tr>
+<tr><td><code>calibration.stop</code></td><td><code>axis</code></td><td>หยุด calibration</td></tr>
+<tr><td><code>calibration.get_status</code></td><td>optional <code>axis</code></td><td>อ่านสถานะ</td></tr>
+<tr><td><code>tuning.apply</code></td><td><code>axis</code>, <code>values</code></td><td>ใช้ค่าชั่วคราว; ต้องมี lease</td></tr>
+<tr><td><code>tuning.save</code></td><td><code>axis</code></td><td>เขียน configuration ลง Drive; ต้องมี lease</td></tr>
+</table>
+<pre>{
+  "version":"1.0","type":"command","message_id":"cal-1",
+  "action":"calibration.start","control_lease_id":"LEASE_ID",
+  "params":{
+    "axis":"azimuth",
+    "minimum_position_deg":-20,
+    "maximum_position_deg":20,
+    "current_amp":5,
+    "velocity_deg_per_sec":2
+  }
+}</pre>
+<div class="notice"><b>คำเตือน:</b> Calibration และ Tuning เปลี่ยนพฤติกรรมของ Drive ควรทำโดยผู้ดูแลในพื้นที่ปลอดภัย ค่าเริ่มต้นของ Remote allowlist ไม่อนุญาตคำสั่งกลุ่มนี้</div>
+
+<h2>8. Subscribe Telemetry</h2>
+<pre>{"version":"1.0","type":"command","message_id":"sub-1",
+ "action":"subscribe",
+ "params":{"topics":["axis.telemetry","sensor.status","fault"],"interval_ms":500}}</pre>
+<p>Agent ตอบรับหนึ่งครั้ง จากนั้นส่ง message ชนิด <code>telemetry</code> บน connection เดิม เรียก <code>unsubscribe</code> เพื่อหยุด</p>
+<table>
+<tr><th>Topic</th><th>ข้อมูลหลัก</th></tr>
+<tr><td><code>mount.status</code></td><td>ภาพรวม connected, health, timestamp และ axes</td></tr>
+<tr><td><code>axis.telemetry</code></td><td>position, velocity, current, errors และสถานะแต่ละแกน</td></tr>
+<tr><td><code>sensor.status</code></td><td>สถานะ CCW/CW limit sensor</td></tr>
+<tr><td><code>drive.status</code></td><td>การเชื่อมต่อ, serial, bus power และ health</td></tr>
+<tr><td><code>fault</code></td><td>รายการ drive error events</td></tr>
+<tr><td><code>calibration.status</code></td><td>สถานะกระบวนการ Motor Calibration</td></tr>
+</table>
+
+<h2>9. การใช้งาน Local Control Interface</h2>
+<h3>คำสั่งสำเร็จรูป</h3>
+<pre>cd /home/pi/Public/Fire-Detector
+.venv/bin/python scripts/mount_agent_client.py system.hello
+.venv/bin/python scripts/mount_agent_client.py mount.get_status</pre>
+<h3>ตัวอย่าง Python: connection เดียวพร้อม lease</h3>
+<pre>import json, socket, uuid
+
+s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+s.connect("/run/fire-detector/mount-agent.sock")
+
+def call(action, params=None, lease_id=None):
+    msg = {
+        "version": "1.0", "type": "command",
+        "message_id": str(uuid.uuid4()),
+        "action": action, "params": params or {}
+    }
+    if lease_id:
+        msg["control_lease_id"] = lease_id
+    s.sendall(json.dumps(msg).encode() + b"\n")
+    return json.loads(s.makefile("rb").readline())
+
+lease = call("control.acquire", {"lease_ms": 5000})
+lease_id = lease["result"]["lease_id"]
+print(call("mount.get_status"))
+# ตรวจพื้นที่และความพร้อมก่อนปลด comment คำสั่งควบคุม
+# print(call("mount.enable", lease_id=lease_id))
+# print(call("axis.goto",
+#     {"axis":"altitude", "position_deg":10}, lease_id))
+print(call("control.release", {"lease_id": lease_id}))
+s.close()</pre>
+<p>Unix socket มี mode <code>660</code> และ Agent ตรวจ peer UID โดยอนุญาต root หรือ UID เดียวกับ service เท่านั้น</p>
+
+<h2>10. Remote Device Protocol</h2>
+<p>Mount เป็น TCP client เชื่อมออกไปหา Socket Receiver จึงเหมาะกับระบบที่อยู่หลัง router/CGNAT ลำดับการเชื่อมต่อคือ:</p>
+<ol>
+  <li>TLS handshake และตรวจ CA/hostname (ขั้นต่ำ TLS 1.2)</li>
+  <li>Mount ส่ง <code>hello</code> พร้อม Device ID และ capabilities</li>
+  <li>Server ส่ง <code>auth_challenge</code> ที่มี nonce</li>
+  <li>Mount ตอบ HMAC-SHA256 ของ <code>device_id + nonce + timestamp</code></li>
+  <li>Server ส่ง <code>auth_result</code>; เมื่อผ่านจึงเริ่ม command/telemetry</li>
+  <li>Mount ส่ง heartbeat, telemetry และ reconnect แบบ exponential backoff เมื่อหลุด</li>
+</ol>
+<h3>ตัวอย่าง configuration</h3>
+<pre>"mount_agent": {
+  "local": {
+    "enabled": true,
+    "socket_path": "/run/fire-detector/mount-agent.sock",
+    "mode": "660"
+  },
+  "remote": {
+    "enabled": true,
+    "host": "receiver.example.internal",
+    "port": 15001,
+    "server_name": "receiver.example.internal",
+    "device_id": "NARIT-001",
+    "ca_file": "/etc/fire-detector/ca.pem",
+    "client_cert_file": "/etc/fire-detector/device.crt",
+    "client_key_file": "/etc/fire-detector/device.key",
+    "secret_file": "/etc/fire-detector/device.secret",
+    "secret_env": "FIRE_DETECTOR_DEVICE_SECRET",
+    "heartbeat_sec": 15,
+    "telemetry_sec": 1
+  }
+}</pre>
+<p>Secret ต้องยาวอย่างน้อย 32 bytes และต้องมาจาก <code>secret_file</code> หรือ environment variable ห้ามเพิ่ม field <code>secret</code> ลงใน <code>AppSetting.JSON</code></p>
+
+<h2>11. Camera Frame Ingest API</h2>
+<p>ระบบหลักไม่เปิดกล้อง Thermal หรือ Visible โดยตรง โมดูลกล้องภายนอกเป็นผู้เชื่อมต่อกล้องทั้งสอง แล้วส่งภาพ JPEG/PNG ที่ encode แล้วเข้ามาทาง HTTP API ระบบเก็บเฉพาะเฟรมล่าสุดของแต่ละกล้อง จึงไม่สะสมคิวเมื่อส่งประมาณ 60 FPS</p>
+<h3>วิธีแนะนำสำหรับ 60 FPS: Binary WebSocket</h3>
+<p>ห้ามส่ง byte array เป็น JSON array ของตัวเลขและไม่ควรใช้ Base64 สำหรับสตรีมความถี่สูง ให้เปิด connection เดียวไปที่ <code>ws://192.168.1.105:8000/ws/camera-stream?role=producer&amp;source=live</code> แล้วส่งหนึ่ง binary message ต่อหนึ่งเฟรม:</p>
+<pre>[uint32 big-endian: ความยาว JSON header]
+[JSON header แบบ UTF-8]
+[JPEG/PNG bytes ที่เหลือทั้งหมด]</pre>
+<pre>{"camera":"thermal","mime_type":"image/jpeg",
+ "sha256":"64-lowercase-hex-characters",
+ "metadata":{"producer_sequence":1234,
+             "captured_at":"2026-08-11T10:30:00.000Z",
+             "width":640,"height":512}}</pre>
+<p>byte ของภาพอยู่นอก JSON โดย WebSocket/TCP รักษาลำดับและส่งแบบ reliable, <code>producer_sequence</code> ใช้ตรวจช่องว่างจากต้นทาง และ <code>sha256</code> ใช้ตรวจ payload ระดับ application</p>
+<div class="notice"><b>สำคัญ:</b> ปิด WebSocket per-message compression (<code>compression=None</code> ใน Python) เพราะ JPEG/PNG บีบอัดมาแล้ว การบีบอัดซ้ำเปลือง CPU และทำให้อัตราเฟรมลดลงได้มาก</div>
+<pre>.venv/bin/python API-Doc/examples/04_publish_camera_binary_ws.py \
+  --camera thermal --frame thermal-frame.jpg --fps 60</pre>
+<h3>HTTP compatibility API</h3>
+<table>
+<tr><th>กล้อง</th><th>Endpoint</th></tr>
+<tr><td>Thermal</td><td><code>POST /api/camera-stream/frame/thermal?source=live</code></td></tr>
+<tr><td>Visible</td><td><code>POST /api/camera-stream/frame/visible?source=live</code></td></tr>
+</table>
+<h3>ตัวอย่าง curl</h3>
+<pre>curl -X POST "http://192.168.1.105:8000/api/camera-stream/frame/thermal?source=live" \
+  -H "Content-Type: image/jpeg" \
+  -H 'X-Camera-Metadata: {"captured_at":"2026-08-11T10:30:00.000Z","width":640,"height":512,"producer_sequence":1}' \
+  --data-binary @thermal-frame.jpg</pre>
+<h3>Response เมื่อรับสำเร็จ</h3>
+<pre>HTTP/1.1 202 Accepted
+Content-Type: application/json
+
+{"ok":true,"camera":"thermal","source":"live","sequence":1234}</pre>
+<h3>ตัวอย่าง HTTP แบบต่อเนื่อง</h3>
+<pre>.venv/bin/python API-Doc/examples/03_publish_camera_frames.py \
+  --host 192.168.1.105 --port 8000 \
+  --camera thermal --frame thermal-frame.jpg --fps 60</pre>
+<ul>
+<li><code>Content-Type</code> ต้องเป็น <code>image/jpeg</code> หรือ <code>image/png</code></li>
+<li><code>X-Camera-Metadata</code> เป็น JSON object และไม่บังคับ</li>
+<li>ขนาดแต่ละเฟรมไม่เกิน 16 MiB และ endpoint ไม่รับ raw thermal sensor array</li>
+<li>รันอีก process ด้วย <code>--camera visible</code> เพื่อส่งกล้อง Visible พร้อมกัน</li>
+<li>ตรวจสถานะที่ <code>GET /api/camera-stream</code></li>
+<li>ดูผลที่ <code>/api/camera-mjpeg/live/thermal</code> และ <code>/api/camera-mjpeg/live/visible</code></li>
+</ul>
+<div class="notice"><b>สำหรับ production:</b> โมดูลกล้องควรส่งภาพที่ encode เสร็จแล้วผ่าน LAN ที่เสถียร ตรวจ HTTP status ทุกเฟรม และ reconnect/retry แบบมี backoff เมื่อระบบรับภาพไม่พร้อม</div>
+
+<h2>12. Error codes ที่ควรรองรับ</h2>
+<table>
+<tr><th>Code</th><th>ความหมาย/แนวทางจัดการ</th></tr>
+<tr><td><code>UNSUPPORTED_VERSION</code></td><td>ใช้ protocol version ไม่ตรง</td></tr>
+<tr><td><code>INVALID_JSON</code>, <code>INVALID_MESSAGE_TYPE</code></td><td>ตรวจ JSON/framing/schema</td></tr>
+<tr><td><code>MISSING_MESSAGE_ID</code></td><td>สร้าง ID ที่ไม่ซ้ำให้ทุกคำสั่ง</td></tr>
+<tr><td><code>MESSAGE_TOO_LARGE</code></td><td>ลด payload ให้ต่ำกว่า 64 KiB</td></tr>
+<tr><td><code>RATE_LIMITED</code></td><td>ลดเหลือไม่เกิน 20 commands/sec และทำ backoff</td></tr>
+<tr><td><code>COMMAND_EXPIRED</code></td><td>ไม่ retry คำสั่งเดิม; สร้างคำสั่งใหม่หลังตรวจ state</td></tr>
+<tr><td><code>CONTROL_LEASE_BUSY</code></td><td>มี controller อื่นใช้งานอยู่ ห้ามแย่งควบคุม</td></tr>
+<tr><td><code>CONTROL_LEASE_REQUIRED</code>, <code>CONTROL_LEASE_INVALID</code></td><td>acquire ใหม่และตรวจ session</td></tr>
+<tr><td><code>ACTION_NOT_ALLOWED</code></td><td>คำสั่งไม่อยู่ใน Remote allowlist</td></tr>
+<tr><td><code>INVALID_PARAMETER</code></td><td>ตรวจ parameter, motion limit และช่วงค่า</td></tr>
+<tr><td><code>COMMAND_FAILED</code></td><td>อ่าน health/status ก่อน retry; หลีกเลี่ยง blind retry สำหรับ motion</td></tr>
+</table>
+
+<h2>13. Checklist สำหรับ App ที่ควบคุม Mount</h2>
+<ul>
+  <li>อ่าน <code>mount.get_status</code> และตรวจ Drive/axis/limit ก่อน enable หรือ motion</li>
+  <li>ใช้ connection เดียวตลอด control session และรักษา lease</li>
+  <li>กำหนด <code>expires_at</code> สำหรับคำสั่ง motion จาก Remote</li>
+  <li>velocity ต้องมี watchdog timeout และส่งคำสั่งศูนย์ก่อนจบ session</li>
+  <li>มีปุ่ม Stop ที่เรียก <code>mount.stop</code> ได้โดยไม่ขึ้นกับ lease</li>
+  <li>ใช้ message ID ไม่ซ้ำ และจับ response ด้วย <code>correlation_id</code></li>
+  <li>บันทึก audit log ฝั่ง Socket Receiver: user, device, action, parameters, result, timestamp</li>
+  <li>ไม่เก็บ secret/private key ใน source control หรือหน้าเว็บ</li>
+  <li>Remote server ต้องตรวจสิทธิ์ผู้ใช้ก่อน forward คำสั่งทุกครั้ง</li>
+  <li>ทดสอบด้วยความเร็ว/กระแสต่ำและพื้นที่ปลอดภัยก่อนใช้งานจริง</li>
+</ul>
+
+<p class="small muted">ไฟล์อ้างอิง implementation: <code>src/fire_detector/mount_agent.py</code>, <code>src/fire_detector/web_server.py</code> และ <code>scripts/mount_agent_client.py</code></p>
+<h3>สถานะการ verify — 4 สิงหาคม 2026</h3>
+<p>Automated integration test ครอบคลุม Unix socket จริง, response correlation, duplicate protection, control lease และ telemetry subscription โดยไม่สั่ง hardware รันด้วย <code>PYTHONPATH=src .venv/bin/python -m unittest discover -s tests -v</code> ก่อน production ยังต้องทำ supervised hardware acceptance test เพื่อตรวจทิศทางแกน, software/physical limits, emergency stop, velocity watchdog และ Receiver reconnection</p>
+</body>
+</html>

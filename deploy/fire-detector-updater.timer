@@ -1,0 +1,12 @@
+[Unit]
+Description=Run Fire Detector updater on a configurable interval
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=1min
+AccuracySec=10s
+Persistent=true
+Unit=fire-detector-updater.service
+
+[Install]
+WantedBy=timers.target

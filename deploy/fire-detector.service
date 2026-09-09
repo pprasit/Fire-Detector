@@ -7,6 +7,9 @@ After=network-online.target avahi-daemon.service
 Type=simple
 User=pi
 Group=pi
+RuntimeDirectory=fire-detector
+RuntimeDirectoryMode=0750
+UMask=0007
 WorkingDirectory=/home/pi/Public/Fire-Detector
 Environment=PYTHONUNBUFFERED=1
 ExecStart=/home/pi/Public/Fire-Detector/.venv/bin/python /home/pi/Public/Fire-Detector/scripts/run_monitor.py --host 0.0.0.0 --port 8000

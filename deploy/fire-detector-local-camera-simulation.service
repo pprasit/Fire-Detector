@@ -1,0 +1,18 @@
+[Unit]
+Description=Fire Detector authoritative local camera simulation
+After=fire-detector.service
+Requires=fire-detector.service
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/Public/Fire-Detector
+ExecStart=/home/pi/Public/Fire-Detector/.venv/bin/python /home/pi/Public/Fire-Detector/scripts/publish_local_camera_simulation.py --frame-rate 5
+Restart=always
+RestartSec=2
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

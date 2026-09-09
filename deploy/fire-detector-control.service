@@ -1,0 +1,20 @@
+[Unit]
+Description=Fire Detector WebSocket Control worker
+Wants=network-online.target
+After=network-online.target fire-detector.service
+Requires=fire-detector.service
+Conflicts=fire-detector-mission.service
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/Public/Fire-Detector
+ExecStart=/home/pi/Public/Fire-Detector/.venv/bin/python /home/pi/Public/Fire-Detector/scripts/control_worker.py --enable-motion
+Restart=always
+RestartSec=2
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

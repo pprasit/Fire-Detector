@@ -1,0 +1,1 @@
+# Runtime databases are backed up through the authenticated pull API, not Git.

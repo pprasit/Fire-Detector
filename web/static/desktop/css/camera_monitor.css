@@ -1,0 +1,199 @@
+:root {
+  color-scheme: dark;
+  font-family: Inter, "Segoe UI", sans-serif;
+  background: #050c10;
+  color: #e9f3f6;
+}
+
+* { box-sizing: border-box; }
+
+html,
+body { min-width: 320px; min-height: 100%; margin: 0; }
+
+body {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 78% -10%, rgba(31, 127, 100, .14), transparent 34%),
+    linear-gradient(135deg, #071116, #04090c 70%);
+}
+
+button,
+input,
+select { font: inherit; }
+
+.camera-monitor-shell {
+  display: grid;
+  min-height: 100vh;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.camera-monitor-header {
+  display: flex;
+  min-height: 74px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 10px 18px;
+  border-bottom: 1px solid #24343d;
+  background: rgba(9, 19, 25, .94);
+}
+
+.camera-monitor-brand { display: flex; align-items: center; gap: 12px; }
+.camera-monitor-brand img { width: 48px; height: 48px; object-fit: contain; }
+.camera-monitor-brand small { color: #6f8996; font-size: 9px; font-weight: 800; letter-spacing: .12em; }
+.camera-monitor-brand h1 { margin: 3px 0 0; font-size: 20px; line-height: 1; }
+
+.camera-monitor-status { display: flex; align-items: stretch; gap: 7px; }
+.camera-monitor-status > span {
+  display: grid;
+  min-width: 112px;
+  gap: 4px;
+  padding: 7px 10px;
+  border: 1px solid #263b45;
+  border-radius: 5px;
+  background: rgba(7, 16, 21, .9);
+}
+.camera-monitor-status small { color: #6f8996; font-size: 8px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.camera-monitor-status strong { color: #eaf6f9; font: 800 12px/1.1 "Cascadia Mono", monospace; }
+.camera-monitor-status i { display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: #ffc05a; box-shadow: 0 0 8px currentColor; }
+.camera-monitor-status strong.is-ok { color: #67e391; }
+.camera-monitor-status strong.is-ok i { background: currentColor; }
+.camera-monitor-status strong.is-error { color: #ff7569; }
+.camera-monitor-status strong.is-error i { background: currentColor; }
+
+.camera-monitor-workspace {
+  display: grid;
+  min-height: 0;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 10px;
+  padding: 10px;
+}
+
+.camera-monitor-feeds {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.camera-monitor-feed {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  grid-template-rows: 39px minmax(0, 1fr);
+  border: 1px solid #283b44;
+  border-radius: 6px;
+  background: #03080b;
+}
+
+.camera-monitor-feed > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 12px;
+  border-bottom: 1px solid #283b44;
+  background: #0b151a;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .06em;
+}
+.camera-monitor-feed header span { display: flex; align-items: center; gap: 7px; }
+.camera-monitor-feed header i { width: 8px; height: 8px; border-radius: 50%; background: #ff9b3e; box-shadow: 0 0 9px #ff9b3e; }
+.camera-monitor-feed.is-visible header i { background: #58df83; box-shadow: 0 0 9px #58df83; }
+.camera-monitor-feed header b { padding: 4px 6px; color: #ffc36e; border: 1px solid rgba(255, 163, 66, .38); border-radius: 3px; font-size: 8px; }
+.camera-monitor-feed.is-visible header b { color: #66e995; border-color: rgba(88, 223, 131, .38); }
+.camera-monitor-feed header em { color: #78909b; font: 700 9px/1 "Cascadia Mono", monospace; }
+
+.camera-monitor-viewport { position: relative; min-height: 0; overflow: hidden; background: #020506; }
+.camera-monitor-viewport img { display: block; width: 100%; height: 100%; object-fit: contain; opacity: 0; transition: opacity .12s linear; }
+.camera-monitor-viewport img.is-ready { opacity: 1; }
+.camera-monitor-viewport img.is-error { opacity: .25; }
+
+.camera-reticle {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 64px;
+  height: 64px;
+  transform: translate(-50%, -50%);
+  border: 1px solid rgba(72, 226, 121, .72);
+  border-radius: 50%;
+  box-shadow: 0 0 12px rgba(72, 226, 121, .16);
+  pointer-events: none;
+}
+.camera-reticle::before,
+.camera-reticle::after { content: ""; position: absolute; background: rgba(72, 226, 121, .8); }
+.camera-reticle::before { left: -15px; right: -15px; top: 50%; height: 1px; }
+.camera-reticle::after { top: -15px; bottom: -15px; left: 50%; width: 1px; }
+
+.camera-feed-state {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  margin: 0;
+  padding: 8px 11px;
+  transform: translate(-50%, -50%);
+  color: #9ab0ba;
+  border: 1px solid rgba(115, 145, 159, .25);
+  border-radius: 5px;
+  background: rgba(5, 14, 19, .82);
+  font-size: 10px;
+  white-space: nowrap;
+}
+.camera-feed-state[hidden] { display: none; }
+
+.camera-monitor-direction {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  min-height: 0;
+  padding: 14px;
+  border: 1px solid #283b44;
+  border-radius: 6px;
+  background: rgba(9, 20, 26, .94);
+}
+.direction-title { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-bottom: 12px; border-bottom: 1px solid #263943; }
+.direction-title small { color: #708b98; font-size: 8px; font-weight: 800; letter-spacing: .1em; }
+.direction-title h2 { margin: 3px 0 0; font-size: 16px; }
+.direction-title > span { padding: 5px 7px; color: #ff7d72; border: 1px solid rgba(255, 125, 114, .32); border-radius: 4px; font-size: 8px; font-weight: 900; }
+.direction-title > span.is-armed { color: #63e18e; border-color: rgba(99, 225, 142, .4); }
+.camera-monitor-direction > label { display: grid; gap: 6px; color: #8097a2; font-size: 9px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
+.camera-monitor-direction label > div { display: flex; align-items: center; }
+.camera-monitor-direction select,
+.camera-monitor-direction input { width: 100%; min-height: 38px; padding: 0 10px; color: #ecf7fa; border: 1px solid #304955; border-radius: 4px; outline: none; background: #071117; }
+.camera-monitor-direction input { text-align: right; }
+.camera-monitor-direction label em { align-self: stretch; display: grid; min-width: 72px; place-items: center; color: #8097a2; border: 1px solid #304955; border-left: 0; border-radius: 0 4px 4px 0; font-size: 9px; font-style: normal; }
+
+.direction-pad { display: grid; grid-template-columns: repeat(3, 58px); justify-content: center; gap: 7px; padding: 7px 0; }
+.direction-pad button { width: 58px; height: 48px; color: #92abb6; border: 1px solid #334b57; border-radius: 5px; background: #0d1c23; font-size: 22px; cursor: pointer; }
+.direction-pad button:hover { color: #76e39a; border-color: #4d8b66; background: #11271e; }
+.direction-pad button.is-pressed { color: #08110c; border-color: #75e49b; background: #65d98c; }
+.direction-pad button.is-stop { color: #ff776c; border-color: rgba(255, 106, 94, .46); background: rgba(76, 24, 23, .58); font-size: 14px; }
+.direction-pad button:disabled { opacity: .42; cursor: not-allowed; }
+
+.direction-message { min-height: 38px; margin: 0; padding: 9px; color: #9bb0b9; border: 1px solid rgba(81, 122, 139, .24); border-radius: 4px; background: rgba(3, 11, 15, .7); font-size: 10px; line-height: 1.45; }
+.direction-message.is-ok { color: #68e195; border-color: rgba(104, 225, 149, .3); }
+.direction-message.is-warning { color: #ffc56e; border-color: rgba(255, 197, 110, .3); }
+.direction-message.is-error { color: #ff8277; border-color: rgba(255, 130, 119, .3); }
+.direction-safety { color: #617984; font-size: 9px; line-height: 1.5; }
+
+@media (max-width: 1180px) {
+  .camera-monitor-workspace { grid-template-columns: minmax(0, 1fr); }
+  .camera-monitor-direction { grid-template-columns: minmax(160px, .7fr) minmax(190px, .8fr) auto minmax(220px, 1fr); align-items: center; }
+  .direction-title { align-self: stretch; }
+  .direction-pad { grid-row: span 2; }
+  .direction-message { align-self: stretch; }
+}
+
+@media (max-width: 820px) {
+  .camera-monitor-header { align-items: flex-start; flex-direction: column; }
+  .camera-monitor-status { width: 100%; overflow-x: auto; }
+  .camera-monitor-status > span { min-width: 105px; }
+  .camera-monitor-feeds { grid-template-columns: minmax(0, 1fr); }
+  .camera-monitor-feed { min-height: 52vh; }
+  .camera-monitor-direction { grid-template-columns: minmax(0, 1fr); }
+  .direction-pad { grid-row: auto; }
+}

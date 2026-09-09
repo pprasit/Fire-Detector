@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en" class="api-console-page">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mount API Test Console</title>
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/narit-smart-wildfire-favicon.png') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/api_console.css') }}?v=8">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/mission_control.css') }}?v=21">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/tabs.css') }}?v=2">
+</head>
+<body class="api-console-body industrial-api-layout">
+<aside class="mission-sidebar" aria-label="Primary navigation">
+  <div class="industrial-sidebar-brand">
+    <img src="{{ url_for('static', filename='img/narit-smart-wildfire-mark.png') }}" alt="NARIT Fire Detector">
+    <span><strong>NARIT</strong><small>FIRE DETECTOR</small></span>
+  </div>
+  <section class="industrial-active-mount" aria-label="Active mount">
+    <small>ACTIVE MOUNT</small>
+    <strong>NARIT #1</strong>
+    <span><i></i> ONLINE</span>
+  </section>
+  <nav class="industrial-sidebar-nav" aria-label="Primary navigation">
+    <small>VIEWS</small>
+    <a href="/?view=axis"><i aria-hidden="true"><svg><use href="{{ url_for('static', filename='img/mission-nav-icons.svg') }}#dashboard"></use></svg></i><span>Dashboard</span><kbd>01</kbd></a>
+    <a href="/?view=sky"><i aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"></circle><path d="M4 12h16M7 15c2-2 8-2 10 0"></path></svg></i><span>Horizon View</span><kbd>02</kbd></a>
+    <a href="/?view=pointing"><i aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"></circle><circle cx="12" cy="12" r="3"></circle><path d="M12 2v3M12 19v3M2 12h3M19 12h3"></path></svg></i><span>Pointing Model</span><kbd>03</kbd></a>
+    <a class="active" href="/api-console" aria-current="page"><i aria-hidden="true"><svg><use href="{{ url_for('static', filename='img/mission-nav-icons.svg') }}#api"></use></svg></i><span>API</span><kbd>04</kbd></a>
+    <a href="/?view=camera"><i aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="12" rx="2"></rect><path d="m16 10 5-3v10l-5-3z"></path></svg></i><span>Camera View</span><kbd>05</kbd></a>
+    <small>INSIGHTS</small>
+    <a href="/#event-log"><i aria-hidden="true"><svg><use href="{{ url_for('static', filename='img/mission-nav-icons.svg') }}#reports"></use></svg></i><span>Reports</span><kbd>06</kbd></a>
+    <a href="/?open=settings"><i aria-hidden="true"><svg><use href="{{ url_for('static', filename='img/mission-nav-icons.svg') }}#settings"></use></svg></i><span>Settings</span><kbd>07</kbd></a>
+  </nav>
+  <div class="industrial-sidebar-health">
+    <small>SYSTEM HEALTH</small>
+    <div><i></i><span><strong>All systems nominal</strong><em>API agent monitored live</em></span></div>
+  </div>
+</aside>
+<main class="monitor-shell api-console-shell">
+  <header class="monitor-header api-console-header">
+    <div class="api-console-title">
+      <small>MOUNT CONTROL /</small>
+      <strong>API CONSOLE</strong>
+      <p>Local Control Interface · Protocol 1.0</p>
+    </div>
+    <div class="api-header-actions">
+      <span class="api-connection-state" id="connectionState"><i></i> Checking Agent</span>
+      <a class="api-header-button" href="/API-Doc/Mount-Agent-API-Guide-TH.pdf" target="_blank">คู่มือ API</a>
+      <a class="api-header-button primary" href="/">Dashboard</a>
+    </div>
+  </header>
+
+  <section class="api-warning">
+    <strong>API Test Environment</strong>
+    <span>Motion commands act on the real Mount. Verify the working area and configured limits before acquiring control.</span>
+    <button id="emergencyStop" type="button">STOP MOUNT</button>
+  </section>
+
+  <section class="api-console-grid">
+    <article class="api-panel command-panel">
+      <div class="api-panel-heading">
+        <div><span class="panel-kicker">COMMAND BUILDER</span><h2>Quick Commands</h2></div>
+        <span class="lease-state" id="leaseState">No control lease</span>
+      </div>
+      <div class="quick-command-grid">
+        <button data-quick-action="system.hello">Hello</button>
+        <button data-quick-action="mount.get_status">Mount Status</button>
+        <button data-quick-action="system.get_health">System Health</button>
+        <button data-control-action="acquire">Acquire Control</button>
+        <button data-control-action="renew">Renew Lease</button>
+        <button data-control-action="release">Release Control</button>
+        <button class="command-enable" data-quick-action="mount.enable">Enable Mount</button>
+        <button class="command-danger" data-quick-action="mount.disable">Disable Mount</button>
+      </div>
+      <div class="axis-command-row">
+        <label>Axis<select class="mc-select" id="axisSelect"><option value="azimuth">Azimuth</option><option value="altitude">Altitude</option></select></label>
+        <label>Position (deg)<input id="positionInput" type="number" step="0.1" value="0"></label>
+        <label>Max speed (deg/s)<input id="speedInput" type="number" min="0.1" max="100" step="0.1" value="2"></label>
+        <button id="axisGoto" type="button">Send Axis Goto</button>
+      </div>
+      <div class="motion-readiness">
+        <span>Required sequence:</span>
+        <strong id="leaseReadyState">1. Acquire Control</strong>
+        <strong id="axisArmedState">2. Enable Mount</strong>
+        <strong>3. Send motion command</strong>
+      </div>
+      <div class="axis-command-row velocity-command-row">
+        <label>Velocity axis<select class="mc-select" id="velocityAxisSelect"><option value="azimuth">Azimuth</option><option value="altitude">Altitude</option></select></label>
+        <label>Velocity (deg/s)<input id="velocityInput" type="number" min="-100" max="100" step="0.1" value="1"></label>
+        <label>Watchdog (ms)<input id="watchdogInput" type="number" min="100" max="5000" step="100" value="500"></label>
+        <div class="velocity-actions">
+          <button id="axisVelocityStart" type="button">Start Velocity</button>
+          <button id="axisVelocityStop" class="command-danger" type="button">Stop Axis</button>
+        </div>
+      </div>
+      <label class="editor-label" for="jsonEditor"><span>Raw JSON Command</span><em>Ctrl/Cmd + Enter to send</em></label>
+      <textarea id="jsonEditor" class="code-editor" spellcheck="false">{
+  "version": "1.0",
+  "type": "command",
+  "message_id": "browser-command",
+  "action": "mount.get_status",
+  "params": {}
+}</textarea>
+      <div class="editor-actions">
+        <button id="formatJson" type="button">Format JSON</button>
+        <button id="sendJson" class="primary" type="button">Send Command</button>
+      </div>
+    </article>
+
+    <article class="api-panel response-panel">
+      <div class="api-panel-heading">
+        <div><span class="panel-kicker">LIVE OUTPUT</span><h2>Response &amp; Telemetry</h2></div>
+        <div class="telemetry-controls">
+          <label><input id="telemetryToggle" type="checkbox" checked> Poll status</label>
+          <button id="clearOutput" type="button">Clear</button>
+        </div>
+      </div>
+      <div class="telemetry-summary">
+        <div><span>Azimuth</span><strong id="azimuthApiPosition">--</strong><em>deg</em></div>
+        <div><span>Altitude</span><strong id="altitudeApiPosition">--</strong><em>deg</em></div>
+        <div><span>Connection</span><strong id="driveApiState">--</strong><em>Drives</em></div>
+      </div>
+      <pre class="response-output" id="responseOutput" aria-live="polite">Waiting for a command...</pre>
+    </article>
+
+    <article class="api-panel command-monitor-panel">
+      <div class="api-panel-heading">
+        <div><span class="panel-kicker">SERVER TRACE</span><h2>API Command Monitor</h2></div>
+        <span class="command-monitor-live" id="commandMonitorState"><i></i> Live</span>
+      </div>
+      <div class="command-monitor-summary" aria-label="Command timing summary">
+        <div><span>VISIBLE</span><strong id="commandMonitorCount">0</strong><em>commands</em></div>
+        <div><span>RUNNING</span><strong id="commandMonitorRunning">0</strong><em>now</em></div>
+        <div><span>LAST TOTAL</span><strong id="commandMonitorLatency">--</strong><em>ms</em></div>
+      </div>
+      <div class="command-monitor-controls">
+        <label><input id="showStatusPolls" type="checkbox"> Show status polls</label>
+        <button id="clearCommandMonitor" type="button">Clear</button>
+      </div>
+      <div class="command-monitor-columns" aria-hidden="true">
+        <span>TIME / COMMAND</span><span>SERVER LATENCY</span>
+      </div>
+      <div class="command-monitor-list" id="commandMonitorList" aria-live="polite">
+        <p class="command-monitor-empty">Waiting for API commands…</p>
+      </div>
+      <p class="command-monitor-legend"><b>Policy</b> validation/lease · <b>Queue</b> command wait · <b>Exec</b> control execution · <b>Total</b> server dispatch</p>
+    </article>
+
+    <article class="api-panel python-panel">
+      <div class="api-panel-heading">
+        <div><span class="panel-kicker">CODE EXAMPLE</span><h2>Python API Playground</h2></div>
+        <span class="python-mode-label">Standalone Unix Socket Example</span>
+      </div>
+      <p class="python-help">This is a complete Python file for the selected command. Save it as <code>.py</code> and run it locally on the Mount. The button below executes the equivalent JSON through the protected web adapter; arbitrary server-side Python execution remains blocked.</p>
+      <textarea id="pythonEditor" class="code-editor python-editor" spellcheck="false"></textarea>
+      <div class="editor-actions">
+        <button id="copyPython" type="button">Copy Full Python</button>
+        <button id="resetPython" type="button">Generate from JSON</button>
+        <button id="runPython" class="primary" type="button">Run Equivalent Command</button>
+      </div>
+      <pre class="python-output" id="pythonOutput">Python output will appear here.</pre>
+    </article>
+
+    <article class="api-panel camera-api-panel">
+      <div class="api-panel-heading">
+        <div><span class="panel-kicker">CAMERA INPUT API</span><h2>ส่งภาพ Thermal / Visible เข้าระบบ</h2></div>
+        <span class="camera-api-state" id="cameraApiState">กำลังตรวจสอบ…</span>
+      </div>
+      <p class="python-help">โมดูลกล้องภายนอกส่ง JPEG หรือ PNG เป็น request body โดยตรง ระบบเก็บเฉพาะเฟรมล่าสุด จึงไม่สะสม latency เมื่อส่งประมาณ 60 FPS และระบบหลักจะไม่เชื่อมต่อกล้องโดยตรง</p>
+      <div class="camera-endpoint-grid">
+        <div><span>Thermal</span><code>POST /api/camera-stream/frame/thermal?source=live</code></div>
+        <div><span>Visible</span><code>POST /api/camera-stream/frame/visible?source=live</code></div>
+      </div>
+      <div class="camera-api-tabs system-tabs" role="tablist" aria-label="Camera API examples">
+        <button type="button" class="system-tab active" data-camera-example="curl" role="tab" aria-selected="true">curl</button>
+        <button type="button" class="system-tab" data-camera-example="python" role="tab" aria-selected="false">Binary WebSocket 60 FPS</button>
+        <button type="button" class="system-tab" data-camera-example="response" role="tab" aria-selected="false">Response</button>
+      </div>
+      <pre class="camera-api-example" id="cameraApiExample"></pre>
+      <div class="camera-test-row">
+        <label>Camera<select class="mc-select" id="cameraUploadType"><option value="thermal">Thermal</option><option value="visible">Visible</option></select></label>
+        <label class="camera-file-label">JPEG/PNG<input id="cameraUploadFile" type="file" accept="image/jpeg,image/png"></label>
+        <button id="sendCameraFrame" class="primary" type="button">ส่งเฟรมทดสอบ</button>
+        <button id="copyCameraExample" type="button">คัดลอกตัวอย่าง</button>
+        <button id="refreshCameraStatus" type="button">ดูสถานะ</button>
+      </div>
+      <pre class="camera-test-output" id="cameraTestOutput">เลือกไฟล์ JPEG/PNG เพื่อทดสอบ หรือคัดลอกตัวอย่างไปใช้ในโมดูลกล้อง</pre>
+      <p class="camera-api-links"><a href="/API-Doc/Mount-Agent-API-Guide-TH.pdf" target="_blank">คู่มือภาษาไทย (PDF)</a><a href="/API-Doc/Mount-Agent-API-Guide-EN.pdf" target="_blank">English guide (PDF)</a><a href="/api/camera-stream" target="_blank">Receiver status JSON</a></p>
+    </article>
+
+    <article class="api-panel reference-panel">
+      <div class="api-panel-heading"><div><span class="panel-kicker">REFERENCE</span><h2>Available Actions</h2></div></div>
+      <div class="action-reference">
+        <div><h3>System</h3><code>system.hello</code><code>system.ping</code><code>system.get_info</code><code>system.get_health</code></div>
+        <div><h3>Mount</h3><code>mount.get_status</code><code>mount.enable</code><code>mount.disable</code><code>mount.stop</code><code>mount.goto</code></div>
+        <div><h3>Axis</h3><code>axis.enable</code><code>axis.disable</code><code>axis.stop</code><code>axis.goto</code><code>axis.set_velocity</code></div>
+        <div><h3>Control</h3><code>control.acquire</code><code>control.renew</code><code>control.release</code></div>
+      </div>
+    </article>
+  </section>
+</main>
+<script src="{{ url_for('static', filename='js/api_console.js') }}?v=9"></script>
+</body>
+</html>

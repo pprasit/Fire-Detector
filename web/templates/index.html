@@ -2,28 +2,74 @@
 <html lang="en">
   <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Fire Detector Mount</title>
-    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='img/fire-detector-favicon.svg') }}">
-    <meta name="theme-color" content="#171c32">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <script>
+      (() => {
+        const ua = navigator.userAgent || "";
+        const mobileBrowser =
+          /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua) ||
+          (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+        if (mobileBrowser) {
+          document.documentElement.classList.add("mobile-browser");
+        }
+      })();
+    </script>
+    <title>Narit Fire Detector Mount</title>
+    <link rel="icon" type="image/png" sizes="64x64" href="{{ url_for('static', filename='img/narit-smart-wildfire-favicon.png') }}?v=2">
+    <link rel="shortcut icon" type="image/png" href="{{ url_for('static', filename='img/narit-smart-wildfire-favicon.png') }}?v=2">
+    <meta name="theme-color" content="#071014">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}?v=85">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mission_control.css') }}?v=37">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tabs.css') }}?v=2">
   </head>
   <body>
+    <aside class="mission-sidebar" aria-label="Primary navigation">
+      <div class="mission-sidebar-brand">
+        <img src="{{ url_for('static', filename='img/narit-smart-wildfire-mark.png') }}" alt="NARIT Fire Detector">
+      </div>
+      <nav class="mission-sidebar-nav">
+        <button class="active" type="button" data-mission-nav="dashboard" aria-current="page"><i aria-hidden="true"><svg><use href="{{ url_for('static', filename='img/mission-nav-icons.svg') }}#dashboard"></use></svg></i><span>Dashboard</span></button>
+        <button type="button" data-mission-nav="devices"><i aria-hidden="true"><svg><use href="{{ url_for('static', filename='img/mission-nav-icons.svg') }}#devices"></use></svg></i><span>Devices</span></button>
+        <button type="button" data-mission-nav="alerts"><i aria-hidden="true"><svg><use href="{{ url_for('static', filename='img/mission-nav-icons.svg') }}#alerts"></use></svg></i><span>Alerts</span></button>
+        <a href="/api-console"><i aria-hidden="true"><svg><use href="{{ url_for('static', filename='img/mission-nav-icons.svg') }}#api"></use></svg></i><span>API</span></a>
+        <button type="button" data-view-mode="camera"><i aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="12" rx="2"></rect><path d="m16 10 5-3v10l-5-3z"></path></svg></i><span>Camera View</span></button>
+        <a href="/#event-log"><i aria-hidden="true"><svg><use href="{{ url_for('static', filename='img/mission-nav-icons.svg') }}#reports"></use></svg></i><span>Reports</span></a>
+        <button type="button" data-mission-nav="settings"><i aria-hidden="true"><svg><use href="{{ url_for('static', filename='img/mission-nav-icons.svg') }}#settings"></use></svg></i><span>Settings</span></button>
+      </nav>
+      <div class="mission-sidebar-footer">
+        <span>Status</span>
+        <strong><i></i> All Systems</strong>
+        <em>Nominal</em>
+        <button type="button" data-mission-nav="theme" aria-label="Dark mode"><b aria-hidden="true"><svg><use href="{{ url_for('static', filename='img/mission-nav-icons.svg') }}#moon"></use></svg></b>Dark Mode</button>
+      </div>
+    </aside>
     <main class="monitor-shell">
       <header class="monitor-header">
         <div class="header-copy">
-          <h1 id="pageTitle">Fire Detector Mount</h1>
+          <div class="header-brand">
+            <span class="brand-mark" aria-hidden="true">
+              <img src="{{ url_for('static', filename='img/narit-smart-wildfire-mark.png') }}" alt="">
+            </span>
+            <span class="brand-divider" aria-hidden="true"></span>
+            <span class="brand-text">
+              <h1 id="pageTitle">Narit Fire Detector Mount</h1>
+              <span class="brand-rule" aria-hidden="true"></span>
+              <p id="stationTitle">NARIT#1</p>
+              <span class="brand-operational"><i></i> Mission control online</span>
+            </span>
+          </div>
         </div>
         <div class="motor-controls" aria-label="Motor controls">
-          <div class="view-mode-toggle" role="tablist" aria-label="Dashboard view mode">
-            <button class="active" type="button" data-view-mode="axis" role="tab" aria-selected="true">Axis View</button>
-            <button type="button" data-view-mode="sky" role="tab" aria-selected="false">Horizon View</button>
+          <div class="view-mode-toggle system-tabs" role="tablist" aria-label="Dashboard view mode">
+            <button class="system-tab active" type="button" data-view-mode="axis" role="tab" aria-selected="true">Axis View</button>
+            <button class="system-tab" type="button" data-view-mode="sky" role="tab" aria-selected="false">Horizon View</button>
+            <button class="system-tab" type="button" data-view-mode="pointing" role="tab" aria-selected="false">Pointing Model</button>
           </div>
           <div class="server-uptime" aria-label="Device uptime">
             <span>Device Uptime</span>
             <strong id="serverUptime">--</strong>
           </div>
-          <button class="system-setting" id="systemSetting" type="button">Setting</button>
+          <button class="system-setting" id="systemSetting" type="button"><svg class="header-action-icon" aria-hidden="true"><use href="{{ url_for('static', filename='img/mission-nav-icons.svg') }}#settings"></use></svg>Settings</button>
           <button class="motor-toggle" id="motorToggle" type="button" aria-pressed="false">
             <span class="toggle-track"><span class="toggle-knob"></span></span>
             <span id="motorToggleLabel">Enable</span>
@@ -45,11 +91,12 @@
               </div>
               <span class="axis-chip" id="azimuthStatus">Waiting</span>
             </div>
-            <div class="tab-list" role="tablist" aria-label="AZM status tabs">
-              <button class="tab-button active" type="button" data-tab-button="Azimuth" data-tab-target="axis">Axis Status</button>
-              <button class="tab-button" type="button" data-tab-button="Azimuth" data-tab-target="drive">Drive Status</button>
-              <button class="tab-button" type="button" data-tab-button="Azimuth" data-tab-target="control">Control</button>
-              <button class="tab-button" type="button" data-tab-button="Azimuth" data-tab-target="tuning" title="Right-click to open floating tuning window">Tuning</button>
+            <div class="tab-list system-tabs" role="tablist" aria-label="AZM status tabs">
+              <button class="tab-button system-tab active" type="button" data-tab-button="Azimuth" data-tab-target="axis" role="tab" aria-selected="true">Axis Status</button>
+              <button class="tab-button system-tab" type="button" data-tab-button="Azimuth" data-tab-target="drive" role="tab" aria-selected="false">Drive Status</button>
+              <button class="tab-button system-tab" type="button" data-tab-button="Azimuth" data-tab-target="control" role="tab" aria-selected="false">Control</button>
+              <button class="tab-button system-tab" type="button" data-tab-button="Azimuth" data-tab-target="tuning" role="tab" aria-selected="false" title="Right-click to open floating tuning window">Tuning</button>
+              <button class="tab-button system-tab" type="button" data-tab-button="Azimuth" data-tab-target="motor-calibration" role="tab" aria-selected="false">Motor Calibration</button>
             </div>
             <div class="tab-panel active" data-tab-panel="Azimuth" data-tab-name="axis">
               <dl class="status-readings">
@@ -91,6 +138,11 @@
                   <input name="position_target" type="number" step="0.001" inputmode="decimal">
                   <em>Deg</em>
                 </label>
+                <label>
+                  <span>Move Speed</span>
+                  <input name="position_velocity_target" type="number" min="0" step="0.001" inputmode="decimal" value="10">
+                  <em>Deg/Sec</em>
+                </label>
                 <button class="axis-command-apply" type="button" data-axis-goto="position">Move Position</button>
                 <label>
                   <span>Goto Velocity</span>
@@ -98,70 +150,139 @@
                   <em>Deg/Sec</em>
                 </label>
                 <button class="axis-command-apply" type="button" data-axis-goto="velocity">Apply Velocity</button>
+                <fieldset class="sine-velocity-panel">
+                  <legend>Random Sine Velocity</legend>
+                  <label>
+                    <span>Min Speed</span>
+                    <input name="sine_min_speed" type="number" min="0" step="0.001" inputmode="decimal" value="1">
+                    <em>Deg/Sec</em>
+                  </label>
+                  <label>
+                    <span>Max Speed</span>
+                    <input name="sine_max_speed" type="number" min="0" step="0.001" inputmode="decimal" value="50">
+                    <em>Deg/Sec</em>
+                  </label>
+                  <label>
+                    <span>Min Period</span>
+                    <input name="sine_min_period" type="number" min="0" step="0.001" inputmode="decimal" value="1">
+                    <em>Sec</em>
+                  </label>
+                  <label>
+                    <span>Max Period</span>
+                    <input name="sine_max_period" type="number" min="0" step="0.001" inputmode="decimal" value="4">
+                    <em>Sec</em>
+                  </label>
+                  <div class="sine-velocity-actions">
+                    <button class="axis-command-apply" type="button" data-axis-sine="start">Start</button>
+                    <button type="button" data-axis-sine="stop">Stop</button>
+                  </div>
+                </fieldset>
                 <p class="axis-control-message" data-axis-control-message></p>
               </form>
             </div>
             <div class="tab-panel" data-tab-panel="Azimuth" data-tab-name="tuning">
               <form class="tuning-form" data-tuning-form="Azimuth">
                 <label>
-                  <span>Position Gain</span>
+                  <span>Position Gain [1/s]</span>
                   <input id="azimuthPositionGain" name="position_gain" type="number" min="0" step="0.001" inputmode="decimal">
                 </label>
                 <label>
-                  <span>Velocity Gain</span>
+                  <span>Velocity Gain [Nm/(turn/s)]</span>
                   <input id="azimuthVelocityGain" name="velocity_gain" type="number" min="0" step="0.001" inputmode="decimal">
                 </label>
                 <label>
-                  <span>Velocity I Gain</span>
+                  <span>Velocity I Gain [(Nm/s)/(turn/s)]</span>
                   <input id="azimuthVelocityIntegratorGain" name="velocity_integrator_gain" type="number" min="0" step="0.001" inputmode="decimal">
                 </label>
                 <label>
-                  <span>Velocity I Limit</span>
+                  <span>Velocity I Limit [Nm]</span>
                   <input id="azimuthVelocityIntegratorLimit" name="velocity_integrator_limit" type="number" min="0" step="0.001" inputmode="decimal">
                 </label>
                 <label>
-                  <span>Velocity I Decay</span>
+                  <span>Velocity I Decay [ratio/tick]</span>
                   <input id="azimuthVelocityIntegratorDecayGain" name="velocity_integrator_decay_gain" type="number" min="0" step="0.001" inputmode="decimal">
                 </label>
                 <label>
-                  <span>Velocity Limit</span>
+                  <span>Velocity Limit [deg/s]</span>
                   <input id="azimuthVelocityLimit" name="velocity_limit" type="number" min="0" step="0.001" inputmode="decimal">
                 </label>
                 <label>
-                  <span>Velocity Limit Tolerance</span>
+                  <span>Velocity Limit Tolerance [ratio]</span>
                   <input id="azimuthVelocityLimitTolerance" name="velocity_limit_tolerance" type="number" min="0" step="0.001" inputmode="decimal">
                 </label>
                 <label>
-                  <span>Velocity Ramp Rate</span>
+                  <span>Velocity Ramp Rate [deg/s²]</span>
                   <input id="azimuthVelocityRampRate" name="velocity_ramp_rate" type="number" min="0" step="0.001" inputmode="decimal">
                 </label>
                 <label>
-                  <span>Torque Ramp Rate</span>
+                  <span>Torque Ramp Rate [Nm/s]</span>
                   <input id="azimuthTorqueRampRate" name="torque_ramp_rate" type="number" min="0" step="0.001" inputmode="decimal">
                 </label>
                 <label>
-                  <span>Input Filter Bandwidth</span>
+                  <span>Torque Soft Min [Nm]</span>
+                  <input id="azimuthTorqueSoftMin" name="torque_soft_min" type="number" step="0.001" inputmode="decimal">
+                </label>
+                <label>
+                  <span>Torque Soft Max [Nm]</span>
+                  <input id="azimuthTorqueSoftMax" name="torque_soft_max" type="number" min="0" step="0.001" inputmode="decimal">
+                </label>
+                <label>
+                  <span>Spinout Elec Threshold [W]</span>
+                  <input id="azimuthSpinoutElectricalPowerThreshold" name="spinout_electrical_power_threshold" type="number" min="0" step="0.001" inputmode="decimal">
+                </label>
+                <label>
+                  <span>Spinout Mech Threshold [W]</span>
+                  <input id="azimuthSpinoutMechanicalPowerThreshold" name="spinout_mechanical_power_threshold" type="number" step="0.001" inputmode="decimal">
+                </label>
+                <label>
+                  <span>Spinout Elec Bandwidth [1/s]</span>
+                  <input id="azimuthSpinoutElectricalPowerBandwidth" name="spinout_electrical_power_bandwidth" type="number" min="0" step="0.001" inputmode="decimal">
+                </label>
+                <label>
+                  <span>Spinout Mech Bandwidth [1/s]</span>
+                  <input id="azimuthSpinoutMechanicalPowerBandwidth" name="spinout_mechanical_power_bandwidth" type="number" min="0" step="0.001" inputmode="decimal">
+                </label>
+                <label>
+                  <span>Encoder Bandwidth [1/s]</span>
+                  <input id="azimuthEncoderBandwidth" name="encoder_bandwidth" type="number" min="0" step="0.001" inputmode="decimal">
+                </label>
+                <label>
+                  <span>Input Filter Bandwidth [1/s]</span>
                   <input id="azimuthInputFilterBandwidth" name="input_filter_bandwidth" type="number" min="0" step="0.001" inputmode="decimal">
                 </label>
                 <label>
-                  <span>Inertia</span>
+                  <span>Inertia [Nm/(turn/s²)]</span>
                   <input id="azimuthInertia" name="inertia" type="number" min="0" step="0.001" inputmode="decimal">
                 </label>
                 <label>
-                  <span>Trap Velocity Limit</span>
+                  <span>Trap Velocity Limit [deg/s]</span>
                   <input id="azimuthTrapVelocityLimit" name="trap_velocity_limit" type="number" min="0" step="0.001" inputmode="decimal">
                 </label>
                 <label>
-                  <span>Trap Accel Limit</span>
+                  <span>Trap Accel Limit [deg/s²]</span>
                   <input id="azimuthTrapAccelLimit" name="trap_accel_limit" type="number" min="0" step="0.001" inputmode="decimal">
                 </label>
                 <label>
-                  <span>Trap Decel Limit</span>
+                  <span>Trap Decel Limit [deg/s²]</span>
                   <input id="azimuthTrapDecelLimit" name="trap_decel_limit" type="number" min="0" step="0.001" inputmode="decimal">
                 </label>
+                <button class="tuning-auto" type="button" data-auto-tune="Azimuth">Run Auto Tune</button>
                 <button class="tuning-apply" type="submit">Apply Tuning</button>
                 <button class="tuning-save" type="button" data-save-tuning="Azimuth">Save to Drive</button>
                 <p class="tuning-message" id="azimuthTuningMessage"></p>
+              </form>
+            </div>
+            <div class="tab-panel" data-tab-panel="Azimuth" data-tab-name="motor-calibration">
+              <form class="motor-calibration-form" data-motor-calibration="Azimuth">
+                <label><span>Minimum Position</span><input name="min_position_deg" type="number" step="0.001" value="-10"><em>Deg</em></label>
+                <label><span>Maximum Position</span><input name="max_position_deg" type="number" step="0.001" value="10"><em>Deg</em></label>
+                <label><span>Test Current</span><input name="current_amp" type="number" min="1" max="150" step="0.001" value="10"><em>Amp</em></label>
+                <label><span>Move Speed</span><input name="speed_deg_per_sec" type="number" min="0.001" step="0.001" value="5"><em>Deg/Sec</em></label>
+                <div class="motor-calibration-actions">
+                  <button class="motor-calibration-start" type="submit">Start</button>
+                  <button class="motor-calibration-stop" type="button" data-motor-calibration-stop disabled>Stop</button>
+                </div>
+                <p class="motor-calibration-message" data-motor-calibration-message>Ready</p>
               </form>
             </div>
           </article>
@@ -176,11 +297,12 @@
               </div>
               <span class="axis-chip" id="altitudeStatus">Waiting</span>
             </div>
-            <div class="tab-list" role="tablist" aria-label="ALT status tabs">
-              <button class="tab-button active" type="button" data-tab-button="Altitude" data-tab-target="axis">Axis Status</button>
-              <button class="tab-button" type="button" data-tab-button="Altitude" data-tab-target="drive">Drive Status</button>
-              <button class="tab-button" type="button" data-tab-button="Altitude" data-tab-target="control">Control</button>
-              <button class="tab-button" type="button" data-tab-button="Altitude" data-tab-target="tuning" title="Right-click to open floating tuning window">Tuning</button>
+            <div class="tab-list system-tabs" role="tablist" aria-label="ALT status tabs">
+              <button class="tab-button system-tab active" type="button" data-tab-button="Altitude" data-tab-target="axis" role="tab" aria-selected="true">Axis Status</button>
+              <button class="tab-button system-tab" type="button" data-tab-button="Altitude" data-tab-target="drive" role="tab" aria-selected="false">Drive Status</button>
+              <button class="tab-button system-tab" type="button" data-tab-button="Altitude" data-tab-target="control" role="tab" aria-selected="false">Control</button>
+              <button class="tab-button system-tab" type="button" data-tab-button="Altitude" data-tab-target="tuning" role="tab" aria-selected="false" title="Right-click to open floating tuning window">Tuning</button>
+              <button class="tab-button system-tab" type="button" data-tab-button="Altitude" data-tab-target="motor-calibration" role="tab" aria-selected="false">Motor Calibration</button>
             </div>
             <div class="tab-panel active" data-tab-panel="Altitude" data-tab-name="axis">
               <dl class="status-readings">
@@ -222,6 +344,11 @@
                   <input name="position_target" type="number" step="0.001" inputmode="decimal">
                   <em>Deg</em>
                 </label>
+                <label>
+                  <span>Move Speed</span>
+                  <input name="position_velocity_target" type="number" min="0" step="0.001" inputmode="decimal" value="10">
+                  <em>Deg/Sec</em>
+                </label>
                 <button class="axis-command-apply" type="button" data-axis-goto="position">Move Position</button>
                 <label>
                   <span>Goto Velocity</span>
@@ -229,6 +356,33 @@
                   <em>Deg/Sec</em>
                 </label>
                 <button class="axis-command-apply" type="button" data-axis-goto="velocity">Apply Velocity</button>
+                <fieldset class="sine-velocity-panel">
+                  <legend>Random Sine Velocity</legend>
+                  <label>
+                    <span>Min Speed</span>
+                    <input name="sine_min_speed" type="number" min="0" step="0.001" inputmode="decimal" value="1">
+                    <em>Deg/Sec</em>
+                  </label>
+                  <label>
+                    <span>Max Speed</span>
+                    <input name="sine_max_speed" type="number" min="0" step="0.001" inputmode="decimal" value="50">
+                    <em>Deg/Sec</em>
+                  </label>
+                  <label>
+                    <span>Min Period</span>
+                    <input name="sine_min_period" type="number" min="0" step="0.001" inputmode="decimal" value="1">
+                    <em>Sec</em>
+                  </label>
+                  <label>
+                    <span>Max Period</span>
+                    <input name="sine_max_period" type="number" min="0" step="0.001" inputmode="decimal" value="4">
+                    <em>Sec</em>
+                  </label>
+                  <div class="sine-velocity-actions">
+                    <button class="axis-command-apply" type="button" data-axis-sine="start">Start</button>
+                    <button type="button" data-axis-sine="stop">Stop</button>
+                  </div>
+                </fieldset>
                 <p class="axis-control-message" data-axis-control-message></p>
               </form>
             </div>
@@ -271,6 +425,34 @@
                   <input id="altitudeTorqueRampRate" name="torque_ramp_rate" type="number" min="0" step="0.001" inputmode="decimal">
                 </label>
                 <label>
+                  <span>Torque Soft Min</span>
+                  <input id="altitudeTorqueSoftMin" name="torque_soft_min" type="number" step="0.001" inputmode="decimal">
+                </label>
+                <label>
+                  <span>Torque Soft Max</span>
+                  <input id="altitudeTorqueSoftMax" name="torque_soft_max" type="number" min="0" step="0.001" inputmode="decimal">
+                </label>
+                <label>
+                  <span>Spinout Elec Threshold</span>
+                  <input id="altitudeSpinoutElectricalPowerThreshold" name="spinout_electrical_power_threshold" type="number" min="0" step="0.001" inputmode="decimal">
+                </label>
+                <label>
+                  <span>Spinout Mech Threshold</span>
+                  <input id="altitudeSpinoutMechanicalPowerThreshold" name="spinout_mechanical_power_threshold" type="number" step="0.001" inputmode="decimal">
+                </label>
+                <label>
+                  <span>Spinout Elec Bandwidth</span>
+                  <input id="altitudeSpinoutElectricalPowerBandwidth" name="spinout_electrical_power_bandwidth" type="number" min="0" step="0.001" inputmode="decimal">
+                </label>
+                <label>
+                  <span>Spinout Mech Bandwidth</span>
+                  <input id="altitudeSpinoutMechanicalPowerBandwidth" name="spinout_mechanical_power_bandwidth" type="number" min="0" step="0.001" inputmode="decimal">
+                </label>
+                <label>
+                  <span>Encoder Bandwidth [1/s]</span>
+                  <input id="altitudeEncoderBandwidth" name="encoder_bandwidth" type="number" min="0" step="0.001" inputmode="decimal">
+                </label>
+                <label>
                   <span>Input Filter Bandwidth</span>
                   <input id="altitudeInputFilterBandwidth" name="input_filter_bandwidth" type="number" min="0" step="0.001" inputmode="decimal">
                 </label>
@@ -290,13 +472,39 @@
                   <span>Trap Decel Limit</span>
                   <input id="altitudeTrapDecelLimit" name="trap_decel_limit" type="number" min="0" step="0.001" inputmode="decimal">
                 </label>
+                <button class="tuning-auto" type="button" data-auto-tune="Altitude">Run Auto Tune</button>
                 <button class="tuning-apply" type="submit">Apply Tuning</button>
                 <button class="tuning-save" type="button" data-save-tuning="Altitude">Save to Drive</button>
                 <p class="tuning-message" id="altitudeTuningMessage"></p>
               </form>
             </div>
+            <div class="tab-panel" data-tab-panel="Altitude" data-tab-name="motor-calibration">
+              <form class="motor-calibration-form" data-motor-calibration="Altitude">
+                <label><span>Minimum Position</span><input name="min_position_deg" type="number" step="0.001" value="0"><em>Deg</em></label>
+                <label><span>Maximum Position</span><input name="max_position_deg" type="number" step="0.001" value="45"><em>Deg</em></label>
+                <label><span>Test Current</span><input name="current_amp" type="number" min="1" max="150" step="0.001" value="10"><em>Amp</em></label>
+                <label><span>Move Speed</span><input name="speed_deg_per_sec" type="number" min="0.001" step="0.001" value="5"><em>Deg/Sec</em></label>
+                <div class="motor-calibration-actions">
+                  <button class="motor-calibration-start" type="submit">Start</button>
+                  <button class="motor-calibration-stop" type="button" data-motor-calibration-stop disabled>Stop</button>
+                </div>
+                <p class="motor-calibration-message" data-motor-calibration-message>Ready</p>
+              </form>
+            </div>
           </article>
         </aside>
+
+        <div
+          class="axis-column-resizer"
+          id="axisColumnResizer"
+          role="separator"
+          aria-label="Resize axis status and chart columns"
+          aria-orientation="vertical"
+          aria-valuemin="440"
+          aria-valuemax="620"
+          aria-valuenow="500"
+          tabindex="0"
+        ></div>
 
         <section class="chart-column" aria-label="Axis telemetry charts">
           <article class="chart-panel azimuth-chart">
@@ -307,21 +515,21 @@
               <div class="sensor-strip" aria-label="Azimuth sensor status">
                 <div class="sensor-pill" id="azimuthCcwSensor">
                   <span class="sensor-led"></span>
-                  <span class="sensor-name">CCW Sensor</span>
+                  <span class="sensor-name">CCW</span>
                 </div>
                 <div class="sensor-pill" id="azimuthCwSensor">
                   <span class="sensor-led"></span>
-                  <span class="sensor-name">CW Sensor</span>
+                  <span class="sensor-name">CW</span>
                 </div>
               </div>
               <div class="chart-controls">
                 <div class="actual-readouts" id="azimuthChartValue" aria-label="Azimuth actual values">
-                  <span class="amplitude-readout" id="azimuthAmplitudeAverage" aria-label="Azimuth 60 second average amplitude"><strong>AVG AMP</strong><em>--</em></span>
-                  <span class="actual-readout position"><strong>Position Actual</strong><em>-- Deg</em></span>
-                  <span class="actual-readout velocity"><strong>Velocity Actual</strong><em>-- Deg/Sec</em></span>
-                  <span class="actual-readout current"><strong>Current Actual</strong><em>-- Amp</em></span>
+                  <span class="motion-readout" id="azimuthMotionStatus" aria-label="Azimuth motion status"><strong>Motion</strong><em>Idle</em></span>
+                  <span class="actual-readout position"><strong><span class="desktop-chart-label">POS-ACT</span><span class="mobile-chart-label">Position Actual</span></strong><em>-- Deg</em></span>
+                  <span class="actual-readout velocity"><strong><span class="desktop-chart-label">VL-ACT</span><span class="mobile-chart-label">Velocity Actual</span></strong><em>-- Deg/Sec</em></span>
+                  <span class="actual-readout current"><strong><span class="desktop-chart-label">CUR-ACT</span><span class="mobile-chart-label">Current Actual</span></strong><em>-- Amp</em></span>
                 </div>
-                <select id="azimuthPlotSelect" aria-label="Azimuth plot value">
+                <select class="mc-select" id="azimuthPlotSelect" aria-label="Azimuth plot value">
                   <option value="position">Position</option>
                   <option value="velocity">Velocity</option>
                   <option value="current">Current</option>
@@ -343,12 +551,12 @@
               </div>
               <div class="chart-controls">
                 <div class="actual-readouts" id="altitudeChartValue" aria-label="Altitude actual values">
-                  <span class="amplitude-readout" id="altitudeAmplitudeAverage" aria-label="Altitude 60 second average amplitude"><strong>AVG AMP</strong><em>--</em></span>
-                  <span class="actual-readout position"><strong>Position Actual</strong><em>-- Deg</em></span>
-                  <span class="actual-readout velocity"><strong>Velocity Actual</strong><em>-- Deg/Sec</em></span>
-                  <span class="actual-readout current"><strong>Current Actual</strong><em>-- Amp</em></span>
+                  <span class="motion-readout" id="altitudeMotionStatus" aria-label="Altitude motion status"><strong>Motion</strong><em>Idle</em></span>
+                  <span class="actual-readout position"><strong><span class="desktop-chart-label">POS-ACT</span><span class="mobile-chart-label">Position Actual</span></strong><em>-- Deg</em></span>
+                  <span class="actual-readout velocity"><strong><span class="desktop-chart-label">VL-ACT</span><span class="mobile-chart-label">Velocity Actual</span></strong><em>-- Deg/Sec</em></span>
+                  <span class="actual-readout current"><strong><span class="desktop-chart-label">CUR-ACT</span><span class="mobile-chart-label">Current Actual</span></strong><em>-- Amp</em></span>
                 </div>
-                <select id="altitudePlotSelect" aria-label="Altitude plot value">
+                <select class="mc-select" id="altitudePlotSelect" aria-label="Altitude plot value">
                   <option value="position">Position</option>
                   <option value="velocity">Velocity</option>
                   <option value="current">Current</option>
@@ -362,6 +570,141 @@
               <span class="legend current">Current</span>
             </div>
           </article>
+        </section>
+
+        <section class="report-view" id="reportView" aria-label="24 hour mount reports" hidden>
+        <div class="report-tabs tab-list system-tabs" role="tablist" aria-label="Report type">
+          <button class="tab-button system-tab active" type="button" role="tab" aria-selected="true" data-report-tab="current">Current Using</button>
+          <button class="tab-button system-tab" type="button" role="tab" aria-selected="false" data-report-tab="internet">Internet Speed</button>
+          <button class="tab-button system-tab" type="button" role="tab" aria-selected="false" data-report-tab="power">Power Consumption</button>
+          <button class="tab-button system-tab" type="button" role="tab" aria-selected="false" data-report-tab="health">Controller Health</button>
+        </div>
+
+        <div class="report-current-panel" data-report-panel="current">
+          <div class="report-loading-overlay" data-report-loader="current" role="status" aria-live="polite" hidden>
+            <span class="report-loading-spinner" aria-hidden="true"></span>
+            <strong data-report-loading-title>Loading Current Using</strong>
+            <small data-report-loading-detail>Loading 24-hour drive telemetry…</small>
+            <span class="report-loading-progress" aria-hidden="true"><i></i></span>
+            <em data-report-loading-elapsed>Elapsed 0.0s • Usually under 5s</em>
+          </div>
+          <article class="report-axis-chart">
+            <header>
+              <div class="report-axis-title"><h3>Azimuth</h3></div>
+              <div class="report-chart-metrics" aria-label="Azimuth 24 hour summary">
+                <span><small>AVG CURRENT</small><strong id="reportAzimuthAvg">-- A</strong><em id="reportAzimuthAvgSpeed">Avg speed -- Deg/Sec</em></span>
+                <span><small>PEAK CURRENT</small><strong id="reportAzimuthPeak">-- A</strong><em id="reportAzimuthPeakPosition">At position -- Deg</em></span>
+              </div>
+              <span class="report-chart-legend"><i class="current-key"></i> Current (A)<i class="velocity-key"></i> Speed (Deg/Sec)</span>
+            </header>
+            <canvas id="reportAzimuthChart" width="1400" height="290"></canvas>
+          </article>
+
+          <article class="report-axis-chart">
+            <header>
+              <div class="report-axis-title"><h3>Altitude</h3></div>
+              <div class="report-chart-metrics" aria-label="Altitude 24 hour summary">
+                <span><small>AVG CURRENT</small><strong id="reportAltitudeAvg">-- A</strong><em id="reportAltitudeAvgSpeed">Avg speed -- Deg/Sec</em></span>
+                <span><small>PEAK CURRENT</small><strong id="reportAltitudePeak">-- A</strong><em id="reportAltitudePeakPosition">At position -- Deg</em></span>
+              </div>
+              <span class="report-chart-legend"><i class="current-key"></i> Current (A)<i class="velocity-key"></i> Speed (Deg/Sec)</span>
+            </header>
+            <canvas id="reportAltitudeChart" width="1400" height="290"></canvas>
+          </article>
+        </div>
+        <div class="report-internet-panel" data-report-panel="internet" hidden>
+          <div class="report-loading-overlay" data-report-loader="internet" role="status" aria-live="polite" hidden>
+            <span class="report-loading-spinner" aria-hidden="true"></span>
+            <strong data-report-loading-title>Loading Internet Speed</strong>
+            <small data-report-loading-detail>Loading 7-day network measurements…</small>
+            <span class="report-loading-progress" aria-hidden="true"><i></i></span>
+            <em data-report-loading-elapsed>Elapsed 0.0s • Usually under 5s</em>
+          </div>
+          <article class="report-axis-chart report-network-chart">
+            <header>
+              <div class="report-axis-title"><h3>Internet Speed • Last 7 Days</h3></div>
+              <div class="report-chart-metrics">
+                <span><small id="reportNetworkDownloadLabel">USED DOWNLOAD</small><strong id="reportNetworkDownload">-- Mbps</strong><em id="reportNetworkLatency">Interface traffic</em></span>
+                <span><small id="reportNetworkUploadLabel">USED UPLOAD</small><strong id="reportNetworkUpload">-- Mbps</strong><em id="reportNetworkCadence">Sampled every 1 sec</em></span>
+              </div>
+              <div class="report-network-chart-controls">
+                <select class="mc-select" id="reportNetworkCategorySelect" aria-label="Internet graph category">
+                  <option value="capacity">Capacity · Tested limit</option>
+                  <option value="used" selected>Used · Actual traffic</option>
+                  <option value="free">Free · Capacity minus used</option>
+                </select>
+                <button class="report-capacity-test" id="reportCapacityTest" type="button">Run Manual Test</button>
+                <small class="report-capacity-test-status" id="reportCapacityTestStatus">Requires both publishers stopped</small>
+                <span class="report-chart-legend" id="reportNetworkChartLegend"><i class="current-key"></i><span data-network-download-legend>Capacity Download</span><i class="velocity-key"></i><span data-network-upload-legend>Capacity Upload</span></span>
+              </div>
+            </header>
+            <canvas id="reportNetworkChart" width="1400" height="620"></canvas>
+          </article>
+        </div>
+        <div class="report-power-panel" data-report-panel="power" hidden>
+          <div class="report-loading-overlay" data-report-loader="power" role="status" aria-live="polite" hidden>
+            <span class="report-loading-spinner" aria-hidden="true"></span>
+            <strong data-report-loading-title>Loading Power Consumption</strong>
+            <small data-report-loading-detail>Loading 24-hour measured power history…</small>
+            <span class="report-loading-progress" aria-hidden="true"><i></i></span>
+            <em data-report-loading-elapsed>Elapsed 0.0s • Usually under 5s</em>
+          </div>
+          <article class="report-axis-chart report-power-chart">
+            <header>
+              <div class="report-axis-title"><h3>Power Consumption • Last 24 Hours</h3></div>
+              <div class="report-chart-metrics">
+                <span><small>5 SEC AVG POWER</small><strong id="reportPowerCurrent">-- W</strong><em id="reportPowerAxes">AZ -- W • ALT -- W</em></span>
+                <span><small>24 HOUR ENERGY</small><strong id="reportPowerEnergy">-- kWh</strong><em id="reportPowerAverage">Average -- W</em></span>
+                <span><small>ENERGY USED</small><strong id="reportPowerWattHours">-- Wh</strong><em id="reportPowerAxisWattHours">AZ -- Wh • ALT -- Wh</em></span>
+              </div>
+              <div class="report-power-chart-controls">
+                <select class="mc-select" id="reportPowerDeviceSelect" aria-label="Power graph device">
+                  <option value="total">● Total · All measured</option>
+                  <option value="azimuth">● Azimuth</option>
+                  <option value="altitude">● Altitude</option>
+                  <option value="raspberry_pi">● Raspberry Pi · PMIC est.</option>
+                </select>
+                <span class="report-chart-legend" id="reportPowerChartLegend"><i class="total-key"></i><span data-power-legend-label>Total measured (W)</span></span>
+              </div>
+            </header>
+            <canvas id="reportPowerChart" width="1400" height="620"></canvas>
+          </article>
+        </div>
+        <div class="report-health-panel" data-report-panel="health" hidden>
+          <div class="report-loading-overlay" data-report-loader="health" role="status" aria-live="polite" hidden>
+            <span class="report-loading-spinner" aria-hidden="true"></span>
+            <strong data-report-loading-title>Loading Controller Health</strong>
+            <small data-report-loading-detail>Loading 24-hour controller resource history…</small>
+            <span class="report-loading-progress" aria-hidden="true"><i></i></span>
+            <em data-report-loading-elapsed>Elapsed 0.0s • Usually under 5s</em>
+          </div>
+          <article class="report-axis-chart report-health-chart">
+            <header>
+              <div class="report-axis-title">
+                <h3 id="reportHealthTitle">Storage Usage • Last 24 Hours</h3>
+                <span class="report-health-state is-healthy" id="reportHealthState"><i></i> HEALTHY</span>
+              </div>
+              <div class="report-chart-metrics" aria-label="Controller health summary">
+                <span><small>CURRENT</small><strong id="reportHealthCurrent">-- %</strong><em id="reportHealthDetail">Waiting for samples</em></span>
+                <span><small>24 HOUR AVG</small><strong id="reportHealthAverage">-- %</strong><em id="reportHealthUptime">Uptime --</em></span>
+                <span><small>24 HOUR PEAK</small><strong id="reportHealthPeak">-- %</strong><em>Rolling 24-hour window</em></span>
+              </div>
+              <div class="report-health-chart-controls">
+                <label for="reportHealthMetricSelect">HEALTH METRIC</label>
+                <select class="mc-select" id="reportHealthMetricSelect" aria-label="Controller health graph metric">
+                  <option value="storage">● Storage Usage</option>
+                  <option value="cpu">● CPU Usage</option>
+                  <option value="memory">● RAM Usage</option>
+                  <option value="temperature">● CPU Temperature</option>
+                  <option value="load">● System Load</option>
+                  <option value="swap">● Swap Usage</option>
+                </select>
+                <span class="report-chart-legend" id="reportHealthChartLegend"><i></i><span>Storage Usage (%)</span></span>
+              </div>
+            </header>
+            <canvas id="reportHealthChart" width="1400" height="620"></canvas>
+          </article>
+        </div>
         </section>
       </section>
 
@@ -440,8 +783,73 @@
         </div>
       </section>
 
-      <section class="system-log-panel" aria-label="System log">
+      <section class="pointing-view-panel" id="pointingView" aria-label="Pointing model terrain map" hidden>
+        <div class="pointing-map-header">
+          <div>
+            <h2>Pointing Model</h2>
+            <p id="pointingMapSubtitle">20 km terrain model around the mount station</p>
+          </div>
+          <div class="pointing-map-summary">
+            <span><strong>Station</strong><em id="pointingStationValue">--</em></span>
+            <span><strong>Range</strong><em id="pointingRangeValue">20.0 km</em></span>
+            <span><strong>DEM</strong><em id="pointingDemValue">--</em></span>
+          </div>
+          <div class="pointing-layer-controls" aria-label="Pointing map layers">
+            <label><input id="pointingLayerSatellite" type="checkbox" checked><span>Satellite</span></label>
+            <label><input id="pointingLayerTerrain" type="checkbox" checked><span>Terrain</span></label>
+            <label><input id="pointingLayerVisibility" type="checkbox" checked><span>Visibility</span></label>
+            <label><input id="pointingLayerGrid" type="checkbox" checked><span>Grid</span></label>
+            <small id="pointingImageryAttribution"></small>
+          </div>
+        </div>
+        <div class="pointing-map-stage">
+          <canvas id="pointingMap3DCanvas" width="1200" height="760" aria-label="Interactive 3D Pointing Model terrain"></canvas>
+          <canvas id="pointingMapCanvas" width="1200" height="760" aria-label="Pointing model elevation map"></canvas>
+          <div class="pointing-map-progress" id="pointingMapProgress" hidden>
+            <strong id="pointingProgressTitle">Building terrain map</strong>
+            <span id="pointingProgressDetail">Generating 30 m grid from DEM...</span>
+            <div><em></em></div>
+          </div>
+          <div
+            class="pointing-selection-card"
+            id="pointingSelectionCard"
+            data-floating-window="pointingSelectionCard"
+            data-floating-window-desktop-only
+          >
+            <div class="pointing-selection-header" data-floating-window-handle>
+              <strong id="pointingSelectionTitle">Select a terrain point</strong>
+            </div>
+            <span><b>Distance</b><em id="pointingDistanceValue">--</em></span>
+            <span><b>Azimuth</b><em id="pointingAzimuthValue">--</em></span>
+            <span><b>Terrain Elevation</b><em id="pointingElevationValue">--</em></span>
+            <span><b>Altitude Angle</b><em id="pointingAltitudeValue">--</em></span>
+            <span><b>Line of Sight</b><em id="pointingVisibilityValue">--</em></span>
+            <span><b>Blocked By</b><em id="pointingBlockerValue">--</em></span>
+            <small id="pointingCoordinateValue">Click inside the 20 km circle.</small>
+          </div>
+        </div>
+      </section>
+
+      <section class="system-log-panel" id="event-log" aria-label="System log">
+        <div class="system-log-header">
+          <p class="eyebrow"><svg aria-hidden="true"><use href="{{ url_for('static', filename='img/mission-nav-icons.svg') }}#clipboard"></use></svg>Event Log</p>
+          <div class="system-log-tools">
+            <label><span aria-hidden="true">▽</span><select class="mc-select" id="systemLogFilter" aria-label="Filter event log"><option value="all">Filter</option><option value="message">Info</option><option value="warning">Warning</option><option value="error">Error</option></select></label>
+            <button id="systemLogPause" type="button" aria-pressed="false"><span aria-hidden="true">Ⅱ</span> Pause</button>
+            <button id="systemLogClear" type="button"><span aria-hidden="true">⌫</span> Clear</button>
+          </div>
+        </div>
+        <div class="system-log-columns" aria-hidden="true"><span>Time</span><span>Severity</span><span>Source</span><span>Message</span></div>
         <div class="system-log-entries" id="systemLogEntries" aria-live="polite"></div>
+        <div class="update-progress" id="updateProgress" hidden>
+          <div class="update-progress-header">
+            <strong id="updateProgressTitle">Checking for updates</strong>
+            <span id="updateProgressDetail">Preparing...</span>
+          </div>
+          <div class="update-progress-track">
+            <span id="updateProgressBar"></span>
+          </div>
+        </div>
       </section>
 
     </main>
@@ -460,9 +868,9 @@
 
     <div class="goto-panel" id="gotoPanel" hidden data-floating-window="gotoPanel">
       <div class="goto-panel-header" data-floating-window-handle>
-        <div class="goto-tabs" role="tablist" aria-label="Motor command mode">
-          <button class="goto-tab active" type="button" data-goto-tab="position" role="tab" aria-selected="true">Goto Position</button>
-          <button class="goto-tab" type="button" data-goto-tab="velocity" role="tab" aria-selected="false">Velocity Control</button>
+        <div class="goto-tabs system-tabs" role="tablist" aria-label="Motor command mode">
+          <button class="goto-tab system-tab active" type="button" data-goto-tab="position" role="tab" aria-selected="true">Goto Position</button>
+          <button class="goto-tab system-tab" type="button" data-goto-tab="velocity" role="tab" aria-selected="false">Velocity Control</button>
         </div>
         <button type="button" id="gotoClose" aria-label="Close goto panel">x</button>
       </div>
@@ -500,6 +908,27 @@
       </form>
     </div>
 
+    <div class="pointing-target-panel" id="pointingTargetPanel" hidden data-floating-window="pointingTargetPanel" data-floating-window-view="pointing">
+      <div class="pointing-target-header" data-floating-window-handle>
+        <div>
+          <strong>Point Target</strong>
+          <small id="pointingTargetGrid">--</small>
+        </div>
+        <button type="button" id="pointingTargetClose" aria-label="Close Point Target">x</button>
+      </div>
+      <div class="pointing-target-coordinates" id="pointingTargetCoordinates">--</div>
+      <dl>
+        <div><dt>Distance</dt><dd id="pointingTargetDistance">--</dd></div>
+        <div><dt>True Azimuth</dt><dd id="pointingTargetTrueAzimuth">--</dd></div>
+        <div><dt>Mount Azimuth</dt><dd id="pointingTargetMountAzimuth">--</dd></div>
+        <div><dt>Altitude</dt><dd id="pointingTargetAltitude">--</dd></div>
+        <div><dt>Elevation</dt><dd id="pointingTargetElevation">--</dd></div>
+        <div><dt>Line of Sight</dt><dd id="pointingTargetVisibility">--</dd></div>
+      </dl>
+      <p id="pointingTargetMessage">Review the target angles before moving the mount.</p>
+      <button type="button" id="pointingTargetGoto">Point Mount To Target</button>
+    </div>
+
     <div class="floating-tuning-panel" id="azimuthTuningPanel" hidden data-floating-window="azimuthTuningPanel" data-floating-tuning-panel="Azimuth">
       <div class="floating-tuning-panel-header" data-floating-window-handle>
         <strong>Azimuth Tuning</strong>
@@ -516,23 +945,233 @@
       <form class="tuning-form floating-tuning-form" data-tuning-form="Altitude" data-floating-tuning-form="Altitude"></form>
     </div>
 
+    <div class="floating-tuning-panel auto-tune-panel" id="azimuthAutoTunePanel" hidden data-floating-window="azimuthAutoTunePanel">
+      <div class="floating-tuning-panel-header" data-floating-window-handle>
+        <strong>Azimuth Auto Tune</strong>
+        <button type="button" id="azimuthAutoTuneClose" aria-label="Close Azimuth auto tune panel">x</button>
+      </div>
+      <form class="auto-tune-form" id="azimuthAutoTuneForm">
+        <div class="auto-tune-settings-panel" aria-label="Azimuth auto tune parameters">
+          <label>
+            <span>Minimum Position</span>
+            <input id="azimuthAutoTuneMin" name="min_position_deg" type="number" step="0.001" inputmode="decimal" value="-60">
+            <em>Deg</em>
+          </label>
+          <label>
+            <span>Maximum Position</span>
+            <input id="azimuthAutoTuneMax" name="max_position_deg" type="number" step="0.001" inputmode="decimal" value="60">
+            <em>Deg</em>
+          </label>
+          <label>
+            <span>Minimum Speed</span>
+            <input id="azimuthAutoTuneMinSpeed" name="min_speed_deg_per_sec" type="number" min="0.001" step="0.001" inputmode="decimal" value="0.1">
+            <em>Deg/Sec</em>
+          </label>
+          <label>
+            <span>Maximum Speed</span>
+            <input id="azimuthAutoTuneMaxSpeed" name="max_speed_deg_per_sec" type="number" min="0.001" step="0.001" inputmode="decimal" value="50">
+            <em>Deg/Sec</em>
+          </label>
+          <label>
+            <span>Sweep Cycles</span>
+            <input id="azimuthAutoTuneCycles" name="cycles" type="number" min="1" max="20" step="1" inputmode="numeric" value="3">
+            <em>Rounds</em>
+          </label>
+          <label>
+            <span>Settle Error</span>
+            <input id="azimuthAutoTuneSettleError" name="settle_position_deg" type="number" min="0.001" step="0.001" inputmode="decimal" value="0.05">
+            <em>Deg</em>
+          </label>
+          <label>
+            <span>Settle Velocity</span>
+            <input id="azimuthAutoTuneSettleVelocity" name="settle_velocity_deg_per_sec" type="number" min="0.001" step="0.001" inputmode="decimal" value="0.05">
+            <em>Deg/Sec</em>
+          </label>
+          <label>
+            <span>Minimum Step Time</span>
+            <input id="azimuthAutoTuneMinStepTime" name="min_step_time_sec" type="number" min="0" step="0.1" inputmode="decimal" value="8">
+            <em>Sec</em>
+          </label>
+          <label>
+            <span>Minimum Travel</span>
+            <input id="azimuthAutoTuneMinTravel" name="min_travel_deg" type="number" min="0" step="0.001" inputmode="decimal" value="1">
+            <em>Deg</em>
+          </label>
+          <label>
+            <span>Max Profiles</span>
+            <input id="azimuthAutoTuneMaxProfiles" name="max_candidates" type="number" min="1" max="8" step="1" inputmode="numeric" value="4">
+            <em>Profiles</em>
+          </label>
+          <label>
+            <span>Fail Limit</span>
+            <input id="azimuthAutoTuneFailLimit" name="max_failed_steps" type="number" min="1" max="16" step="1" inputmode="numeric" value="2">
+            <em>Steps</em>
+          </label>
+        </div>
+        <p class="tuning-message" id="azimuthAutoTuneMessage"></p>
+        <div class="auto-tune-progress" id="azimuthAutoTuneProgress" hidden>
+          <span id="azimuthAutoTuneProgressBar"></span>
+        </div>
+        <div class="auto-tune-result" id="azimuthAutoTuneResult">
+          <div class="auto-tune-result-header">
+            <strong>Tuning Result</strong>
+            <span>Safe result only</span>
+          </div>
+          <div class="auto-tune-result-body" id="azimuthAutoTuneResultBody">
+            <p class="auto-tune-result-empty">Completed tuning changes will appear here.</p>
+          </div>
+        </div>
+        <div class="auto-tune-step-log" id="azimuthAutoTuneStepLog" aria-label="Azimuth auto tune step results">
+          <div class="auto-tune-step-log-header">
+            <strong>Step Results</strong>
+            <span>Azimuth</span>
+          </div>
+          <div class="auto-tune-step-log-entries" id="azimuthAutoTuneStepLogEntries"></div>
+        </div>
+        <div class="auto-tune-actions">
+          <button class="tuning-auto auto-tune-start" id="azimuthAutoTuneStart" type="submit">Run Auto Tune</button>
+          <button class="tuning-save auto-tune-save" type="button" data-save-tuning="Azimuth">Save to Drive</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="floating-tuning-panel auto-tune-panel" id="altitudeAutoTunePanel" hidden data-floating-window="altitudeAutoTunePanel">
+      <div class="floating-tuning-panel-header" data-floating-window-handle>
+        <strong>Altitude Auto Tune</strong>
+        <button type="button" id="altitudeAutoTuneClose" aria-label="Close Altitude auto tune panel">x</button>
+      </div>
+      <form class="auto-tune-form" id="altitudeAutoTuneForm">
+        <div class="auto-tune-settings-panel" aria-label="Altitude auto tune parameters">
+          <label>
+            <span>Minimum Position</span>
+            <input id="altitudeAutoTuneMin" name="min_position_deg" type="number" step="0.001" inputmode="decimal" value="-60">
+            <em>Deg</em>
+          </label>
+          <label>
+            <span>Maximum Position</span>
+            <input id="altitudeAutoTuneMax" name="max_position_deg" type="number" step="0.001" inputmode="decimal" value="60">
+            <em>Deg</em>
+          </label>
+          <label>
+            <span>Minimum Speed</span>
+            <input id="altitudeAutoTuneMinSpeed" name="min_speed_deg_per_sec" type="number" min="0.001" step="0.001" inputmode="decimal" value="0.1">
+            <em>Deg/Sec</em>
+          </label>
+          <label>
+            <span>Maximum Speed</span>
+            <input id="altitudeAutoTuneMaxSpeed" name="max_speed_deg_per_sec" type="number" min="0.001" step="0.001" inputmode="decimal" value="50">
+            <em>Deg/Sec</em>
+          </label>
+          <label>
+            <span>Sweep Cycles</span>
+            <input id="altitudeAutoTuneCycles" name="cycles" type="number" min="1" max="20" step="1" inputmode="numeric" value="3">
+            <em>Rounds</em>
+          </label>
+          <label>
+            <span>Settle Error</span>
+            <input id="altitudeAutoTuneSettleError" name="settle_position_deg" type="number" min="0.001" step="0.001" inputmode="decimal" value="0.05">
+            <em>Deg</em>
+          </label>
+          <label>
+            <span>Settle Velocity</span>
+            <input id="altitudeAutoTuneSettleVelocity" name="settle_velocity_deg_per_sec" type="number" min="0.001" step="0.001" inputmode="decimal" value="0.05">
+            <em>Deg/Sec</em>
+          </label>
+          <label>
+            <span>Minimum Step Time</span>
+            <input id="altitudeAutoTuneMinStepTime" name="min_step_time_sec" type="number" min="0" step="0.1" inputmode="decimal" value="8">
+            <em>Sec</em>
+          </label>
+          <label>
+            <span>Minimum Travel</span>
+            <input id="altitudeAutoTuneMinTravel" name="min_travel_deg" type="number" min="0" step="0.001" inputmode="decimal" value="1">
+            <em>Deg</em>
+          </label>
+          <label>
+            <span>Max Profiles</span>
+            <input id="altitudeAutoTuneMaxProfiles" name="max_candidates" type="number" min="1" max="8" step="1" inputmode="numeric" value="4">
+            <em>Profiles</em>
+          </label>
+          <label>
+            <span>Fail Limit</span>
+            <input id="altitudeAutoTuneFailLimit" name="max_failed_steps" type="number" min="1" max="16" step="1" inputmode="numeric" value="2">
+            <em>Steps</em>
+          </label>
+        </div>
+        <p class="tuning-message" id="altitudeAutoTuneMessage"></p>
+        <div class="auto-tune-progress" id="altitudeAutoTuneProgress" hidden>
+          <span id="altitudeAutoTuneProgressBar"></span>
+        </div>
+        <div class="auto-tune-result" id="altitudeAutoTuneResult">
+          <div class="auto-tune-result-header">
+            <strong>Tuning Result</strong>
+            <span>Safe result only</span>
+          </div>
+          <div class="auto-tune-result-body" id="altitudeAutoTuneResultBody">
+            <p class="auto-tune-result-empty">Completed tuning changes will appear here.</p>
+          </div>
+        </div>
+        <div class="auto-tune-step-log" id="altitudeAutoTuneStepLog" aria-label="Altitude auto tune step results">
+          <div class="auto-tune-step-log-header">
+            <strong>Step Results</strong>
+            <span>Altitude</span>
+          </div>
+          <div class="auto-tune-step-log-entries" id="altitudeAutoTuneStepLogEntries"></div>
+        </div>
+        <div class="auto-tune-actions">
+          <button class="tuning-auto auto-tune-start" id="altitudeAutoTuneStart" type="submit">Run Auto Tune</button>
+          <button class="tuning-save auto-tune-save" type="button" data-save-tuning="Altitude">Save to Drive</button>
+        </div>
+      </form>
+    </div>
+
+    <section class="direction-control-panel" id="directionControlPanel" hidden data-floating-window="directionControlPanel" role="dialog" aria-modal="false" aria-labelledby="directionControlTitle">
+      <header class="direction-control-header" data-floating-window-handle>
+        <div><small>MOUNT JOG</small><strong id="directionControlTitle">Direction Control</strong></div>
+        <button type="button" id="directionControlClose" aria-label="Close direction control">×</button>
+      </header>
+      <div class="direction-control-body">
+        <label class="direction-speed-field">
+          <span>Movement Speed</span>
+          <div><input id="directionControlSpeed" type="number" min="0.001" step="0.1" inputmode="decimal" value="5.0"><em>Deg/Sec</em></div>
+        </label>
+        <div class="direction-pad" aria-label="Press and hold a direction to move">
+          <button type="button" data-direction-az="-1" data-direction-alt="1" aria-label="Move up and left"><svg viewBox="0 0 24 24" style="--direction-angle:225deg"><path d="M5 12h14M14 7l5 5-5 5"/></svg></button>
+          <button type="button" data-direction-az="0" data-direction-alt="1" aria-label="Move up"><svg viewBox="0 0 24 24" style="--direction-angle:270deg"><path d="M5 12h14M14 7l5 5-5 5"/></svg></button>
+          <button type="button" data-direction-az="1" data-direction-alt="1" aria-label="Move up and right"><svg viewBox="0 0 24 24" style="--direction-angle:315deg"><path d="M5 12h14M14 7l5 5-5 5"/></svg></button>
+          <button type="button" data-direction-az="-1" data-direction-alt="0" aria-label="Move left"><svg viewBox="0 0 24 24" style="--direction-angle:180deg"><path d="M5 12h14M14 7l5 5-5 5"/></svg></button>
+          <button class="direction-stop" type="button" data-direction-stop aria-label="Stop movement"><svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="1"/></svg></button>
+          <button type="button" data-direction-az="1" data-direction-alt="0" aria-label="Move right"><svg viewBox="0 0 24 24" style="--direction-angle:0deg"><path d="M5 12h14M14 7l5 5-5 5"/></svg></button>
+          <button type="button" data-direction-az="-1" data-direction-alt="-1" aria-label="Move down and left"><svg viewBox="0 0 24 24" style="--direction-angle:135deg"><path d="M5 12h14M14 7l5 5-5 5"/></svg></button>
+          <button type="button" data-direction-az="0" data-direction-alt="-1" aria-label="Move down"><svg viewBox="0 0 24 24" style="--direction-angle:90deg"><path d="M5 12h14M14 7l5 5-5 5"/></svg></button>
+          <button type="button" data-direction-az="1" data-direction-alt="-1" aria-label="Move down and right"><svg viewBox="0 0 24 24" style="--direction-angle:45deg"><path d="M5 12h14M14 7l5 5-5 5"/></svg></button>
+        </div>
+        <p id="directionControlMessage" class="direction-control-message">Press and hold to move • Release to stop</p>
+        <small class="direction-control-safety">Diagonal speed is normalized. Axis and runtime limits remain enforced.</small>
+      </div>
+    </section>
+
     <div class="settings-panel" id="settingsPanel" hidden data-floating-window="settingsPanel">
       <div class="settings-panel-header" data-floating-window-handle>
         <strong>System Settings</strong>
         <button type="button" id="settingsClose" aria-label="Close settings panel">x</button>
       </div>
       <form id="settingsForm" class="settings-form">
-        <div class="settings-axis-tabs" role="tablist" aria-label="Axis settings">
-          <button class="settings-axis-tab active" type="button" data-settings-tab="general" role="tab" aria-selected="true">
+        <div class="settings-axis-tabs system-tabs" role="tablist" aria-label="Axis settings">
+          <button class="settings-axis-tab system-tab active" type="button" data-settings-tab="general" role="tab" aria-selected="true">
             <span>General</span>
           </button>
-          <button class="settings-axis-tab" type="button" data-settings-tab="azimuth" role="tab" aria-selected="false">
+          <button class="settings-axis-tab system-tab" type="button" data-settings-tab="azimuth" role="tab" aria-selected="false">
             <span>Azimuth</span>
             <em id="settingsAzimuthSerialView">--</em>
           </button>
-          <button class="settings-axis-tab" type="button" data-settings-tab="altitude" role="tab" aria-selected="false">
+          <button class="settings-axis-tab system-tab" type="button" data-settings-tab="altitude" role="tab" aria-selected="false">
             <span>Altitude</span>
             <em id="settingsAltitudeSerialView">--</em>
+          </button>
+          <button class="settings-axis-tab system-tab" type="button" data-settings-tab="system" role="tab" aria-selected="false">
+            <span>System Info</span>
+            <em id="settingsFirmwareVersionView">--</em>
           </button>
         </div>
         <section class="settings-axis-panel active" data-settings-panel="general" role="tabpanel">
@@ -551,8 +1190,18 @@
             <em>Deg</em>
           </label>
           <label>
+            <span>Elevation Above Ground</span>
+            <input id="settingsStationElevation" name="elevation_above_ground_m" type="number" min="0" step="0.001" inputmode="decimal">
+            <em>m</em>
+          </label>
+          <label>
             <span>Match Azimuth Drive Serial</span>
-            <select id="settingsAzimuthSerial" name="azimuth_serial"></select>
+            <select class="mc-select" id="settingsAzimuthSerial" name="azimuth_serial"></select>
+          </label>
+          <label>
+            <span>Max Velocity</span>
+            <input id="settingsSlewRate" name="slew_rate_deg_per_sec" type="number" min="0.001" max="100" step="0.001" inputmode="decimal">
+            <em>Deg/Sec</em>
           </label>
         </section>
         <section class="settings-axis-panel" data-settings-panel="azimuth" role="tabpanel">
@@ -599,18 +1248,112 @@
             <em>Amp</em>
           </label>
         </section>
-        <label>
-          <span>Max Velocity</span>
-          <input id="settingsSlewRate" name="slew_rate_deg_per_sec" type="number" min="0" step="0.001" inputmode="decimal">
-          <em>Deg/Sec</em>
-        </label>
+        <section class="settings-axis-panel" data-settings-panel="system" role="tabpanel">
+          <div class="system-info-grid">
+            <div>
+              <span>Firmware Version</span>
+              <strong id="systemFirmwareVersion">--</strong>
+            </div>
+            <div>
+              <span>Git Branch</span>
+              <strong id="systemGitBranch">--</strong>
+            </div>
+            <div>
+              <span>Last Update Check</span>
+              <strong id="systemLastUpdateCheck">--</strong>
+            </div>
+            <div>
+              <span>Update Status</span>
+              <strong id="systemUpdateStatus">--</strong>
+            </div>
+          </div>
+          <label>
+            <span>Device ID</span>
+            <input id="settingsDeviceId" name="device_id" type="text" maxlength="64" autocomplete="off">
+          </label>
+          <label>
+            <span>Check GitHub Every</span>
+            <input id="settingsUpdateInterval" name="check_interval_minutes" type="number" min="1" max="1440" step="1" inputmode="numeric">
+            <em>Min</em>
+          </label>
+          <label>
+            <span>Update Channel</span>
+            <input id="settingsUpdateChannel" name="update_channel" type="text" autocomplete="off">
+          </label>
+          <label>
+            <span>Auto Update</span>
+            <select class="mc-select" id="settingsAutoUpdate" name="auto_update">
+              <option value="true">Enabled</option>
+              <option value="false">Disabled</option>
+            </select>
+          </label>
+          <button class="system-update-check" id="systemUpdateCheck" type="button">Check Update Now</button>
+          <p class="system-update-message" id="systemUpdateMessage"></p>
+        </section>
         <div class="settings-actions">
+          <button class="settings-simulation-mode" type="button" id="settingsSimulationMode">Run in Simulation Mode</button>
           <button type="button" id="settingsReloadSerials">Reset Mount Server</button>
           <button type="submit" id="settingsSave">Save Settings</button>
         </div>
       </form>
     </div>
 
-    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+    <section class="camera-live-window" id="cameraLiveWindow" data-floating-window="live-cameras" data-camera-stream-url="/ws/camera-stream" role="dialog" aria-modal="false" aria-labelledby="cameraLiveTitle" hidden>
+      <header class="camera-live-header" data-floating-window-handle>
+        <div class="camera-live-title">
+          <span class="camera-live-kicker"><i></i> Mount Camera Monitor</span>
+          <h2 id="cameraLiveTitle">Live Camera View</h2>
+        </div>
+        <button class="camera-source-toggle is-simulation" id="cameraSourceToggle" type="button" aria-label="Camera source: Simulation">
+          <span class="camera-source-status-dot" aria-hidden="true"></span>
+          <span id="cameraSourceToggleLabel">Simulation</span>
+        </button>
+        <div class="camera-live-header-actions">
+          <span class="camera-live-clock" id="cameraLiveClock">--:--:-- UTC</span>
+          <button id="cameraLiveClose" type="button" aria-label="Close live camera window">×</button>
+        </div>
+      </header>
+      <div class="camera-live-grid">
+        <article class="camera-feed thermal-feed">
+          <header>
+            <div><span class="feed-dot"></span><strong>THERMAL LIVE</strong></div>
+            <span>640 × 512 · IR</span>
+          </header>
+          <div class="camera-viewport">
+            <img id="thermalLiveImage" class="camera-real-frame" alt="Thermal camera Station simulation stream">
+            <img id="thermalRealImage" class="camera-real-frame" alt="Thermal camera live stream" hidden>
+            <div class="camera-burnin" id="thermalLiveBurnin" aria-hidden="true"></div>
+            <span class="camera-reticle" aria-hidden="true"></span>
+            <div class="thermal-scale" aria-hidden="true"><span>200°</span><i></i><span>25°</span></div>
+            <div class="camera-overlay"><span>ZOOM <b id="thermalLiveZoom">1.0×</b></span><span>PAL IRON</span></div>
+          </div>
+        </article>
+        <article class="camera-feed visible-feed">
+          <header>
+            <div><span class="feed-dot"></span><strong>VISIBLE LIVE</strong></div>
+            <span>1920 × 1080 · RGB</span>
+          </header>
+          <div class="camera-viewport">
+            <img id="visibleLiveImage" class="camera-real-frame" alt="Visible camera Station simulation stream">
+            <img id="visibleRealImage" class="camera-real-frame" alt="Visible camera live stream" hidden>
+            <div class="camera-burnin" id="visibleLiveBurnin" aria-hidden="true"></div>
+            <span class="camera-reticle" aria-hidden="true"></span>
+            <div class="camera-overlay"><span>ZOOM <b id="visibleLiveZoom">1.0×</b></span><span>AUTO FOCUS</span></div>
+          </div>
+        </article>
+      </div>
+      <footer class="camera-live-footer">
+        <div class="camera-record-controls">
+          <button class="camera-record-button" id="cameraRecordButton" type="button"><i></i><span>Start Fire Event</span></button>
+          <span class="camera-record-timer" id="cameraRecordTimer">00:00</span>
+          <span class="camera-record-status" id="cameraRecordStatus"><i class="status-dot"></i> Both camera streams connected</span>
+        </div>
+        <span id="cameraRecordEvent">Ready to start a manual fire event</span>
+      </footer>
+    </section>
+
+    <script type="module" src="{{ url_for('static', filename='js/pointing_terrain_3d.js') }}?v=8"></script>
+  <script src="{{ url_for('static', filename='js/dashboard.js') }}?v=74"></script>
+    <script src="{{ url_for('static', filename='js/mobile_panels.js') }}?v=12"></script>
   </body>
 </html>

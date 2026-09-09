@@ -1,0 +1,43 @@
+{
+  "cached": true,
+  "dem": {
+    "available": true,
+    "bounds": {
+      "east": 100.50444443333333,
+      "north": 19.684166677777778,
+      "south": 18.135555566666667,
+      "west": 97.66722221111111
+    },
+    "elevation_max_m": 1693.3,
+    "elevation_min_m": 293.0,
+    "height": 5575,
+    "path": "GEO-Map/output_hh.tif",
+    "width": 10214
+  },
+  "grid_resolution_m": 30.0,
+  "grid_size": 1334,
+  "imagery": {
+    "attribution": "Tiles \u00a9 Esri and imagery providers",
+    "available": true,
+    "source": "ArcGIS World Imagery"
+  },
+  "ok": true,
+  "radius_km": 20.0,
+  "raster": {
+    "height": 1334,
+    "satellite_src": "/api/pointing/cache/pointing_1946ed47653a8dbed6f9_satellite.png",
+    "src": "/api/pointing/cache/pointing_1946ed47653a8dbed6f9.png",
+    "terrain_src": "/api/pointing/cache/pointing_1946ed47653a8dbed6f9.png",
+    "visibility_src": "/api/pointing/cache/pointing_1946ed47653a8dbed6f9_visibility.png",
+    "width": 1334
+  },
+  "station": {
+    "elevation_above_ground_m": 40.0,
+    "elevation_m": 390.7,
+    "ground_elevation_m": 350.7,
+    "latitude": 18.853,
+    "longitude": 98.958,
+    "name": "NARIT#1",
+    "source": "settings"
+  }
+}

@@ -22,6 +22,7 @@ def main() -> int:
     parser.add_argument("--debug", action="store_true", help="Enable Flask debug mode.")
     args = parser.parse_args()
 
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     logging.getLogger("werkzeug").setLevel(logging.WARNING)
     app = create_app()
     app.run(host=args.host, port=args.port, debug=args.debug)

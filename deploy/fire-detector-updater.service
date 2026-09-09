@@ -1,0 +1,11 @@
+[Unit]
+Description=Fire Detector automatic updater
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/pi/Public/Fire-Detector
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/home/pi/Public/Fire-Detector/.venv/bin/python /home/pi/Public/Fire-Detector/scripts/fire_detector_update.py --once
+
