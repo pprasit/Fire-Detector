@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='mobile/css/dashboard.css') }}?v=1">
     <link rel="stylesheet" href="{{ url_for('static', filename='mobile/css/mission_control.css') }}?v=1">
     <link rel="stylesheet" href="{{ url_for('static', filename='mobile/css/tabs.css') }}?v=1">
+    <link rel="stylesheet" href="{{ url_for('static', filename='shared/camera_pair_control.css') }}?v=1">
     <link rel="stylesheet" href="{{ url_for('static', filename='mobile/css/mobile_layout.css') }}?v=6">
   </head>
   <body>
@@ -1289,7 +1290,7 @@
     </div>
 
     <section class="camera-live-window" id="cameraLiveWindow" data-floating-window="live-cameras" data-camera-stream-url="/ws/camera-stream" role="dialog" aria-modal="false" aria-label="Live cameras" hidden>
-      <div class="camera-live-grid">
+      <div class="camera-live-grid" data-camera-layout="vertical">
         <article class="camera-feed thermal-feed">
           <header>
             <div><span class="feed-dot"></span><strong>THERMAL LIVE</strong></div>
@@ -1307,7 +1308,7 @@
         <article class="camera-feed visible-feed">
           <header>
             <div><span class="feed-dot"></span><strong>VISIBLE LIVE</strong></div>
-            <span>1920 × 1080 · RGB</span>
+            <span>1280 × 720 · RGB</span>
           </header>
           <div class="camera-viewport">
             <img id="visibleLiveImage" class="camera-real-frame" alt="Visible camera Station simulation stream">
@@ -1328,8 +1329,9 @@
       </footer>
     </section>
 
+    <script src="{{ url_for('static', filename='shared/camera_pair_control.js') }}?v=1"></script>
     <script type="module" src="{{ url_for('static', filename='mobile/js/pointing_terrain_3d.js') }}?v=1"></script>
-    <script src="{{ url_for('static', filename='mobile/js/dashboard.js') }}?v=2"></script>
+    <script src="{{ url_for('static', filename='mobile/js/dashboard.js') }}?v=4"></script>
     <script src="{{ url_for('static', filename='mobile/js/mobile_panels.js') }}?v=4"></script>
   </body>
 </html>

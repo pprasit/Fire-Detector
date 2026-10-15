@@ -70,6 +70,14 @@ class RuntimeSettingsApplyTests(unittest.TestCase):
         self.assertNotIn("reload_configuration", apply_route)
         self.assertNotIn("station_configuration_saved", apply_route)
         self.assertIn("if position_conversion_changed:", apply_route)
+        conversion_check = apply_route.split("position_conversion_changed = any(", 1)[1].split(
+            "if position_conversion_changed:", 1
+        )[0]
+        self.assertIn('"azimuth_position_offset_deg"', conversion_check)
+        self.assertIn('"altitude_position_offset_deg"', conversion_check)
+        self.assertNotIn('"azimuth_ccw_limit_deg"', conversion_check)
+        self.assertNotIn('"azimuth_cw_limit_deg"', conversion_check)
+        self.assertIn("if (data.position_offsets_rebased) resetTelemetryChartHistory();", script)
 
 
 if __name__ == "__main__":

@@ -41,12 +41,30 @@ function installIndustrialDeckLayout() {
         <button type="button" data-mission-nav="direction">
           <i aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 2v20M2 12h20M12 2l-3 3M12 2l3 3M22 12l-3-3M22 12l-3 3"></path></svg></i><span>Direction Control</span><kbd>06</kbd>
         </button>
+        <button type="button" data-view-mode="mission" role="tab" aria-selected="false">
+          <i aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 18 10 6l9 9"></path><circle cx="5" cy="18" r="2"></circle><circle cx="10" cy="6" r="2"></circle><circle cx="19" cy="15" r="2"></circle></svg></i><span>Mission Design</span><kbd>07</kbd>
+        </button>
         <small>INSIGHTS</small>
-        <button type="button" data-view-mode="report" role="tab" aria-selected="false"><i aria-hidden="true"><svg><use href="/static/img/mission-nav-icons.svg#reports"></use></svg></i><span>Reports</span><kbd>07</kbd></button>
+        <button type="button" data-view-mode="report" role="tab" aria-selected="false"><i aria-hidden="true"><svg><use href="/static/img/mission-nav-icons.svg#reports"></use></svg></i><span>Reports</span><kbd>08</kbd></button>
         <button type="button" data-mission-nav="settings">
-          <i aria-hidden="true"><svg><use href="/static/img/mission-nav-icons.svg#settings"></use></svg></i><span>Settings</span><kbd>08</kbd>
+          <i aria-hidden="true"><svg><use href="/static/img/mission-nav-icons.svg#settings"></use></svg></i><span>Settings</span><kbd>09</kbd>
         </button>
       </nav>`;
+  }
+
+  const missionAnchor = document.getElementById("axisView");
+  if (missionAnchor && !document.getElementById("missionDesignView")) {
+    const panel = document.createElement("section");
+    panel.id = "missionDesignView";
+    panel.hidden = true;
+    panel.style.cssText = "grid-column:1/-1;min-width:0;min-height:0;width:100%;height:100%;overflow:hidden;";
+    panel.setAttribute("aria-label", "Mission Design");
+    const frame = document.createElement("iframe");
+    frame.id = "missionDesignFrame";
+    frame.title = "Mission Design — waypoint editor";
+    frame.style.cssText = "display:block;width:100%;height:100%;border:0;background:#0a1117;border-radius:8px;";
+    panel.append(frame);
+    missionAnchor.before(panel);
   }
 
   const headerCopy = document.querySelector(".monitor-header .header-copy");
@@ -87,6 +105,57 @@ function installIndustrialDeckLayout() {
       <b id="pointingModelEditorCount">0</b>`;
     const beacon = document.getElementById("industrialBeaconStatus");
     motorControls.insertBefore(editPointingModel, beacon || motorControls.firstChild);
+  }
+  if (motorControls && !document.getElementById("pointingFavoriteOpen")) {
+    const favoritePoints = document.createElement("button");
+    favoritePoints.className = "pointing-model-editor-open pointing-favorite-open";
+    favoritePoints.id = "pointingFavoriteOpen";
+    favoritePoints.type = "button";
+    favoritePoints.setAttribute("aria-haspopup", "dialog");
+    favoritePoints.setAttribute("aria-controls", "pointingFavoriteWindow");
+    favoritePoints.setAttribute("aria-expanded", "false");
+    favoritePoints.innerHTML = `
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.7 5.5 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9L12 3z"></path></svg>
+      <span>Favorite Point</span>
+      <b id="pointingFavoriteCount">0</b>`;
+    const editor = document.getElementById("pointingModelEditorOpen");
+    motorControls.insertBefore(favoritePoints, editor || motorControls.firstChild);
+  }
+  if (motorControls && !document.getElementById("pointingSaveScreenshot")) {
+    const saveScreenshot = document.createElement("button");
+    saveScreenshot.className = "pointing-model-editor-open pointing-save-screenshot";
+    saveScreenshot.id = "pointingSaveScreenshot";
+    saveScreenshot.type = "button";
+    saveScreenshot.innerHTML = `
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h4l1.5-2h5L16 7h4v12H4z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+      <span>Save Screenshot</span>`;
+    const favoritePoints = document.getElementById("pointingFavoriteOpen");
+    favoritePoints?.insertAdjacentElement("afterend", saveScreenshot);
+  }
+  if (motorControls && !document.getElementById("pointingModelCreateOpen")) {
+    const createModel = document.createElement("button");
+    createModel.className = "pointing-model-editor-open pointing-model-create-open";
+    createModel.id = "pointingModelCreateOpen";
+    createModel.type = "button";
+    createModel.setAttribute("aria-haspopup", "dialog");
+    createModel.setAttribute("aria-controls", "pointingModelCreateDialog");
+    createModel.setAttribute("aria-expanded", "false");
+    createModel.innerHTML = `
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path><circle cx="12" cy="12" r="9"></circle></svg>
+      <span>Create New Model</span>`;
+    const editor = document.getElementById("pointingModelEditorOpen");
+    motorControls.insertBefore(createModel, editor || motorControls.firstChild);
+  }
+  if (motorControls && !document.getElementById("pointingTerrainBuild")) {
+    const buildTerrain = document.createElement("button");
+    buildTerrain.className = "pointing-model-editor-open pointing-terrain-build";
+    buildTerrain.id = "pointingTerrainBuild";
+    buildTerrain.type = "button";
+    buildTerrain.innerHTML = `
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 18l5-7 4 4 3-4 6 7M4 21h16M12 3v6M9 6l3 3 3-3"></path></svg>
+      <span>Build Terrain Map</span>`;
+    const editor = document.getElementById("pointingModelEditorOpen");
+    editor?.insertAdjacentElement("afterend", buildTerrain);
   }
 
   const axisView = document.getElementById("axisView");
@@ -255,10 +324,17 @@ const fields = {
   visibleLiveImage: document.getElementById("visibleLiveImage"),
   thermalRealImage: document.getElementById("thermalRealImage"),
   visibleRealImage: document.getElementById("visibleRealImage"),
+  thermalDetectionOverlay: document.getElementById("thermalDetectionOverlay"),
   thermalLiveBurnin: document.getElementById("thermalLiveBurnin"),
   visibleLiveBurnin: document.getElementById("visibleLiveBurnin"),
   thermalLiveZoom: document.getElementById("thermalLiveZoom"),
   visibleLiveZoom: document.getElementById("visibleLiveZoom"),
+  cameraLiveZoomControl: document.getElementById("cameraLiveZoomControl"),
+  cameraLiveLinkedZoomPct: document.getElementById("cameraLiveLinkedZoomPct"),
+  cameraLiveZoomStep: document.getElementById("cameraLiveZoomStep"),
+  cameraLiveZoomOut: document.getElementById("cameraLiveZoomOut"),
+  cameraLiveZoomIn: document.getElementById("cameraLiveZoomIn"),
+  cameraLiveZoomMessage: document.getElementById("cameraLiveZoomMessage"),
   pointingCameraOpen: document.getElementById("pointingCameraOpen"),
   pointingCameraWindow: document.getElementById("pointingCameraWindow"),
   pointingCameraClose: document.getElementById("pointingCameraClose"),
@@ -275,8 +351,12 @@ const fields = {
   pointingCameraDirectionPad: document.getElementById("pointingCameraDirectionPad"),
   pointingCameraDirectionMessage: document.getElementById("pointingCameraDirectionMessage"),
   cameraRecordButton: document.getElementById("cameraRecordButton"),
-  cameraRecordTimer: document.getElementById("cameraRecordTimer"),
+  cameraVideoRecordButton: document.getElementById("cameraVideoRecordButton"),
+  cameraVideoRecordTimer: document.getElementById("cameraVideoRecordTimer"),
   cameraRecordStatus: document.getElementById("cameraRecordStatus"),
+  cameraUploadProgress: document.getElementById("cameraUploadProgress"),
+  cameraUploadProgressBar: document.getElementById("cameraUploadProgressBar"),
+  cameraUploadProgressText: document.getElementById("cameraUploadProgressText"),
   cameraRecordEvent: document.getElementById("cameraRecordEvent"),
   cameraMetadataPanel: document.getElementById("cameraMetadataPanel"),
   cameraMetadataTitle: document.getElementById("cameraMetadataTitle"),
@@ -401,12 +481,38 @@ const fields = {
   pointingProgressTitle: document.getElementById("pointingProgressTitle"),
   pointingProgressDetail: document.getElementById("pointingProgressDetail"),
   pointingLayerSatellite: document.getElementById("pointingLayerSatellite"),
-  pointingLayerTerrain: document.getElementById("pointingLayerTerrain"),
+  pointingLayerPointing: document.getElementById("pointingLayerPointing"),
   pointingLayerVisibility: document.getElementById("pointingLayerVisibility"),
-  pointingLayerGrid: document.getElementById("pointingLayerGrid"),
+  pointingLayerTrackingArea: document.getElementById("pointingLayerTrackingArea"),
   pointingImageryAttribution: document.getElementById("pointingImageryAttribution"),
   pointingMapSubtitle: document.getElementById("pointingMapSubtitle"),
   pointingModelEditorOpen: document.getElementById("pointingModelEditorOpen"),
+  pointingModelCreateOpen: document.getElementById("pointingModelCreateOpen"),
+  pointingModelCreateDialog: document.getElementById("pointingModelCreateDialog"),
+  pointingModelCreateTitle: document.getElementById("pointingModelCreateTitle"),
+  pointingModelCreateMessage: document.getElementById("pointingModelCreateMessage"),
+  pointingModelCreatePointCount: document.getElementById("pointingModelCreatePointCount"),
+  pointingModelCreateCancel: document.getElementById("pointingModelCreateCancel"),
+  pointingModelCreateConfirm: document.getElementById("pointingModelCreateConfirm"),
+  pointingModelCreateDone: document.getElementById("pointingModelCreateDone"),
+  pointingModelAddDialog: document.getElementById("pointingModelAddDialog"),
+  pointingModelAddTitle: document.getElementById("pointingModelAddTitle"),
+  pointingModelAddGrid: document.getElementById("pointingModelAddGrid"),
+  pointingModelAddReference: document.getElementById("pointingModelAddReference"),
+  pointingModelAddTelemetry: document.getElementById("pointingModelAddTelemetry"),
+  pointingModelAddDifference: document.getElementById("pointingModelAddDifference"),
+  pointingModelAddMessage: document.getElementById("pointingModelAddMessage"),
+  pointingModelAddCancel: document.getElementById("pointingModelAddCancel"),
+  pointingModelAddConfirm: document.getElementById("pointingModelAddConfirm"),
+  pointingModelAddDone: document.getElementById("pointingModelAddDone"),
+  pointingFavoriteOpen: document.getElementById("pointingFavoriteOpen"),
+  pointingFavoriteCount: document.getElementById("pointingFavoriteCount"),
+  pointingFavoriteWindow: document.getElementById("pointingFavoriteWindow"),
+  pointingFavoriteClose: document.getElementById("pointingFavoriteClose"),
+  pointingFavoriteBody: document.getElementById("pointingFavoriteBody"),
+  pointingFavoriteEmpty: document.getElementById("pointingFavoriteEmpty"),
+  pointingSaveScreenshot: document.getElementById("pointingSaveScreenshot"),
+  pointingTerrainBuild: document.getElementById("pointingTerrainBuild"),
   pointingModelEditorCount: document.getElementById("pointingModelEditorCount"),
   pointingModelEditor: document.getElementById("pointingModelEditor"),
   pointingModelEditorClose: document.getElementById("pointingModelEditorClose"),
@@ -518,11 +624,9 @@ const fields = {
   skyVelocityZero: document.getElementById("skyVelocityZero"),
 };
 
-// Visibility and grid are optional analysis overlays. Start each Pointing
-// Model session with an uncluttered terrain view, including pages rendered
-// from an older cached template that still has checked attributes.
+// Visibility is an optional analysis overlay. Start each Pointing Model
+// session with an uncluttered terrain view.
 if (fields.pointingLayerVisibility) fields.pointingLayerVisibility.checked = false;
-if (fields.pointingLayerGrid) fields.pointingLayerGrid.checked = false;
 
 const axisFields = {
   Azimuth: {
@@ -1199,6 +1303,7 @@ let autoTuneRunState = {
 let pointingModel = null;
 let selectedPointingSample = null;
 let pointingModelComparisonSample = null;
+let pointingModelAddSample = null;
 let pointingModelZoomInFlight = false;
 let pointingModelLinkedZoomPct = null;
 let pointingAlignmentSample = null;
@@ -1211,6 +1316,55 @@ const pointingAlignmentFrameTimers = new Map();
 let pointingSampleController = null;
 let pointingSampleRequestSequence = 0;
 let pointingModelLoading = false;
+let pointingFavorites = [];
+const POINTING_TERRAIN_DB = "narit-terrain-cache-v1";
+const POINTING_TERRAIN_STORE = "terrain";
+
+function openPointingTerrainCache() {
+  return new Promise((resolve, reject) => {
+    if (!window.indexedDB) {
+      reject(new Error("IndexedDB is unavailable."));
+      return;
+    }
+    const request = indexedDB.open(POINTING_TERRAIN_DB, 1);
+    request.onupgradeneeded = () => {
+      const database = request.result;
+      if (!database.objectStoreNames.contains(POINTING_TERRAIN_STORE)) {
+        database.createObjectStore(POINTING_TERRAIN_STORE);
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error || new Error("Terrain cache could not be opened."));
+  });
+}
+
+async function readPointingTerrainCache(cacheKey) {
+  const database = await openPointingTerrainCache();
+  try {
+    return await new Promise((resolve, reject) => {
+      const request = database.transaction(POINTING_TERRAIN_STORE, "readonly")
+        .objectStore(POINTING_TERRAIN_STORE).get("active");
+      request.onsuccess = () => resolve(request.result?.cacheKey === cacheKey ? request.result.payload : null);
+      request.onerror = () => reject(request.error);
+    });
+  } finally {
+    database.close();
+  }
+}
+
+async function writePointingTerrainCache(cacheKey, payload) {
+  const database = await openPointingTerrainCache();
+  try {
+    await new Promise((resolve, reject) => {
+      const request = database.transaction(POINTING_TERRAIN_STORE, "readwrite")
+        .objectStore(POINTING_TERRAIN_STORE).put({ cacheKey, payload, savedAt: Date.now() }, "active");
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  } finally {
+    database.close();
+  }
+}
 let pointing3DLoading = false;
 let pointing3DReady = false;
 const pointingRasterImages = new Map();
@@ -1334,10 +1488,10 @@ const driveEnableDiagnostics = new DriveEnableDiagnostics();
 
 function readStoredViewMode() {
   const queryMode = new URLSearchParams(window.location.search).get("view");
-  if (["axis", "sky", "pointing", "camera", "report"].includes(queryMode)) return queryMode;
+  if (["axis", "sky", "pointing", "camera", "report", "mission"].includes(queryMode)) return queryMode;
   try {
     const stored = localStorage.getItem(viewModeStorageKey);
-    return ["axis", "sky", "pointing", "camera", "report"].includes(stored) ? stored : "axis";
+    return ["axis", "sky", "pointing", "camera", "report", "mission"].includes(stored) ? stored : "axis";
   } catch (error) {
     return "axis";
   }
@@ -1370,10 +1524,15 @@ function readFloatingWindowPosition(panel) {
 function saveFloatingWindowPosition(panel) {
   const rect = panel.getBoundingClientRect();
   try {
-    localStorage.setItem(floatingWindowStorageKey(panel), JSON.stringify({
+    const state = {
       left: Math.round(rect.left),
       top: Math.round(rect.top),
-    }));
+    };
+    if (panel.querySelector("[data-resize-edge]")) {
+      state.width = Math.round(rect.width);
+      state.height = Math.round(rect.height);
+    }
+    localStorage.setItem(floatingWindowStorageKey(panel), JSON.stringify(state));
   } catch (error) {
     // Window placement is convenience UI state; dragging should still work if storage is blocked.
   }
@@ -1399,6 +1558,12 @@ function restoreFloatingWindowPosition(panel, fallbackPosition = null) {
   if (!panel) return;
   const savedPosition = readFloatingWindowPosition(panel);
   if (savedPosition) {
+    if (panel.querySelector("[data-resize-edge]")) {
+      const maxWidth = Math.max(1, window.innerWidth - floatingWindowMargin * 2);
+      const maxHeight = Math.max(1, window.innerHeight - floatingWindowMargin * 2);
+      if (Number.isFinite(savedPosition.width)) panel.style.width = `${Math.min(savedPosition.width, maxWidth)}px`;
+      if (Number.isFinite(savedPosition.height)) panel.style.height = `${Math.min(savedPosition.height, maxHeight)}px`;
+    }
     setFloatingWindowPosition(panel, savedPosition.left, savedPosition.top);
     return;
   }
@@ -1447,6 +1612,62 @@ function initializeFloatingWindows() {
       window.addEventListener("pointermove", movePanel);
       window.addEventListener("pointerup", stopDragging, { once: true });
       window.addEventListener("pointercancel", stopDragging, { once: true });
+    });
+  });
+}
+
+function initializeResizableFloatingWindows() {
+  document.querySelectorAll("[data-floating-window]").forEach((panel) => {
+    panel.querySelectorAll("[data-resize-edge]").forEach((handle) => {
+      handle.addEventListener("pointerdown", (event) => {
+        if (document.documentElement.classList.contains("mobile-browser") || event.button !== 0) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const edge = handle.dataset.resizeEdge || "";
+        const start = panel.getBoundingClientRect();
+        const minWidth = Math.min(330, window.innerWidth - floatingWindowMargin * 2);
+        const minHeight = Math.min(500, window.innerHeight - floatingWindowMargin * 2);
+        const maxWidth = Math.min(720, window.innerWidth - floatingWindowMargin * 2);
+        const maxHeight = window.innerHeight - floatingWindowMargin * 2;
+        handle.setPointerCapture?.(event.pointerId);
+        panel.classList.add("is-resizing");
+        setFloatingWindowPosition(panel, start.left, start.top);
+
+        const resizePanel = (moveEvent) => {
+          const dx = moveEvent.clientX - event.clientX;
+          const dy = moveEvent.clientY - event.clientY;
+          let width = start.width;
+          let height = start.height;
+          let left = start.left;
+          let top = start.top;
+          if (edge.includes("e")) width = Math.min(maxWidth, Math.max(minWidth, start.width + dx));
+          if (edge.includes("s")) height = Math.min(maxHeight, Math.max(minHeight, start.height + dy));
+          if (edge.includes("w")) {
+            width = Math.min(maxWidth, Math.max(minWidth, start.width - dx));
+            left = start.right - width;
+          }
+          if (edge.includes("n")) {
+            height = Math.min(maxHeight, Math.max(minHeight, start.height - dy));
+            top = start.bottom - height;
+          }
+          panel.style.width = `${width}px`;
+          panel.style.height = `${height}px`;
+          setFloatingWindowPosition(panel, left, top);
+        };
+
+        const stopResizing = () => {
+          if (handle.hasPointerCapture?.(event.pointerId)) handle.releasePointerCapture(event.pointerId);
+          panel.classList.remove("is-resizing");
+          saveFloatingWindowPosition(panel);
+          window.removeEventListener("pointermove", resizePanel);
+          window.removeEventListener("pointerup", stopResizing);
+          window.removeEventListener("pointercancel", stopResizing);
+        };
+
+        window.addEventListener("pointermove", resizePanel);
+        window.addEventListener("pointerup", stopResizing, { once: true });
+        window.addEventListener("pointercancel", stopResizing, { once: true });
+      });
     });
   });
 }
@@ -1785,7 +2006,7 @@ function renderStatus(data) {
   const liveAzimuth = Array.isArray(data?.axes)
     ? data.axes.find((axis) => axis?.label === "Azimuth" && axis?.available)
     : null;
-  window.pointingTerrain3D?.setMountAzimuth(data?.connected ? liveAzimuth?.position_deg : null);
+  window.pointingTerrain3D?.setMountAzimuth(data?.connected ? axisPointingPosition(liveAzimuth) : null);
   const timestamp = data.timestamp ? new Date(data.timestamp) : new Date();
   resetHistoryWhenServerRestarts(data.server_started_at);
   renderDriveErrorEvents(data.drive_error_events);
@@ -1802,6 +2023,9 @@ function renderStatus(data) {
   }
   if (fields.pointingAlignmentPanel && !fields.pointingAlignmentPanel.hidden) {
     renderPointingAlignment();
+  }
+  if (fields.pointingModelAddDialog && !fields.pointingModelAddDialog.hidden) {
+    renderPointingModelAddDialog();
   }
   if (fields.navDot) {
     setLight(fields.navDot, data.connected, data.has_bus_power);
@@ -1846,19 +2070,19 @@ function renderIndustrialSummary(data) {
     const numericValue = connected ? toNumber(value) : null;
     field.textContent = numericValue === null ? "--" : `${formatSignedNumber(numericValue)}${unit}`;
   };
-  renderPointingTelemetry(fields.pointingLiveAzimuthPosition, azimuth?.position_deg, "°");
-  renderPointingTelemetry(fields.pointingLiveAltitudePosition, altitude?.position_deg, "°");
+  renderPointingTelemetry(fields.pointingLiveAzimuthPosition, axisPointingPosition(azimuth), "°");
+  renderPointingTelemetry(fields.pointingLiveAltitudePosition, axisPointingPosition(altitude), "°");
   renderPointingTelemetry(fields.pointingLiveAzimuthVelocity, azimuth?.velocity_deg_per_sec, " °/s");
   renderPointingTelemetry(fields.pointingLiveAltitudeVelocity, altitude?.velocity_deg_per_sec, " °/s");
 
   if (fields.industrialAzimuthSummary) {
     fields.industrialAzimuthSummary.textContent = azimuth
-      ? `${formatSignedNumber(azimuth.position_deg)}°`
+      ? `${formatSignedNumber(axisPointingPosition(azimuth))}°`
       : "--";
   }
   if (fields.industrialAltitudeSummary) {
     fields.industrialAltitudeSummary.textContent = altitude
-      ? `${formatSignedNumber(altitude.position_deg)}°`
+      ? `${formatSignedNumber(axisPointingPosition(altitude))}°`
       : "--";
   }
 
@@ -2000,6 +2224,11 @@ function resetHistoryWhenServerRestarts(serverStartedAt) {
   lastAxisArmedStates.clear();
 }
 
+function resetTelemetryChartHistory() {
+  history.Azimuth = [];
+  history.Altitude = [];
+}
+
 function renderAxis(label, axis, timestamp) {
   const ui = axisFields[label];
   if (!ui) return;
@@ -2035,7 +2264,7 @@ function renderAxis(label, axis, timestamp) {
   appendAxisHistory(label, axis, timestamp);
 
   ui.status.textContent = "Connected";
-  ui.position.textContent = `${formatNumber(axis.position_deg)} Deg`;
+  ui.position.textContent = `${formatNumber(axisPointingPosition(axis))} Deg`;
   ui.velocity.textContent = `${formatNumber(axis.velocity_deg_per_sec)} Deg/Sec`;
   ui.current.textContent = `${formatNumber(axis.current)} Amp`;
   ui.state.textContent = formatAxisState(axis.current_state);
@@ -2648,8 +2877,8 @@ function renderSkySphere(data) {
   // mount coordinate (direction and position offset already applied). Using
   // the encoder's absolute/raw coordinate here puts the actual marker in a
   // different quadrant even though the numeric readout is correct.
-  const azimuthDeg = toNumber(azimuth?.position_deg);
-  const altitudeDeg = toNumber(altitude?.position_deg);
+  const azimuthDeg = axisPointingPosition(azimuth);
+  const altitudeDeg = axisPointingPosition(altitude);
 
   renderSkyAxisActuals("Azimuth", azimuth);
   renderSkyAxisActuals("Altitude", altitude);
@@ -2662,7 +2891,7 @@ function renderSkyAxisActuals(label, axis) {
   const position = fields[`${prefix}PositionValue`];
   const velocity = fields[`${prefix}VelocityValue`];
   const current = fields[`${prefix}CurrentValue`];
-  if (position) position.textContent = `${formatNumber(axis?.position_deg)} Deg`;
+  if (position) position.textContent = `${formatNumber(axisPointingPosition(axis))} Deg`;
   if (velocity) velocity.textContent = `${formatNumber(axis?.velocity_deg_per_sec)} Deg/Sec`;
   if (current) current.textContent = `${formatNumber(axis?.current)} Amp`;
 }
@@ -3356,9 +3585,9 @@ function renderAxisControls(data) {
 }
 
 function setViewMode(mode, { persist = true } = {}) {
-  activeViewMode = ["axis", "sky", "pointing", "camera", "report"].includes(mode) ? mode : "axis";
+  activeViewMode = ["axis", "sky", "pointing", "camera", "report", "mission"].includes(mode) ? mode : "axis";
   if (fields.industrialSectionTitle) {
-    fields.industrialSectionTitle.textContent = activeViewMode === "sky"
+    fields.industrialSectionTitle.textContent = activeViewMode === "mission" ? "MISSION DESIGN" : activeViewMode === "sky"
       ? "HORIZON VIEW"
       : activeViewMode === "pointing"
         ? "POINTING MODEL"
@@ -3387,6 +3616,15 @@ function setViewMode(mode, { persist = true } = {}) {
   if (activeViewMode !== "pointing" && fields.pointingTargetPanel) {
     fields.pointingTargetPanel.hidden = true;
   }
+  const missionPanel = document.getElementById("missionDesignView");
+  const missionFrame = document.getElementById("missionDesignFrame");
+  if (missionPanel) missionPanel.hidden = activeViewMode !== "mission";
+  if (missionFrame) {
+    if (activeViewMode === "mission" && !missionFrame.hasAttribute("src")) {
+      missionFrame.src = "/static/desktop/mission-design.html?v=27";
+    }
+    missionFrame.contentWindow?.postMessage({ type: "mission-visibility", visible: activeViewMode === "mission" }, window.location.origin);
+  }
   document.body.classList.toggle("is-pointing-view", activeViewMode === "pointing");
   document.body.classList.toggle("is-camera-view", activeViewMode === "camera");
   document.body.classList.toggle("is-report-view", activeViewMode === "report");
@@ -3403,7 +3641,7 @@ function setViewMode(mode, { persist = true } = {}) {
 
   if (persist) {
     storeViewMode(activeViewMode);
-    const label = activeViewMode === "sky"
+    const label = activeViewMode === "mission" ? "Mission Design" : activeViewMode === "sky"
       ? "Horizon View"
       : activeViewMode === "pointing"
         ? "Pointing Model"
@@ -3482,6 +3720,10 @@ function formatDuration(milliseconds) {
 function toNumber(value) {
   if (value === null || value === undefined || Number.isNaN(Number(value))) return null;
   return Number(value);
+}
+
+function axisPointingPosition(axis) {
+  return toNumber(axis?.pointing_position_deg) ?? toNumber(axis?.position_deg);
 }
 
 function formatNumber(value) {
@@ -4337,6 +4579,7 @@ async function sendAxisJogCommand(axis, velocity, form = null, message = "Jog", 
         "Content-Type": "application/json",
         "X-Motion-Client-ID": motionClientId,
         "X-Motion-Command-Sequence": String(motionCommandSequence),
+        "X-Motion-Issued-At-Ms": String(Date.now()),
       },
       body: JSON.stringify(payload),
     });
@@ -5027,6 +5270,7 @@ async function applySystemSettings() {
       throw new Error(data.error || "Settings apply failed.");
     }
     appSettings = data.settings;
+    if (data.position_offsets_rebased) resetTelemetryChartHistory();
     populateSettingsForm();
     settingsFormDirty = false;
     updatePageTitle();
@@ -5315,27 +5559,53 @@ function setSkyTargetMessage(message, className) {
   fields.skyTargetMessage.textContent = message;
 }
 
-async function loadPointingModel({ force = false } = {}) {
+async function loadPointingModel({ force = false, rebuild = false } = {}) {
   if (pointingModelLoading) return;
-  if (pointingModel && !force) {
+  if (pointingModel && !force && !rebuild) {
     renderPointingModel();
     return;
   }
   pointingModelLoading = true;
-  setPointingProgress(true, "Building terrain map", "Generating 30 m grid from DEM...");
-  drawPointingPlaceholder("Building 30 m terrain grid...");
+  if (fields.pointingTerrainBuild) fields.pointingTerrainBuild.disabled = true;
+  setPointingProgress(true, rebuild ? "Rebuilding terrain map" : "Loading terrain map", rebuild ? "Generating a fresh 30 m grid from DEM..." : "Checking this browser's terrain cache...");
+  drawPointingPlaceholder(rebuild ? "Rebuilding 30 m terrain grid..." : "Loading cached 30 m terrain grid...");
   try {
-    const response = await fetch("/api/pointing/model?resolution_m=30", { cache: "no-store" });
-    const data = await response.json();
-    if (!response.ok || !data.ok) {
-      throw new Error(data.error || "Pointing model unavailable.");
+    const keyResponse = await fetch("/api/pointing/cache-key?resolution_m=30", { cache: "no-store" });
+    const keyData = await keyResponse.json();
+    if (!keyResponse.ok || !keyData.ok || !keyData.cache_key) {
+      throw new Error(keyData.error || "Terrain cache identity is unavailable.");
+    }
+    let data = null;
+    if (!rebuild) {
+      try {
+        data = await readPointingTerrainCache(keyData.cache_key);
+      } catch (_error) {
+        // Private browsing or storage policy may disable IndexedDB; network fallback remains valid.
+      }
+    }
+    if (data) {
+      data = { ...data, cached: true, client_cached: true };
+    } else {
+      const query = rebuild ? "?resolution_m=30&rebuild=1" : "?resolution_m=30";
+      const response = await fetch(`/api/pointing/model${query}`, { cache: "no-store" });
+      data = await response.json();
+      if (!response.ok || !data.ok) throw new Error(data.error || "Pointing model unavailable.");
+      try {
+        await writePointingTerrainCache(keyData.cache_key, data);
+      } catch (_error) {
+        // The map remains usable when client storage is unavailable or full.
+      }
     }
     pointingModel = data;
     pointing3DReady = false;
     fields.pointingMap3DCanvas?.parentElement?.classList.remove("is-3d");
     pointingRasterImages.clear();
     selectedPointingSample = null;
-    setPointingProgress(true, data.cached ? "Loading cached terrain map" : "Loading terrain map", data.cached ? "Using cached 30 m raster from disk..." : "Preparing generated 30 m raster...");
+    setPointingProgress(
+      true,
+      data.client_cached ? "Loading browser-cached terrain" : data.cached ? "Loading cached terrain map" : "Loading terrain map",
+      data.client_cached ? "Restoring the saved 30 m map from this client..." : data.cached ? "Using cached 30 m raster from disk..." : "Preparing generated 30 m raster...",
+    );
     updatePointingReadouts();
     renderPointingModel();
     if (data.station?.source === "dem_center") {
@@ -5347,6 +5617,7 @@ async function loadPointingModel({ force = false } = {}) {
     setPointingProgress(false);
   } finally {
     pointingModelLoading = false;
+    if (fields.pointingTerrainBuild) fields.pointingTerrainBuild.disabled = false;
   }
 }
 
@@ -5390,7 +5661,7 @@ function updatePointingReadouts() {
 function renderPointingModel() {
   const liveAzimuth = axesByLabel().Azimuth;
   window.pointingTerrain3D?.setMountAzimuth(
-    latestStatus?.connected && liveAzimuth?.available ? liveAzimuth.position_deg : null,
+    latestStatus?.connected && liveAzimuth?.available ? axisPointingPosition(liveAzimuth) : null,
   );
   if (pointing3DReady && window.pointingTerrain3D) {
     window.pointingTerrain3D.applyLayers(pointingLayerState());
@@ -5432,6 +5703,7 @@ async function initializePointingTerrain3D() {
     );
     fields.pointingMap3DCanvas?.parentElement?.classList.toggle("is-3d", pointing3DReady);
     if (pointing3DReady) {
+      window.pointingTerrain3D.setFavoritePoints(pointingFavorites);
       window.pointingTerrain3D.showSelection(selectedPointingSample, { showLabel: true });
       setPointingProgress(false);
     }
@@ -5492,8 +5764,7 @@ function drawPointingRasterTerrain(ctx, width, height) {
   const raster = pointingModel.raster || {};
   const layers = pointingLayerState();
   const sources = [
-    layers.satellite ? raster.satellite_src : null,
-    layers.terrain ? (raster.terrain_src || raster.src) : null,
+    layers.satellite ? raster.satellite_src : (raster.terrain_src || raster.src),
     layers.visibility ? raster.visibility_src : null,
   ].filter(Boolean);
   const missingSource = sources.find((src) => !loadedPointingRasterImage(src));
@@ -5533,10 +5804,67 @@ function drawPointingRasterTerrain(ctx, width, height) {
 function pointingLayerState() {
   return {
     satellite: fields.pointingLayerSatellite?.checked !== false,
-    terrain: fields.pointingLayerTerrain?.checked !== false,
+    modelPoints: fields.pointingLayerPointing?.checked !== false,
     visibility: fields.pointingLayerVisibility?.checked === true,
-    grid: fields.pointingLayerGrid?.checked === true,
+    directionOverlay: fields.pointingLayerTrackingArea?.checked !== false,
+    grid: false,
   };
+}
+
+function visiblePointingScreenshotOverlays() {
+  const stage = fields.pointingMap3DCanvas?.parentElement;
+  if (!stage) return [];
+  const stageRect = stage.getBoundingClientRect();
+  const candidates = [...stage.querySelectorAll(".pointing-hover-label:not([hidden])")];
+  return candidates.filter((element) => {
+    const style = window.getComputedStyle(element);
+    if (style.display === "none" || style.visibility === "hidden" || Number(style.opacity) === 0) return false;
+    const rect = element.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0
+      && rect.right > stageRect.left && rect.left < stageRect.right
+      && rect.bottom > stageRect.top && rect.top < stageRect.bottom;
+  });
+}
+
+async function savePointingMapScreenshot() {
+  const button = fields.pointingSaveScreenshot;
+  if (!pointing3DReady || !window.pointingTerrain3D?.captureJpeg) {
+    addLog("warning", "Pointing Model screenshot is unavailable until the 3D map finishes loading");
+    return;
+  }
+  const label = button?.querySelector("span");
+  const originalLabel = label?.textContent || "Save Screenshot";
+  if (button) {
+    button.disabled = true;
+    button.setAttribute("aria-busy", "true");
+  }
+  if (label) label.textContent = "Rendering 4K...";
+  try {
+    const capture = await window.pointingTerrain3D.captureJpeg({
+      quality: 0.96,
+      overlays: visiblePointingScreenshotOverlays(),
+    });
+    const now = new Date();
+    const pad = (value) => String(value).padStart(2, "0");
+    const timestamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+    const link = document.createElement("a");
+    const objectUrl = URL.createObjectURL(capture.blob);
+    link.href = objectUrl;
+    link.download = `pointing-model-${timestamp}-${capture.width}x${capture.height}.jpg`;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+    addLog("message", `Pointing Model screenshot saved at ${capture.width} × ${capture.height} px`);
+  } catch (error) {
+    addLog("error", `Pointing Model screenshot failed: ${error.message}`);
+  } finally {
+    if (label) label.textContent = originalLabel;
+    if (button) {
+      button.disabled = false;
+      button.removeAttribute("aria-busy");
+    }
+  }
 }
 
 function loadedPointingRasterImage(src) {
@@ -5785,6 +6113,23 @@ function renderPointingModelZoomStatus() {
     }
     input.placeholder = pointingModelLinkedZoomPct === null ? "--.-" : "";
   });
+  if (fields.cameraLiveLinkedZoomPct) {
+    fields.cameraLiveLinkedZoomPct.textContent = pointingModelLinkedZoomPct === null
+      ? "--.-%"
+      : `${pointingModelLinkedZoomPct.toFixed(1)}%`;
+  }
+}
+
+function renderCameraLiveZoomReadback(live = {}) {
+  if (!fields.cameraLiveZoomControl) return;
+  const thermal = cameraZoomPercentage({ zoom_pct: live.thermal });
+  const visible = cameraZoomPercentage({ zoom_pct: live.visible });
+  const details = [];
+  if (thermal !== null) details.push(`Thermal ${thermal.toFixed(1)}%`);
+  if (visible !== null) details.push(`Visible ${visible.toFixed(1)}%`);
+  fields.cameraLiveZoomControl.title = details.length
+    ? `${details.join(" · ")} · Thermal is the control reference`
+    : "Waiting for live Thermal zoom readback";
 }
 
 function setPointingModelZoomMessage(message, state = "") {
@@ -5794,6 +6139,11 @@ function setPointingModelZoomMessage(message, state = "") {
     element.classList.remove("is-ok", "is-error");
     if (state) element.classList.add(state);
   });
+  if (fields.cameraLiveZoomMessage) fields.cameraLiveZoomMessage.textContent = message;
+  if (fields.cameraLiveZoomControl) {
+    fields.cameraLiveZoomControl.classList.remove("is-ok", "is-error");
+    if (state) fields.cameraLiveZoomControl.classList.add(state);
+  }
 }
 
 function setPointingModelZoomBusy(busy) {
@@ -5803,6 +6153,8 @@ function setPointingModelZoomBusy(busy) {
     fields.pointingModelZoomIn,
     fields.pointingAlignmentZoomOut,
     fields.pointingAlignmentZoomIn,
+    fields.cameraLiveZoomOut,
+    fields.cameraLiveZoomIn,
   ].forEach((button) => {
     if (!button) return;
     button.classList.toggle("is-busy", busy);
@@ -5814,23 +6166,32 @@ function setPointingModelZoomBusy(busy) {
     if (busy) input.setAttribute("aria-busy", "true");
     else input.removeAttribute("aria-busy");
   });
+  if (fields.cameraLiveZoomStep) fields.cameraLiveZoomStep.disabled = busy;
+  if (fields.cameraLiveLinkedZoomPct) fields.cameraLiveLinkedZoomPct.setAttribute("aria-busy", String(busy));
 }
 
 function pointingModelZoomStep(input = fields.pointingModelZoomStep) {
-  const step = Number(input?.value);
-  if (!Number.isFinite(step) || step < 0.1 || step > 25) {
-    setPointingModelZoomMessage("Zoom Step must be between 0.1% and 25%.", "is-error");
+  const rawStep = String(input?.value ?? "").trim();
+  const step = rawStep === "" ? Number.NaN : Number(rawStep);
+  const minimum = Number.isFinite(Number(input?.min)) ? Number(input.min) : 0.1;
+  const maximum = Number.isFinite(Number(input?.max)) ? Number(input.max) : 25;
+  if (!Number.isFinite(step) || step < minimum || step > maximum) {
+    setPointingModelZoomMessage(`Zoom Step must be between ${minimum}% and ${maximum}%.`, "is-error");
     input?.focus();
     return null;
   }
   const normalized = Math.round(step * 10) / 10;
-  [fields.pointingModelZoomStep, fields.pointingAlignmentZoomStep].forEach((candidate) => {
+  const synchronizedInputs = input === fields.cameraLiveZoomStep
+    ? [fields.cameraLiveZoomStep]
+    : [fields.pointingModelZoomStep, fields.pointingAlignmentZoomStep];
+  synchronizedInputs.forEach((candidate) => {
     if (candidate && candidate !== input) candidate.value = normalized.toFixed(1);
   });
   return normalized;
 }
 
 async function loadPointingModelLinkedZoom() {
+  if (pointingModelZoomInFlight) return;
   try {
     const response = await fetch("/api/camera-control/zoom", { cache: "no-store" });
     const result = await response.json().catch(() => ({}));
@@ -5838,6 +6199,7 @@ async function loadPointingModelLinkedZoom() {
     if (response.ok && result.ok === true && Number.isFinite(linked)) {
       pointingModelLinkedZoomPct = Math.max(0, Math.min(100, linked));
       renderPointingModelZoomStatus();
+      renderCameraLiveZoomReadback(result.live);
     }
   } catch (_error) {
     // Live frame metadata remains a safe read-only fallback for initial display.
@@ -5864,6 +6226,7 @@ async function sendPointingModelZoom(direction, stepInput = fields.pointingModel
     if (!Number.isFinite(linked)) throw new Error("Zoom API did not return a linked target.");
     pointingModelLinkedZoomPct = Math.max(0, Math.min(100, linked));
     renderPointingModelZoomStatus();
+    renderCameraLiveZoomReadback(result.targets || result.live);
     setPointingModelZoomMessage(
       `Linked target ${pointingModelLinkedZoomPct.toFixed(1)}% · applied to Thermal and Visible`,
       "is-ok",
@@ -6225,6 +6588,206 @@ function closePointingModelEditor() {
   fields.pointingModelEditorOpen?.setAttribute("aria-expanded", "false");
 }
 
+function openPointingModelCreateDialog() {
+  const dialog = fields.pointingModelCreateDialog;
+  if (!dialog || activeViewMode !== "pointing") return;
+  const points = Array.isArray(appSettings.pointing_alignment?.points)
+    ? appSettings.pointing_alignment.points
+    : [];
+  dialog.dataset.state = "confirm";
+  dialog.hidden = false;
+  fields.pointingModelCreateOpen?.setAttribute("aria-expanded", "true");
+  if (fields.pointingModelCreateTitle) fields.pointingModelCreateTitle.textContent = "Create New Pointing Model?";
+  if (fields.pointingModelCreatePointCount) {
+    fields.pointingModelCreatePointCount.textContent = `${points.length} SAVED POINT${points.length === 1 ? "" : "S"}`;
+  }
+  if (fields.pointingModelCreateMessage) {
+    fields.pointingModelCreateMessage.textContent = points.length
+      ? `This will permanently clear all ${points.length} calibration points and reset the active Pointing Model.`
+      : "The current model has no saved calibration points. A new empty model will be prepared.";
+  }
+  if (fields.pointingModelCreateConfirm) {
+    fields.pointingModelCreateConfirm.hidden = false;
+    fields.pointingModelCreateConfirm.disabled = false;
+    fields.pointingModelCreateConfirm.textContent = "Yes, Create New Model";
+  }
+  if (fields.pointingModelCreateCancel) fields.pointingModelCreateCancel.hidden = false;
+  if (fields.pointingModelCreateDone) fields.pointingModelCreateDone.hidden = true;
+  window.setTimeout(() => fields.pointingModelCreateCancel?.focus(), 0);
+}
+
+function closePointingModelCreateDialog() {
+  if (!fields.pointingModelCreateDialog) return;
+  fields.pointingModelCreateDialog.hidden = true;
+  fields.pointingModelCreateOpen?.setAttribute("aria-expanded", "false");
+  fields.pointingModelCreateOpen?.focus({ preventScroll: true });
+}
+
+async function createNewPointingModel() {
+  const button = fields.pointingModelCreateConfirm;
+  if (!button || button.disabled) return;
+  button.disabled = true;
+  button.textContent = "Clearing Points…";
+  try {
+    const response = await fetch("/api/pointing/alignment-points", { method: "DELETE" });
+    const data = await response.json();
+    if (!response.ok || !data.ok) throw new Error(data.error || "Could not create a new Pointing Model.");
+    appSettings = data.settings;
+    selectedPointingModelPointId = "";
+    pointingAlignmentSample = null;
+    pointingAlignmentOffset = { azimuth: 0, altitude: 0 };
+    renderPointingAlignmentModel();
+    setPointingAlignmentMessage("New Pointing Model created. Select a terrain target to add the first point.", "is-ok");
+    addLog("success", `New Pointing Model created; ${Number(data.cleared_count) || 0} calibration points cleared.`);
+    fields.pointingModelCreateDialog.dataset.state = "success";
+    if (fields.pointingModelCreateTitle) fields.pointingModelCreateTitle.textContent = "New Model Ready";
+    if (fields.pointingModelCreatePointCount) fields.pointingModelCreatePointCount.textContent = "0 SAVED POINTS";
+    if (fields.pointingModelCreateMessage) {
+      fields.pointingModelCreateMessage.textContent = "All Pointing Model points have been cleared. You can now select a terrain target and add new calibration points.";
+    }
+    button.hidden = true;
+    if (fields.pointingModelCreateCancel) fields.pointingModelCreateCancel.hidden = true;
+    if (fields.pointingModelCreateDone) {
+      fields.pointingModelCreateDone.hidden = false;
+      fields.pointingModelCreateDone.focus();
+    }
+  } catch (error) {
+    button.disabled = false;
+    button.textContent = "Try Again";
+    if (fields.pointingModelCreateMessage) fields.pointingModelCreateMessage.textContent = error.message;
+    fields.pointingModelCreateDialog.dataset.state = "error";
+    addLog("error", `Could not create a new Pointing Model: ${error.message}`);
+  }
+}
+
+function renderPointingModelAddDialog() {
+  const sample = pointingModelAddSample;
+  if (!sample) return false;
+  const axes = axesByLabel();
+  const azimuthAxis = latestStatus?.connected && axes.Azimuth?.available ? axes.Azimuth : null;
+  const altitudeAxis = latestStatus?.connected && axes.Altitude?.available ? axes.Altitude : null;
+  const referenceAzimuth = mountAzimuthForPointingSample(sample);
+  const referenceAltitude = mountAltitudeForPointingSample(sample);
+  const telemetryAzimuth = toNumber(azimuthAxis?.position_deg);
+  const telemetryAltitude = toNumber(altitudeAxis?.position_deg);
+  const azimuthDifference = referenceAzimuth === null || telemetryAzimuth === null
+    ? null
+    : normalizeSignedDegrees(referenceAzimuth - telemetryAzimuth);
+  const altitudeDifference = referenceAltitude === null || telemetryAltitude === null
+    ? null
+    : referenceAltitude - telemetryAltitude;
+  const ready = [referenceAzimuth, referenceAltitude, telemetryAzimuth, telemetryAltitude]
+    .every((value) => value !== null);
+
+  if (fields.pointingModelAddGrid) {
+    fields.pointingModelAddGrid.textContent = sample.grid_cell?.id || "30 m TERRAIN CELL";
+  }
+  if (fields.pointingModelAddReference) {
+    fields.pointingModelAddReference.textContent = `AZ ${pointingAlignmentAngleText(referenceAzimuth)} · ALT ${pointingAlignmentAngleText(referenceAltitude)}`;
+  }
+  if (fields.pointingModelAddTelemetry) {
+    fields.pointingModelAddTelemetry.textContent = `AZ ${pointingAlignmentAngleText(telemetryAzimuth)} · ALT ${pointingAlignmentAngleText(telemetryAltitude)}`;
+  }
+  if (fields.pointingModelAddDifference) {
+    fields.pointingModelAddDifference.textContent = `AZ ${pointingAlignmentAngleText(azimuthDifference)} · ALT ${pointingAlignmentAngleText(altitudeDifference)}`;
+  }
+  if (fields.pointingModelAddConfirm) {
+    fields.pointingModelAddConfirm.disabled = !ready || fields.pointingModelAddDialog?.dataset.state === "saving";
+  }
+  if (!ready && fields.pointingModelAddMessage) {
+    fields.pointingModelAddMessage.textContent = "Live DEM and mount telemetry are required before this point can be added.";
+  }
+  return ready;
+}
+
+function openPointingModelAddDialog() {
+  const dialog = fields.pointingModelAddDialog;
+  if (!dialog || !selectedPointingSample || activeViewMode !== "pointing") return;
+  pointingModelAddSample = { ...selectedPointingSample };
+  if (fields.pointingModelComparisonPanel) fields.pointingModelComparisonPanel.hidden = true;
+  if (fields.pointingAlignmentPanel && !fields.pointingAlignmentPanel.hidden) {
+    closePointingAlignment({ reopenComparison: false });
+  }
+  dialog.dataset.state = "confirm";
+  dialog.hidden = false;
+  if (fields.pointingModelAddTitle) fields.pointingModelAddTitle.textContent = "Add This Point to the Model?";
+  if (fields.pointingModelAddMessage) {
+    fields.pointingModelAddMessage.textContent = "The current mount direction will be saved and the Pointing Model will be recalculated immediately. The mount will not move.";
+  }
+  if (fields.pointingModelAddCancel) fields.pointingModelAddCancel.hidden = false;
+  if (fields.pointingModelAddConfirm) {
+    fields.pointingModelAddConfirm.hidden = false;
+    fields.pointingModelAddConfirm.textContent = "Yes, Add to Model";
+  }
+  if (fields.pointingModelAddDone) fields.pointingModelAddDone.hidden = true;
+  renderPointingModelAddDialog();
+  window.setTimeout(() => fields.pointingModelAddCancel?.focus(), 0);
+}
+
+function closePointingModelAddDialog() {
+  if (!fields.pointingModelAddDialog) return;
+  fields.pointingModelAddDialog.hidden = true;
+  pointingModelAddSample = null;
+}
+
+async function confirmPointingModelAdd() {
+  const button = fields.pointingModelAddConfirm;
+  const sample = pointingModelAddSample;
+  if (!button || button.disabled || !sample || !renderPointingModelAddDialog()) return;
+  const payload = {
+    grid_cell: String(sample.grid_cell?.id || ""),
+    latitude: Number(sample.latitude),
+    longitude: Number(sample.longitude),
+    camera_offset_azimuth_deg: 0,
+    camera_offset_altitude_deg: 0,
+  };
+  fields.pointingModelAddDialog.dataset.state = "saving";
+  button.disabled = true;
+  button.textContent = "Adding Point…";
+  if (fields.pointingModelAddMessage) {
+    fields.pointingModelAddMessage.textContent = "Saving the live mount direction and recalculating the Pointing Model…";
+  }
+  try {
+    const response = await fetch("/api/pointing/alignment-point", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json();
+    if (!response.ok || !data.ok) throw new Error(data.error || "Could not add this point to the model.");
+    appSettings = data.settings;
+    const model = data.model || {};
+    const refreshedSample = await fetchPointingSample({ latitude: payload.latitude, longitude: payload.longitude });
+    if (selectedPointingSample?.grid_cell?.id === refreshedSample.grid_cell?.id) {
+      selectedPointingSample = refreshedSample;
+      updatePointingSelectionReadouts(refreshedSample);
+      openPointingTargetPanel(refreshedSample);
+    }
+    renderPointingAlignmentModel();
+    fields.pointingModelAddDialog.dataset.state = "success";
+    if (fields.pointingModelAddTitle) fields.pointingModelAddTitle.textContent = "Point Added";
+    if (fields.pointingModelAddMessage) {
+      const rms = toNumber(model.rms_error_deg);
+      fields.pointingModelAddMessage.textContent = model.active
+        ? `Pointing compensation is active from ${Number(model.point_count) || 0} point(s)${rms === null ? "." : ` · RMS ${rms.toFixed(3)}°.`}`
+        : "The point was saved, but compensation is inactive. Review the saved point before moving the mount.";
+    }
+    button.hidden = true;
+    if (fields.pointingModelAddCancel) fields.pointingModelAddCancel.hidden = true;
+    if (fields.pointingModelAddDone) {
+      fields.pointingModelAddDone.hidden = false;
+      fields.pointingModelAddDone.focus();
+    }
+    addLog("success", `Pointing Model recalculated after adding ${payload.grid_cell || "the selected DEM point"}.`);
+  } catch (error) {
+    fields.pointingModelAddDialog.dataset.state = "error";
+    button.disabled = false;
+    button.textContent = "Try Again";
+    if (fields.pointingModelAddMessage) fields.pointingModelAddMessage.textContent = error.message;
+    addLog("error", `Could not add Pointing Model point: ${error.message}`);
+  }
+}
+
 function renderPointingAlignmentModel() {
   const alignment = appSettings.pointing_alignment || {};
   const points = Array.isArray(alignment.points) ? alignment.points : [];
@@ -6474,11 +7037,22 @@ async function addPointingAlignmentCalculationPoint() {
     if (!response.ok || !data.ok) throw new Error(data.error || "Could not add alignment calculation point.");
     appSettings = data.settings;
     const model = data.model || {};
+    const refreshedSample = await fetchPointingSample({
+      latitude: payload.latitude,
+      longitude: payload.longitude,
+    });
+    pointingAlignmentSample = refreshedSample;
+    if (selectedPointingSample
+        && selectedPointingSample.grid_cell?.id === refreshedSample.grid_cell?.id) {
+      selectedPointingSample = refreshedSample;
+      updatePointingSelectionReadouts(refreshedSample);
+      openPointingTargetPanel(refreshedSample);
+    }
     renderPointingAlignmentModel();
     setPointingAlignmentMessage(
       model.active
         ? `Point saved. Mount compensation is active from ${model.point_count} points (RMS error ${Number(model.rms_error_deg).toFixed(3)}°).`
-        : `Point saved (${model.point_count || 1}/2 minimum). Add a well-separated point to activate compensation.`,
+        : `Point saved, but its correction could not be activated. Review this reference point.`,
       "is-ok",
     );
     addLog("success", `Mount calibration point saved for ${payload.grid_cell || "selected DEM point"}`);
@@ -6537,7 +7111,7 @@ function openPointingTargetPanel(sample) {
 
 function pointingTargetFromPointerEvent(event) {
   if (pointing3DReady && window.pointingTerrain3D && event.currentTarget === fields.pointingMap3DCanvas) {
-    return window.pointingTerrain3D.pick(event);
+    return window.pointingTerrain3D.pickFavorite(event) || window.pointingTerrain3D.pick(event);
   }
   const canvas = fields.pointingMapCanvas;
   if (!canvas || !pointingModel) return null;
@@ -6553,6 +7127,190 @@ function pointingTargetFromPointerEvent(event) {
   const eastM = (dx / radius) * radiusM;
   const northM = (-dy / radius) * radiusM;
   return offsetLatLon(pointingModel.station.latitude, pointingModel.station.longitude, eastM, northM);
+}
+
+async function loadPointingFavorites() {
+  try {
+    const response = await fetch("/api/pointing/favorites", { cache: "no-store" });
+    const data = await response.json();
+    if (!response.ok || !data.ok) throw new Error(data.error || "Favorite points are unavailable.");
+    pointingFavorites = Array.isArray(data.favorites) ? data.favorites : [];
+    window.pointingTerrain3D?.setFavoritePoints(pointingFavorites);
+    renderPointingFavoriteTable();
+  } catch (error) {
+    addLog("error", `Favorite points failed to load: ${error.message}`);
+  }
+}
+
+function renderPointingFavoriteTable() {
+  if (fields.pointingFavoriteCount) fields.pointingFavoriteCount.textContent = String(pointingFavorites.length);
+  if (fields.pointingFavoriteEmpty) fields.pointingFavoriteEmpty.hidden = pointingFavorites.length > 0;
+  const body = fields.pointingFavoriteBody;
+  if (!body) return;
+  body.replaceChildren();
+  pointingFavorites.forEach((favorite) => {
+    const row = document.createElement("tr");
+    row.tabIndex = 0;
+    const values = [
+      favorite.grid_cell || "--",
+      formatCoordinate(favorite.latitude),
+      formatCoordinate(favorite.longitude),
+      Number.isFinite(Number(favorite.elevation_m)) ? `${Number(favorite.elevation_m).toFixed(1)} m` : "--",
+      String(favorite.updated_at || favorite.created_at || "--").replace("T", " ").slice(0, 19),
+    ];
+    values.forEach((value, index) => {
+      const cell = document.createElement("td");
+      if (index === 0) {
+        const marker = document.createElement("i");
+        marker.className = "favorite-point-dot";
+        cell.append(marker, document.createTextNode(value));
+      } else {
+        cell.textContent = value;
+      }
+      row.append(cell);
+    });
+    const action = document.createElement("td");
+    action.className = "favorite-point-actions";
+    const deleteButton = document.createElement("button");
+    deleteButton.type = "button";
+    deleteButton.className = "favorite-point-delete";
+    deleteButton.textContent = "DELETE";
+    deleteButton.setAttribute("aria-label", `Delete favorite point ${favorite.grid_cell || ""}`.trim());
+    deleteButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      void deleteFavoritePoint(favorite, deleteButton, gotoButton);
+    });
+    const gotoButton = document.createElement("button");
+    gotoButton.type = "button";
+    gotoButton.className = "favorite-point-goto";
+    gotoButton.textContent = "GO TO";
+    gotoButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      void gotoFavoritePoint(favorite, gotoButton);
+    });
+    action.append(deleteButton, gotoButton);
+    row.append(action);
+    const focus = () => void focusFavoritePoint(favorite);
+    row.addEventListener("click", focus);
+    row.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      focus();
+    });
+    body.append(row);
+  });
+}
+
+async function deleteFavoritePoint(favorite, deleteButton, gotoButton) {
+  const label = favorite.grid_cell || "this favorite point";
+  if (!window.confirm(`Delete favorite point ${label}?`)) return;
+  deleteButton.disabled = true;
+  gotoButton.disabled = true;
+  try {
+    const response = await fetch(`/api/pointing/favorites/${encodeURIComponent(favorite.id)}`, {
+      method: "DELETE",
+    });
+    const data = await response.json();
+    if (!response.ok || !data.ok) throw new Error(data.error || "Favorite point could not be deleted.");
+    pointingFavorites = Array.isArray(data.favorites) ? data.favorites : [];
+    window.pointingTerrain3D?.setFavoritePoints(pointingFavorites);
+    renderPointingFavoriteTable();
+    addLog("success", `Favorite point deleted for ${label}`);
+  } catch (error) {
+    deleteButton.disabled = false;
+    gotoButton.disabled = false;
+    addLog("error", `Favorite point delete failed: ${error.message}`);
+  }
+}
+
+async function focusFavoritePoint(favorite) {
+  try {
+    const sample = await fetchPointingSample(favorite);
+    selectedPointingSample = sample;
+    updatePointingSelectionReadouts(sample);
+    openPointingTargetPanel(sample);
+    renderPointingModel();
+    window.pointingTerrain3D?.focusAlignmentPoint(favorite);
+    window.pointingTerrain3D?.showSelection(sample, { showLabel: true });
+  } catch (error) {
+    addLog("error", `Favorite point could not be opened: ${error.message}`);
+  }
+}
+
+async function gotoFavoritePoint(favorite, button) {
+  button.disabled = true;
+  try {
+    const sample = await fetchPointingSample(favorite);
+    const azimuth = mountAzimuthForPointingSample(sample);
+    const altitude = mountAltitudeForPointingSample(sample);
+    if (azimuth === null || altitude === null) throw new Error("Favorite point does not have valid mount angles.");
+    selectedPointingSample = sample;
+    updatePointingSelectionReadouts(sample);
+    openPointingTargetPanel(sample);
+    sendMotorCommand("goto", { Azimuth: String(azimuth), Altitude: String(altitude) });
+  } catch (error) {
+    addLog("error", `Favorite point Goto failed: ${error.message}`);
+  } finally {
+    button.disabled = false;
+  }
+}
+
+function openPointingFavoriteWindow() {
+  if (!fields.pointingFavoriteWindow || activeViewMode !== "pointing") return;
+  renderPointingFavoriteTable();
+  fields.pointingFavoriteWindow.hidden = false;
+  fields.pointingFavoriteOpen?.setAttribute("aria-expanded", "true");
+  restoreFloatingWindowPosition(fields.pointingFavoriteWindow, {
+    left: Math.max(20, (window.innerWidth - fields.pointingFavoriteWindow.offsetWidth) / 2),
+    top: Math.max(90, (window.innerHeight - fields.pointingFavoriteWindow.offsetHeight) / 2),
+  });
+}
+
+function closePointingFavoriteWindow() {
+  if (!fields.pointingFavoriteWindow) return;
+  fields.pointingFavoriteWindow.hidden = true;
+  fields.pointingFavoriteOpen?.setAttribute("aria-expanded", "false");
+}
+
+async function openFavoritePointFromMap(target) {
+  if (activeViewMode !== "pointing" || !target) return;
+  try {
+    const sample = await fetchPointingSample(target);
+    selectedPointingSample = sample;
+    updatePointingSelectionReadouts(sample);
+    openPointingTargetPanel(sample);
+    renderPointingModel();
+    window.pointingTerrain3D?.showSelection(sample, { showLabel: true, favoriteMode: true });
+  } catch (error) {
+    addLog("error", `Favorite point selection failed: ${error.message}`);
+  }
+}
+
+async function saveSelectedPointingFavorite() {
+  if (!selectedPointingSample) return;
+  const button = document.getElementById("pointingHoverSaveFavorite");
+  if (button) button.disabled = true;
+  try {
+    const response = await fetch("/api/pointing/favorites", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        latitude: selectedPointingSample.latitude,
+        longitude: selectedPointingSample.longitude,
+      }),
+    });
+    const data = await response.json();
+    if (!response.ok || !data.ok) throw new Error(data.error || "Favorite point could not be saved.");
+    pointingFavorites = Array.isArray(data.favorites) ? data.favorites : [];
+    window.pointingTerrain3D?.setFavoritePoints(pointingFavorites);
+    renderPointingFavoriteTable();
+    if (button) button.textContent = "FAVORITE SAVED";
+    addLog("success", `Favorite point saved for ${data.favorite?.grid_cell || "terrain target"}`);
+  } catch (error) {
+    addLog("error", `Favorite point save failed: ${error.message}`);
+  } finally {
+    if (button) button.disabled = false;
+  }
 }
 
 function offsetLatLon(latitude, longitude, eastM, northM) {
@@ -7049,6 +7807,7 @@ async function sendDirectionJogCommand(
         "Content-Type": "application/json",
         "X-Motion-Client-ID": motionClientId,
         "X-Motion-Command-Sequence": String(motionCommandSequence),
+        "X-Motion-Issued-At-Ms": String(Date.now()),
       },
       body: JSON.stringify(payload),
     });
@@ -7362,13 +8121,28 @@ let cameraLiveStartedAt = 0;
 let cameraLiveLastRenderAt = 0;
 let cameraRecordingStatus = "idle";
 let cameraRecordingPollTimer = null;
+let cameraVideoRecordingStatus = "idle";
+let cameraVideoRecordingStartedAt = 0;
+let cameraVideoRecordingTimer = null;
+let cameraZoomPollTimer = null;
 let cameraSourceMode = "live";
 let cameraSourceAutoSelected = false;
 let cameraStreamMetadata = { thermal: {}, visible: {} };
+const cameraLiveMetadataStreams = new Map();
 let cameraStreamSession = 0;
 let cameraStreamsWanted = false;
 const cameraStreamReady = new Set();
 const cameraStreamRetryTimers = new Map();
+const cameraStreamFrameUrls = new Map();
+let cameraStreamFrameController = null;
+let cameraStreamLastDisplayedAt = 0;
+let cameraStreamLastPairSequences = { thermal: 0, visible: 0 };
+const CAMERA_PAIR_REQUEST_TIMEOUT_MS = 3000;
+const CAMERA_PAIR_MAX_AGE_MS = 2500;
+const CAMERA_PAIR_DISCONNECT_GRACE_MS = 6000;
+const CAMERA_PAIR_MAX_FPS = 12;
+const CAMERA_PAIR_INTERVAL_MS = Math.ceil(1000 / CAMERA_PAIR_MAX_FPS);
+const CAMERA_PAIR_SOURCE_WAIT_MS = 750;
 let cameraCalibrationAnimationFrame = null;
 let cameraCalibrationLastRenderAt = 0;
 const pointingCameraMetadataStreams = new Map();
@@ -7774,6 +8548,97 @@ function cameraStreamLoader(camera) {
   return fields.cameraLiveWindow?.querySelector(`[data-camera-loader="${camera}"]`) || null;
 }
 
+const cameraOverlaySvgNamespace = "http://www.w3.org/2000/svg";
+
+function detectionOverlayElement(name, attributes = {}) {
+  const element = document.createElementNS(cameraOverlaySvgNamespace, name);
+  Object.entries(attributes).forEach(([key, value]) => element.setAttribute(key, String(value)));
+  return element;
+}
+
+function renderThermalDetectionOverlay(metadata = {}) {
+  const overlay = fields.thermalDetectionOverlay;
+  if (!overlay) return;
+  const width = Math.max(1, Number(metadata.width) || 640);
+  const height = Math.max(1, Number(metadata.height) || 512);
+  overlay.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  const detections = Array.isArray(metadata.detections) ? metadata.detections : [];
+  const fragment = document.createDocumentFragment();
+  let rendered = 0;
+
+  detections.forEach((detection) => {
+    const box = Array.isArray(detection?.box) ? detection.box.map(Number) : [];
+    if (box.length !== 4 || !box.every(Number.isFinite)) return;
+    const x1 = Math.max(0, Math.min(width, Math.min(box[0], box[2])));
+    const y1 = Math.max(0, Math.min(height, Math.min(box[1], box[3])));
+    const x2 = Math.max(0, Math.min(width, Math.max(box[0], box[2])));
+    const y2 = Math.max(0, Math.min(height, Math.max(box[1], box[3])));
+    if (x2 - x1 < 1 || y2 - y1 < 1) return;
+
+    const rawState = String(detection.state || "HEAT_SIGNATURE").toUpperCase();
+    const stateClass = rawState.includes("PENDING")
+      ? "is-pending"
+      : rawState.includes("VERIFY") ? "is-verifying" : "is-confirmed";
+    const polygon = detectionOverlayElement("polygon", {
+      points: `${x1},${y1} ${x2},${y1} ${x2},${y2} ${x1},${y2}`,
+      class: `camera-detection-region ${stateClass}`,
+    });
+    fragment.appendChild(polygon);
+
+    const corner = Math.max(7, Math.min(18, Math.min(x2 - x1, y2 - y1) * .25));
+    fragment.appendChild(detectionOverlayElement("path", {
+      d: `M${x1},${y1 + corner}V${y1}H${x1 + corner} M${x2 - corner},${y1}H${x2}V${y1 + corner} M${x2},${y2 - corner}V${y2}H${x2 - corner} M${x1 + corner},${y2}H${x1}V${y2 - corner}`,
+      class: "camera-detection-corner",
+    }));
+
+    const score = Number(detection.score);
+    const labelText = `${rawState.replaceAll("_", " ")}${Number.isFinite(score) ? ` · ${(score * 100).toFixed(0)}%` : ""}`;
+    const labelWidth = Math.min(width - x1, Math.max(92, labelText.length * 7.4 + 12));
+    const labelY = y1 >= 22 ? y1 - 21 : y1;
+    fragment.appendChild(detectionOverlayElement("rect", {
+      x: x1,
+      y: labelY,
+      width: labelWidth,
+      height: 20,
+      rx: 2,
+      class: "camera-detection-label-bg",
+    }));
+    const text = detectionOverlayElement("text", {
+      x: x1 + 6,
+      y: labelY + 14,
+      class: "camera-detection-label",
+    });
+    text.textContent = labelText;
+    fragment.appendChild(text);
+    rendered += 1;
+  });
+
+  overlay.replaceChildren(fragment);
+  overlay.setAttribute(
+    "aria-label",
+    rendered ? `${rendered} active Thermal heat signature${rendered === 1 ? "" : "s"}` : "No active Thermal heat signatures",
+  );
+}
+
+function subscribeCameraLiveMetadata(camera) {
+  cameraLiveMetadataStreams.get(camera)?.close();
+  const stream = new EventSource(`/api/camera-stream/metadata-stream/${cameraSourceMode}/${camera}`);
+  cameraLiveMetadataStreams.set(camera, stream);
+  stream.onmessage = (event) => {
+    if (cameraLiveMetadataStreams.get(camera) !== stream || !cameraStreamsWanted) return;
+    let result;
+    try {
+      result = JSON.parse(event.data);
+    } catch (_error) {
+      return;
+    }
+    if (result.ok !== true) return;
+    const metadata = result.metadata && typeof result.metadata === "object" ? result.metadata : {};
+    cameraStreamMetadata[camera] = metadata;
+    if (camera === "thermal") renderThermalDetectionOverlay(metadata);
+  };
+}
+
 function setCameraLoaderState(camera, state) {
   const loader = cameraStreamLoader(camera);
   if (!loader) return;
@@ -7793,10 +8658,33 @@ function clearCameraStreamRetry(camera) {
   cameraStreamRetryTimers.delete(camera);
 }
 
+function hideStaleCameraPair(message = "Waiting for a current camera frame…") {
+  cameraStreamReady.clear();
+  cameraStreamFrameUrls.forEach((url) => URL.revokeObjectURL(url));
+  cameraStreamFrameUrls.clear();
+  cameraStreamTargets().forEach(([image, camera]) => {
+    if (!image) return;
+    image.removeAttribute("src");
+    image.classList.add("is-stream-disconnected");
+    delete image.dataset.hasFrame;
+    setCameraLoaderState(camera, "reconnecting");
+  });
+  setCameraConnectionStatus(message);
+}
+
 function releaseCameraStreams({ statusMessage = "Camera streams paused" } = {}) {
   cameraStreamsWanted = false;
   cameraStreamSession += 1;
   cameraStreamReady.clear();
+  cameraStreamFrameController?.abort();
+  cameraStreamFrameController = null;
+  cameraStreamLastDisplayedAt = 0;
+  cameraStreamLastPairSequences = { thermal: 0, visible: 0 };
+  cameraStreamFrameUrls.forEach((url) => URL.revokeObjectURL(url));
+  cameraStreamFrameUrls.clear();
+  cameraLiveMetadataStreams.forEach((stream) => stream.close());
+  cameraLiveMetadataStreams.clear();
+  renderThermalDetectionOverlay({});
   ["thermal", "visible"].forEach((camera) => {
     clearCameraStreamRetry(camera);
     setCameraLoaderState(camera, "paused");
@@ -7823,30 +8711,111 @@ function updateCameraStreamReadyStatus(camera) {
   );
 }
 
-function attachCameraImageStream(image, camera, session, attempt = 0) {
-  if (!image || session !== cameraStreamSession || !cameraStreamsWanted || !cameraViewShouldStream()) return;
-  clearCameraStreamRetry(camera);
-  image.onload = () => {
-    if (session !== cameraStreamSession || !cameraStreamsWanted) return;
+async function displayLatestCameraFrame(camera, blob, session) {
+  if (session !== cameraStreamSession || !cameraStreamsWanted || document.hidden) return false;
+  const image = cameraStreamTargets().find(([, name]) => name === camera)?.[0];
+  if (!image) return false;
+  const objectUrl = URL.createObjectURL(blob);
+  const previousUrl = cameraStreamFrameUrls.get(camera);
+  try {
+    await new Promise((resolve, reject) => {
+      image.onload = resolve;
+      image.onerror = () => reject(new Error("Camera frame decode failed"));
+      image.src = objectUrl;
+    });
+    if (session !== cameraStreamSession || !cameraStreamsWanted) {
+      URL.revokeObjectURL(objectUrl);
+      return false;
+    }
+    cameraStreamFrameUrls.set(camera, objectUrl);
+    if (previousUrl) URL.revokeObjectURL(previousUrl);
     image.dataset.hasFrame = "true";
     image.classList.remove("is-stream-disconnected");
     cameraStreamReady.add(camera);
     setCameraLoaderState(camera, "ready");
-    updateCameraStreamReadyStatus(camera);
-  };
-  image.onerror = () => {
-    if (session !== cameraStreamSession || !cameraStreamsWanted || !cameraViewShouldStream()) return;
-    cameraStreamReady.delete(camera);
-    const hasLastFrame = image.dataset.hasFrame === "true";
-    image.classList.toggle("is-stream-disconnected", !hasLastFrame);
-    setCameraLoaderState(camera, attempt > 0 || hasLastFrame ? "reconnecting" : "connecting");
-    setCameraConnectionStatus(`AIV ${camera} JPEG stream interrupted — retrying…`);
-    const retryDelayMs = Math.min(5000, 750 * (2 ** Math.min(attempt, 3)));
-    cameraStreamRetryTimers.set(camera, setTimeout(() => {
-      attachCameraImageStream(image, camera, session, attempt + 1);
-    }, retryDelayMs));
-  };
-  image.src = `/api/camera-mjpeg/${cameraSourceMode}/${camera}?session=${session}-${attempt}-${Date.now()}`;
+    return true;
+  } catch (_error) {
+    URL.revokeObjectURL(objectUrl);
+    return false;
+  }
+}
+
+async function loadCurrentCameraPair(session) {
+  if (session !== cameraStreamSession || !cameraStreamsWanted || !cameraViewShouldStream()) return;
+  const controller = new AbortController();
+  cameraStreamFrameController?.abort();
+  cameraStreamFrameController = controller;
+  const timeout = setTimeout(() => controller.abort(), CAMERA_PAIR_REQUEST_TIMEOUT_MS);
+  const startedAt = performance.now();
+  try {
+    const query = new URLSearchParams({
+      profile: "monitor",
+      wait_ms: String(CAMERA_PAIR_SOURCE_WAIT_MS),
+      _: String(Date.now()),
+    });
+    if (cameraStreamLastPairSequences.thermal > 0 && cameraStreamLastPairSequences.visible > 0) {
+      query.set("after_thermal", String(cameraStreamLastPairSequences.thermal));
+      query.set("after_visible", String(cameraStreamLastPairSequences.visible));
+    }
+    const response = await fetch(`/api/camera-frame/latest-pair/${cameraSourceMode}?${query}`, {
+      cache: "no-store",
+      signal: controller.signal,
+    });
+    const headersReceivedAt = performance.now();
+    if (response.status === 204) {
+      setCameraConnectionStatus("Camera live — waiting for the next source frame", true);
+      return;
+    }
+    if (!response.ok) throw new Error(`Camera pair unavailable (${response.status})`);
+    const buffer = await response.arrayBuffer();
+    const deliveredAt = performance.now();
+    const headerAge = Math.max(
+      Number(response.headers.get("X-Camera-Thermal-Age-Ms")) || 0,
+      Number(response.headers.get("X-Camera-Visible-Age-Ms")) || 0,
+    );
+    if (headerAge + deliveredAt - headersReceivedAt > CAMERA_PAIR_MAX_AGE_MS) {
+      throw new Error("Camera pair arrived stale");
+    }
+    const view = new DataView(buffer);
+    if (buffer.byteLength < 12 || view.getUint32(0, false) !== 0x4e435031) {
+      throw new Error("Camera pair response has an invalid format");
+    }
+    const thermalLength = view.getUint32(4, false);
+    const visibleLength = view.getUint32(8, false);
+    if (12 + thermalLength + visibleLength !== buffer.byteLength) {
+      throw new Error("Camera pair response is incomplete");
+    }
+    const thermalType = response.headers.get("X-Camera-Thermal-Type") || "image/jpeg";
+    const visibleType = response.headers.get("X-Camera-Visible-Type") || "image/jpeg";
+    const results = await Promise.all([
+      displayLatestCameraFrame("thermal", new Blob([buffer.slice(12, 12 + thermalLength)], { type: thermalType }), session),
+      displayLatestCameraFrame("visible", new Blob([buffer.slice(12 + thermalLength)], { type: visibleType }), session),
+    ]);
+    if (results.every(Boolean)) {
+      cameraStreamLastPairSequences = {
+        thermal: Number(response.headers.get("X-Camera-Thermal-Sequence")) || 0,
+        visible: Number(response.headers.get("X-Camera-Visible-Sequence")) || 0,
+      };
+      cameraStreamLastDisplayedAt = performance.now();
+      updateCameraStreamReadyStatus("pair");
+    }
+  } catch (error) {
+    if (session !== cameraStreamSession || !cameraStreamsWanted || document.hidden) return;
+    if (!cameraStreamLastDisplayedAt || performance.now() - cameraStreamLastDisplayedAt > CAMERA_PAIR_DISCONNECT_GRACE_MS) {
+      hideStaleCameraPair(error.name === "AbortError"
+        ? "Camera link slow — stale frames skipped"
+        : "Waiting for a current camera pair…");
+    } else {
+      setCameraConnectionStatus("Camera link slow — delayed frame skipped", true);
+    }
+  } finally {
+    clearTimeout(timeout);
+    if (cameraStreamFrameController === controller) cameraStreamFrameController = null;
+    if (session === cameraStreamSession && cameraStreamsWanted && cameraViewShouldStream()) {
+      const delay = Math.max(0, CAMERA_PAIR_INTERVAL_MS - (performance.now() - startedAt));
+      cameraStreamRetryTimers.set("pair", setTimeout(() => loadCurrentCameraPair(session), delay));
+    }
+  }
 }
 
 function startCameraStreams() {
@@ -7854,13 +8823,14 @@ function startCameraStreams() {
   if (!cameraViewShouldStream()) return;
   cameraStreamsWanted = true;
   const session = cameraStreamSession;
-  setCameraConnectionStatus(`Connecting to AIV ${cameraSourceMode} JPEG streams…`);
+  setCameraConnectionStatus(`Connecting to current AIV ${cameraSourceMode} frames…`);
   cameraStreamTargets().forEach(([image, camera]) => {
     if (!image) return;
     image.classList.add("is-stream-disconnected");
     setCameraLoaderState(camera, "connecting");
-    attachCameraImageStream(image, camera, session);
+    subscribeCameraLiveMetadata(camera);
   });
+  loadCurrentCameraPair(session);
 }
 
 function setCameraConnectionStatus(message, connected = false) {
@@ -7931,10 +8901,6 @@ function renderCameraRecording(state) {
     fields.cameraRecordButton.classList.toggle("is-recording", isRecording);
     fields.cameraRecordButton.querySelector("span").textContent = isRecording ? "Stop & Archive Event" : isBusy ? "Processing Event…" : "Start Fire Event";
   }
-  if (fields.cameraRecordTimer) {
-    const elapsed = Number(state?.elapsed_sec ?? state?.duration_sec ?? 0);
-    fields.cameraRecordTimer.textContent = `${String(Math.floor(elapsed / 60)).padStart(2, "0")}:${String(Math.floor(elapsed % 60)).padStart(2, "0")}`;
-  }
   if (fields.cameraRecordStatus && state?.message) fields.cameraRecordStatus.lastChild.textContent = ` ${state.message}`;
   if (fields.cameraRecordEvent) {
     fields.cameraRecordEvent.textContent = state?.incident_id
@@ -7949,6 +8915,44 @@ async function pollCameraRecording() {
     if (response.ok) renderCameraRecording(await response.json());
   } catch (error) {
     if (fields.cameraRecordStatus) fields.cameraRecordStatus.lastChild.textContent = " Recording status unavailable";
+  }
+  try {
+    const response = await fetch("/api/camera-recording/manual", { cache: "no-store" });
+    if (!response.ok) return;
+    const state = await response.json();
+    renderCameraUploadProgress(state.upload_progress);
+    if (state.status === "recording") {
+      if (cameraVideoRecordingStatus !== "recording") {
+        cameraVideoRecordingStartedAt = performance.now() - Number(state.elapsed_sec || 0) * 1000;
+      }
+      renderManualVideoRecording("recording");
+      updateManualVideoTimer();
+      if (fields.cameraRecordStatus) {
+        fields.cameraRecordStatus.lastChild.textContent = ` Recording Part ${state.current_part || 1} · ${state.frame_rate || "max"} FPS · auto-split every 30s`;
+      }
+    } else if (["finalizing", "uploading"].includes(state.status)) {
+      renderManualVideoRecording(state.status);
+      if (fields.cameraRecordStatus) fields.cameraRecordStatus.lastChild.textContent = ` ${state.message || "Processing video parts"}`;
+    } else if (state.status === "ready") {
+      if (cameraVideoRecordingStatus !== "idle") {
+        addLog("success", `Recording completed and uploaded${state.incident_id ? ` · Incident ${state.incident_id}` : ""}`);
+      }
+      clearInterval(cameraVideoRecordingTimer);
+      cameraVideoRecordingTimer = null;
+      renderManualVideoRecording("idle");
+      if (fields.cameraRecordStatus) fields.cameraRecordStatus.lastChild.textContent = ` Uploaded ${state.parts_uploaded || 0} video part(s) to Server`;
+    } else if (state.status === "error") {
+      if (cameraVideoRecordingStatus !== "idle") addLog("error", state.message || "Camera recording failed");
+      clearInterval(cameraVideoRecordingTimer);
+      cameraVideoRecordingTimer = null;
+      renderManualVideoRecording("idle");
+    } else if (state.status === "idle") {
+      clearInterval(cameraVideoRecordingTimer);
+      cameraVideoRecordingTimer = null;
+      renderManualVideoRecording("idle");
+    }
+  } catch (_error) {
+    // Manual recording status must not interfere with Fire Event polling.
   }
 }
 
@@ -7971,6 +8975,85 @@ async function toggleCameraRecording() {
   }
 }
 
+function renderManualVideoRecording(status) {
+  cameraVideoRecordingStatus = status;
+  const recording = status === "recording";
+  const busy = ["finalizing", "uploading"].includes(status);
+  if (fields.cameraVideoRecordButton) {
+    fields.cameraVideoRecordButton.disabled = busy;
+    fields.cameraVideoRecordButton.classList.toggle("is-recording", recording);
+    fields.cameraVideoRecordButton.querySelector("span").textContent = status === "uploading" ? "Uploading…" : busy ? "Finalizing…" : recording ? "Stop Record" : "Start Record";
+  }
+  if (fields.cameraVideoRecordTimer) fields.cameraVideoRecordTimer.hidden = !recording;
+}
+
+function renderCameraUploadProgress(progress = {}) {
+  if (!fields.cameraUploadProgress) return;
+  const status = progress.status || "idle";
+  const percent = Math.max(0, Math.min(100, Number(progress.percent) || 0));
+  fields.cameraUploadProgress.classList.toggle("is-uploading", status === "uploading");
+  fields.cameraUploadProgress.classList.toggle("is-error", status === "error");
+  fields.cameraUploadProgress.classList.toggle("is-idle", status === "idle");
+  if (fields.cameraUploadProgressBar) fields.cameraUploadProgressBar.style.width = `${percent}%`;
+  if (!fields.cameraUploadProgressText) return;
+  if (status === "uploading") {
+    fields.cameraUploadProgressText.textContent = `Uploading ${progress.filename || `Part ${progress.part || ""}`} · ${percent.toFixed(1)}%`;
+  } else if (status === "error") {
+    fields.cameraUploadProgressText.textContent = `Upload error · ${progress.message || "Please check the Event Log"}`;
+  } else {
+    fields.cameraUploadProgressText.textContent = "Upload idle";
+  }
+}
+
+function updateManualVideoTimer() {
+  if (!fields.cameraVideoRecordTimer || cameraVideoRecordingStatus !== "recording") return;
+  const elapsed = Math.max(0, (performance.now() - cameraVideoRecordingStartedAt) / 1000);
+  fields.cameraVideoRecordTimer.textContent = `${String(Math.floor(elapsed / 60)).padStart(2, "0")}:${String(Math.floor(elapsed % 60)).padStart(2, "0")}`;
+}
+
+async function toggleManualVideoRecording() {
+  const stopping = cameraVideoRecordingStatus === "recording";
+  renderManualVideoRecording(stopping ? "finalizing" : "recording");
+  try {
+    const response = await fetch(`/api/camera-recording/manual/${stopping ? "stop" : "start"}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ source: "live" }),
+    });
+    if (!response.ok) {
+      const failure = await response.json().catch(() => ({}));
+      const error = new Error(failure.error || `Recording command failed (HTTP ${response.status})`);
+      error.status = response.status;
+      throw error;
+    }
+    const result = await response.json();
+    if (!stopping) {
+      cameraVideoRecordingStartedAt = performance.now();
+      clearInterval(cameraVideoRecordingTimer);
+      cameraVideoRecordingTimer = setInterval(updateManualVideoTimer, 250);
+      renderManualVideoRecording("recording");
+      addLog("success", `Thermal + Visible MP4 recording started at ${result.frame_rate || "maximum feed"} FPS`);
+      return;
+    }
+    addLog("success", `Thermal and Visible MP4 files uploaded to Server${result.incident_id ? ` · Incident ${result.incident_id}` : ""}`);
+    clearInterval(cameraVideoRecordingTimer);
+    cameraVideoRecordingTimer = null;
+    renderManualVideoRecording("idle");
+  } catch (error) {
+    clearInterval(cameraVideoRecordingTimer);
+    cameraVideoRecordingTimer = null;
+    const alreadyStopped = stopping && error.status === 409;
+    renderManualVideoRecording(alreadyStopped ? "idle" : stopping ? "recording" : "idle");
+    if (alreadyStopped) {
+      renderCameraUploadProgress();
+      if (fields.cameraRecordStatus) fields.cameraRecordStatus.lastChild.textContent = " Recording is already stopped";
+      return;
+    }
+    if (fields.cameraRecordStatus) fields.cameraRecordStatus.lastChild.textContent = ` ${error.message}`;
+    addLog("error", error.message);
+  }
+}
+
 function refreshCameraLiveWindow() {
   const renderAt = performance.now();
   if (renderAt - cameraLiveLastRenderAt < 100) {
@@ -7986,16 +9069,21 @@ function refreshCameraLiveWindow() {
   const elapsed = Math.max(0, (performance.now() - cameraLiveStartedAt) / 1000);
   const cycleProgress = (streamTime % 40) / 20;
   const zoom = cameraSourceMode === "simulation" ? 1 + 4 * (cycleProgress <= 1 ? cycleProgress : 2 - cycleProgress) : 1;
-  const zoomLabel = `${zoom.toFixed(1)}×`;
-  if (fields.thermalLiveZoom) fields.thermalLiveZoom.textContent = zoomLabel;
-  if (fields.visibleLiveZoom) fields.visibleLiveZoom.textContent = zoomLabel;
+  const fallbackZoomPct = cameraSourceMode === "simulation" ? Math.max(0, Math.min(100, (zoom - 1) * 25)) : null;
   const elapsedTenths = Math.floor(elapsed * 10);
   const elapsedText = `${String(Math.floor(elapsedTenths / 36000)).padStart(2, "0")}:${String(Math.floor(elapsedTenths / 600) % 60).padStart(2, "0")}:${String(Math.floor(elapsedTenths / 10) % 60).padStart(2, "0")}.${elapsedTenths % 10}`;
   const utc = `${now.toISOString().slice(0, 23).replace("T", " ")} UTC`;
   const thermalMeta = cameraSourceMode === "live" ? cameraStreamMetadata.thermal : {};
   const visibleMeta = cameraSourceMode === "live" ? cameraStreamMetadata.visible : {};
-  if (fields.thermalLiveBurnin) fields.thermalLiveBurnin.textContent = `ELAPSED ${elapsedText}\nUTC ${thermalMeta.captured_at || utc}\nZOOM ${Number(thermalMeta.zoom_x || zoom).toFixed(2)}x\nRES ${thermalMeta.resolution || "640x512"}`;
-  if (fields.visibleLiveBurnin) fields.visibleLiveBurnin.textContent = `ELAPSED ${elapsedText}\nUTC ${visibleMeta.captured_at || utc}\nZOOM ${Number(visibleMeta.zoom_x || zoom).toFixed(2)}x\nRES ${visibleMeta.resolution || "1280x720"}`;
+  const zoomPct = metadata => Number.isFinite(Number(metadata.zoom_pct)) ? Number(metadata.zoom_pct) : fallbackZoomPct;
+  const thermalZoomPct = zoomPct(thermalMeta);
+  const visibleZoomPct = zoomPct(visibleMeta);
+  const thermalZoomLabel = thermalZoomPct === null ? "--.-%" : `${thermalZoomPct.toFixed(1)}%`;
+  const visibleZoomLabel = visibleZoomPct === null ? "--.-%" : `${visibleZoomPct.toFixed(1)}%`;
+  if (fields.thermalLiveZoom) fields.thermalLiveZoom.textContent = thermalZoomLabel;
+  if (fields.visibleLiveZoom) fields.visibleLiveZoom.textContent = visibleZoomLabel;
+  if (fields.thermalLiveBurnin) fields.thermalLiveBurnin.textContent = `ELAPSED ${elapsedText}\nUTC ${thermalMeta.captured_at || utc}\nZOOM ${thermalZoomLabel}\nRES ${thermalMeta.resolution || "640x512"}`;
+  if (fields.visibleLiveBurnin) fields.visibleLiveBurnin.textContent = `ELAPSED ${elapsedText}\nUTC ${visibleMeta.captured_at || utc}\nZOOM ${visibleZoomLabel}\nRES ${visibleMeta.resolution || "1280x720"}`;
   cameraLiveAnimationFrame = requestAnimationFrame(refreshCameraLiveWindow);
 }
 
@@ -8348,6 +9436,9 @@ async function openCameraLiveWindow() {
   pollCameraRecording();
   clearInterval(cameraRecordingPollTimer);
   cameraRecordingPollTimer = setInterval(pollCameraRecording, 500);
+  await loadPointingModelLinkedZoom();
+  clearInterval(cameraZoomPollTimer);
+  cameraZoomPollTimer = setInterval(loadPointingModelLinkedZoom, 1500);
   addLog("message", "Live camera monitor opened");
   await selectAvailableCameraSource();
   renderCameraSourceMode();
@@ -8362,6 +9453,8 @@ function closeCameraLiveWindow() {
   fields.cameraLiveOpen?.classList.remove("is-open");
   cancelAnimationFrame(cameraLiveAnimationFrame);
   cameraLiveAnimationFrame = null;
+  clearInterval(cameraZoomPollTimer);
+  cameraZoomPollTimer = null;
   disconnectCameraStream();
   [fields.thermalLiveImage, fields.visibleLiveImage, fields.thermalRealImage, fields.visibleRealImage]
     .forEach((image) => image?.removeAttribute("src"));
@@ -8376,6 +9469,7 @@ fields.cameraLiveOpen?.addEventListener("click", () => {
 fields.cameraLiveClose?.addEventListener("click", closeCameraLiveWindow);
 fields.cameraSourceToggle?.addEventListener("click", toggleCameraSourceMode);
 fields.cameraRecordButton?.addEventListener("click", toggleCameraRecording);
+fields.cameraVideoRecordButton?.addEventListener("click", toggleManualVideoRecording);
 fields.cameraMetadataClose?.addEventListener("click", closeCameraMetadata);
 [
   [fields.cameraLiveWindow?.querySelector(".thermal-feed .camera-viewport"), "thermal"],
@@ -8529,6 +9623,26 @@ fields.pointingCameraOpen?.addEventListener("click", () => {
   else closePointingCameraWindow();
 });
 fields.pointingModelEditorOpen?.addEventListener("click", openPointingModelEditor);
+fields.pointingModelCreateOpen?.addEventListener("click", openPointingModelCreateDialog);
+fields.pointingModelCreateCancel?.addEventListener("click", closePointingModelCreateDialog);
+fields.pointingModelCreateDone?.addEventListener("click", closePointingModelCreateDialog);
+fields.pointingModelCreateConfirm?.addEventListener("click", () => void createNewPointingModel());
+fields.pointingModelCreateDialog?.addEventListener("click", (event) => {
+  if (event.target === fields.pointingModelCreateDialog) closePointingModelCreateDialog();
+});
+fields.pointingModelAddCancel?.addEventListener("click", closePointingModelAddDialog);
+fields.pointingModelAddDone?.addEventListener("click", closePointingModelAddDialog);
+fields.pointingModelAddConfirm?.addEventListener("click", () => void confirmPointingModelAdd());
+fields.pointingModelAddDialog?.addEventListener("click", (event) => {
+  if (event.target === fields.pointingModelAddDialog) closePointingModelAddDialog();
+});
+fields.pointingFavoriteOpen?.addEventListener("click", openPointingFavoriteWindow);
+fields.pointingSaveScreenshot?.addEventListener("click", () => void savePointingMapScreenshot());
+fields.pointingFavoriteClose?.addEventListener("click", closePointingFavoriteWindow);
+fields.pointingTerrainBuild?.addEventListener("click", () => {
+  if (activeViewMode !== "pointing" || pointingModelLoading) return;
+  void loadPointingModel({ force: true, rebuild: true });
+});
 fields.pointingModelEditorClose?.addEventListener("click", closePointingModelEditor);
 fields.pointingCameraClose?.addEventListener("click", closePointingCameraWindow);
 fields.pointingCameraPopout?.addEventListener("click", () => {
@@ -8585,6 +9699,16 @@ fields.skyGotoUseActual?.addEventListener("click", fillSkyGotoFromActual);
 fields.skySphereCanvas?.addEventListener("click", fillSkyGotoFromMapClick);
 fields.pointingMapCanvas?.addEventListener("click", selectPointingMapPoint);
 fields.pointingMap3DCanvas?.addEventListener("click", selectPointingMapPoint);
+fields.pointingMapCanvas?.addEventListener("contextmenu", (event) => {
+  event.preventDefault();
+  void openFavoritePointFromMap(pointingTargetFromPointerEvent(event));
+});
+window.addEventListener("pointing-map-favorite-request", (event) => {
+  void openFavoritePointFromMap(event.detail);
+});
+window.addEventListener("pointing-map-save-favorite", () => {
+  void saveSelectedPointingFavorite();
+});
 fields.pointingTargetClose?.addEventListener("click", () => {
   if (fields.pointingTargetPanel) fields.pointingTargetPanel.hidden = true;
 });
@@ -8601,7 +9725,7 @@ window.addEventListener("pointing-map-goto", () => {
   if (activeViewMode !== "pointing" || fields.pointingTargetGoto?.disabled) return;
   fields.pointingTargetGoto?.click();
 });
-window.addEventListener("pointing-map-add-model", openPointingModelComparison);
+window.addEventListener("pointing-map-add-model", openPointingModelAddDialog);
 fields.pointingModelComparisonClose?.addEventListener("click", () => {
   if (fields.pointingModelComparisonPanel) fields.pointingModelComparisonPanel.hidden = true;
 });
@@ -8644,6 +9768,8 @@ bindPointingModelZoomButton(fields.pointingModelZoomOut, "out");
 bindPointingModelZoomButton(fields.pointingModelZoomIn, "in");
 bindPointingModelZoomButton(fields.pointingAlignmentZoomOut, "out", fields.pointingAlignmentZoomStep);
 bindPointingModelZoomButton(fields.pointingAlignmentZoomIn, "in", fields.pointingAlignmentZoomStep);
+bindPointingModelZoomButton(fields.cameraLiveZoomOut, "out", fields.cameraLiveZoomStep);
+bindPointingModelZoomButton(fields.cameraLiveZoomIn, "in", fields.cameraLiveZoomStep);
 [fields.pointingModelLinkedZoomPct, fields.pointingAlignmentLinkedZoomPct].forEach((input) => {
   input?.addEventListener("focus", (event) => event.currentTarget.select());
   input?.addEventListener("blur", () => commitPointingModelLinkedZoom(input));
@@ -8660,7 +9786,7 @@ bindPointingModelZoomButton(fields.pointingAlignmentZoomIn, "in", fields.pointin
     }
   });
 });
-[fields.pointingModelZoomStep, fields.pointingAlignmentZoomStep].forEach((input) => {
+[fields.pointingModelZoomStep, fields.pointingAlignmentZoomStep, fields.cameraLiveZoomStep].forEach((input) => {
   input?.addEventListener("change", () => {
     const step = pointingModelZoomStep(input);
     if (step !== null) {
@@ -8672,7 +9798,7 @@ bindPointingModelZoomButton(fields.pointingAlignmentZoomIn, "in", fields.pointin
 window.addEventListener("pointing-terrain-3d-ready", () => {
   if (activeViewMode === "pointing" && pointingModel) renderPointingModel();
 });
-[fields.pointingLayerSatellite, fields.pointingLayerTerrain, fields.pointingLayerVisibility, fields.pointingLayerGrid].forEach((input) => {
+[fields.pointingLayerSatellite, fields.pointingLayerPointing, fields.pointingLayerVisibility, fields.pointingLayerTrackingArea].forEach((input) => {
   input?.addEventListener("change", renderPointingModel);
 });
 [fields.skyGotoAzimuth, fields.skyGotoAltitude].forEach((input) => {
@@ -8770,6 +9896,17 @@ document.querySelectorAll("[data-mission-nav]").forEach((control) => {
   });
 });
 
+window.addEventListener("message", (event) => {
+  const missionFrame = document.getElementById("missionDesignFrame");
+  if (
+    event.origin !== window.location.origin
+    || event.source !== missionFrame?.contentWindow
+    || event.data?.type !== "mission-control-event"
+  ) return;
+  const level = ["success", "warning", "error"].includes(event.data.level) ? event.data.level : "message";
+  addLog(level, String(event.data.message || "Camera mission state changed"));
+});
+
 document.querySelectorAll("[data-report-tab]").forEach((button) => {
   button.addEventListener("click", () => {
     activeReportTab = button.dataset.reportTab;
@@ -8830,6 +9967,18 @@ document.addEventListener("pointerdown", (event) => {
 
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
+    if (fields.pointingModelAddDialog && !fields.pointingModelAddDialog.hidden) {
+      event.preventDefault();
+      event.stopPropagation();
+      closePointingModelAddDialog();
+      return;
+    }
+    if (fields.pointingModelCreateDialog && !fields.pointingModelCreateDialog.hidden) {
+      event.preventDefault();
+      event.stopPropagation();
+      closePointingModelCreateDialog();
+      return;
+    }
     if (fields.pointingModelEditor && !fields.pointingModelEditor.hidden) {
       event.preventDefault();
       event.stopPropagation();
@@ -8980,11 +10129,13 @@ window.addEventListener("resize", () => {
 });
 
 initializeFloatingWindows();
+initializeResizableFloatingWindows();
 if (!document.documentElement.classList.contains("mobile-browser") && !fields.pointingSelectionCard?.classList.contains("is-docked")) {
   restoreFloatingWindowPosition(fields.pointingSelectionCard);
 }
 initializeAxisColumnResizer();
 setViewMode(activeViewMode, { persist: false });
+void loadPointingFavorites();
 setInterval(() => {
   if (activeViewMode === "report" && activeReportTab !== "power") {
     renderActiveReport({ background: true });

@@ -91,28 +91,24 @@ class PointingCameraDockTests(unittest.TestCase):
         self.assertIn(".is-live-telemetry.is-azimuth em", self.css)
         self.assertIn(".is-live-telemetry.is-altitude em", self.css)
 
-    def test_add_to_model_opens_live_dem_telemetry_comparison(self):
+    def test_add_to_model_opens_themed_confirmation_and_saves_directly(self):
         self.assertIn('id="pointingHoverAddModel"', self.template)
-        self.assertIn('id="pointingModelComparisonPanel"', self.template)
+        self.assertIn('id="pointingModelAddDialog"', self.template)
         for element_id in (
-            "pointingModelLatitude",
-            "pointingModelLongitude",
-            "pointingModelDemAzimuth",
-            "pointingModelDemAltitude",
-            "pointingModelTelemetryAzimuth",
-            "pointingModelTelemetryAltitude",
-            "pointingModelAzimuthDifference",
-            "pointingModelAltitudeDifference",
+            "pointingModelAddReference",
+            "pointingModelAddTelemetry",
+            "pointingModelAddDifference",
+            "pointingModelAddCancel",
+            "pointingModelAddConfirm",
         ):
             self.assertIn(f'id="{element_id}"', self.template)
             self.assertIn(f'getElementById("{element_id}")', self.dashboard)
         self.assertIn('new CustomEvent("pointing-map-add-model")', self.terrain)
-        self.assertIn('window.addEventListener("pointing-map-add-model", openPointingModelComparison)', self.dashboard)
-        self.assertIn("normalizeSignedDegrees(demAzimuth - telemetryAzimuth)", self.dashboard)
-        self.assertIn("demAltitude - telemetryAltitude", self.dashboard)
-        self.assertIn("renderPointingModelComparison();", self.dashboard)
-        self.assertIn(".pointing-model-comparison", self.dashboard_css)
-        self.assertIn(".pointing-model-table .is-difference", self.dashboard_css)
+        self.assertIn('window.addEventListener("pointing-map-add-model", openPointingModelAddDialog)', self.dashboard)
+        self.assertIn('fetch("/api/pointing/alignment-point"', self.dashboard)
+        self.assertIn("camera_offset_azimuth_deg: 0", self.dashboard)
+        self.assertIn("camera_offset_altitude_deg: 0", self.dashboard)
+        self.assertIn(".pointing-model-add-summary", self.dashboard_css)
 
     def test_model_comparison_controls_both_camera_zoom_levels(self):
         for element_id in (
@@ -139,31 +135,37 @@ class PointingCameraDockTests(unittest.TestCase):
         self.assertIn(".pointing-model-zoom-controls", self.dashboard_css)
         self.assertIn(".pointing-model-zoom-settings", self.dashboard_css)
 
-    def test_model_comparison_next_opens_camera_alignment_workflow(self):
+    def test_camera_view_footer_has_thermal_referenced_linked_zoom(self):
         for element_id in (
-            "pointingModelNext",
-            "pointingAlignmentPanel",
-            "pointingAlignmentThermalImage",
-            "pointingAlignmentVisibleImage",
-            "pointingAlignmentDirectionPad",
-            "pointingAlignmentAdjustedAzimuth",
-            "pointingAlignmentAdjustedAltitude",
-            "pointingAlignmentSave",
+            "cameraLiveZoomControl",
+            "cameraLiveLinkedZoomPct",
+            "cameraLiveZoomStep",
+            "cameraLiveZoomOut",
+            "cameraLiveZoomIn",
+            "cameraLiveZoomMessage",
         ):
             self.assertIn(f'id="{element_id}"', self.template)
             self.assertIn(f'getElementById("{element_id}")', self.dashboard)
-        self.assertIn('fields.pointingModelNext?.addEventListener("click", openPointingAlignment)', self.dashboard)
-        self.assertIn("function applyPointingAlignmentAcceptedOffset", self.dashboard)
-        self.assertIn("demAzimuth + pointingAlignmentOffset.azimuth", self.dashboard)
-        self.assertIn("demAltitude + pointingAlignmentOffset.altitude", self.dashboard)
-        self.assertIn("/api/camera-frame/latest/live/${camera}?preview=pointing", self.dashboard)
-        self.assertIn("Add Mount Calibration Point", self.template)
-        self.assertIn('fetch("/api/pointing/alignment-point"', self.dashboard)
-        self.assertIn("The mount will not move and encoder coordinates will not be rebased", self.dashboard)
-        self.assertIn("renderPointingAlignmentModel", self.dashboard)
-        self.assertIn("mountAltitudeForPointingSample", self.dashboard)
-        self.assertIn(".pointing-alignment-panel", self.dashboard_css)
-        self.assertIn(".pointing-alignment-values .is-adjusted", self.dashboard_css)
+        self.assertIn('min="0" max="10" step="0.1" value="10.0"', self.template)
+        self.assertIn(
+            'bindPointingModelZoomButton(fields.cameraLiveZoomOut, "out", fields.cameraLiveZoomStep)',
+            self.dashboard,
+        )
+        self.assertIn(
+            'bindPointingModelZoomButton(fields.cameraLiveZoomIn, "in", fields.cameraLiveZoomStep)',
+            self.dashboard,
+        )
+        self.assertIn("cameraZoomPollTimer = setInterval(loadPointingModelLinkedZoom, 1500)", self.dashboard)
+        self.assertIn(".camera-live-zoom-control", self.dashboard_css)
+
+    def test_add_to_model_does_not_launch_comparison_or_centering_windows(self):
+        self.assertNotIn('window.addEventListener("pointing-map-add-model", openPointingModelComparison)', self.dashboard)
+        self.assertIn("function openPointingModelAddDialog()", self.dashboard)
+        add_start = self.dashboard.index("function openPointingModelAddDialog()")
+        add_body = self.dashboard[add_start:add_start + 2200]
+        self.assertNotIn("openPointingModelComparison()", add_body)
+        self.assertNotIn("openPointingAlignment()", add_body)
+        self.assertIn("The mount will not move", add_body)
 
     def test_alignment_window_minimizes_near_event_log_and_hides_camera_dock_on_open(self):
         for element_id in (

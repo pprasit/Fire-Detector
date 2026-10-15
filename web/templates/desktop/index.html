@@ -7,9 +7,10 @@
     <link rel="icon" type="image/png" sizes="64x64" href="{{ url_for('static', filename='img/narit-smart-wildfire-favicon.png') }}?v=2">
     <link rel="shortcut icon" type="image/png" href="{{ url_for('static', filename='img/narit-smart-wildfire-favicon.png') }}?v=2">
     <meta name="theme-color" content="#071014">
-    <link rel="stylesheet" href="{{ url_for('static', filename='desktop/css/dashboard.css') }}?v=21">
-    <link rel="stylesheet" href="{{ url_for('static', filename='desktop/css/mission_control.css') }}?v=13">
+    <link rel="stylesheet" href="{{ url_for('static', filename='desktop/css/dashboard.css') }}?v=29">
+    <link rel="stylesheet" href="{{ url_for('static', filename='desktop/css/mission_control.css') }}?v=20">
     <link rel="stylesheet" href="{{ url_for('static', filename='desktop/css/tabs.css') }}?v=1">
+    <link rel="stylesheet" href="{{ url_for('static', filename='shared/camera_pair_control.css') }}?v=1">
   </head>
   <body>
     <aside class="mission-sidebar" aria-label="Primary navigation">
@@ -793,9 +794,9 @@
           </div>
           <div class="pointing-layer-controls" aria-label="Pointing map layers">
             <label><input id="pointingLayerSatellite" type="checkbox" checked><span>Satellite</span></label>
-            <label><input id="pointingLayerTerrain" type="checkbox" checked><span>Terrain</span></label>
+            <label><input id="pointingLayerPointing" type="checkbox" checked><span>Pointing</span></label>
             <label><input id="pointingLayerVisibility" type="checkbox"><span>Visibility</span></label>
-            <label><input id="pointingLayerGrid" type="checkbox"><span>Grid</span></label>
+            <label><input id="pointingLayerTrackingArea" type="checkbox" checked><span>Tracking Area</span></label>
             <small id="pointingImageryAttribution"></small>
           </div>
         </div>
@@ -809,9 +810,11 @@
             <span><b>LON</b><em id="pointingHoverLongitude">--</em></span>
             <span><b>AZ</b><em id="pointingHoverAzimuth">--</em></span>
             <span><b>ALT</b><em id="pointingHoverAltitude">--</em></span>
+            <span><b>ELEV</b><em id="pointingHoverElevation">--</em></span>
             <div class="pointing-hover-actions">
               <button id="pointingHoverGoto" type="button">GO TO</button>
               <button id="pointingHoverAddModel" type="button">ADD TO MODEL</button>
+              <button id="pointingHoverSaveFavorite" type="button">ADD FAVORITE POINT</button>
             </div>
           </div>
           <div class="pointing-map-progress" id="pointingMapProgress" hidden>
@@ -908,6 +911,89 @@
         <span><i></i> Click any row to locate its purple pin on the 3D map.</span>
         <strong id="pointingModelEditorModelState">MODEL INACTIVE</strong>
       </footer>
+    </section>
+
+    <section
+      class="pointing-model-create-dialog"
+      id="pointingModelCreateDialog"
+      hidden
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="pointingModelCreateTitle"
+      aria-describedby="pointingModelCreateMessage"
+    >
+      <div class="pointing-model-create-card">
+        <div class="pointing-model-create-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M12 8v5M12 17h.01"></path><path d="M10.3 3.8 2.4 18a2 2 0 0 0 1.8 3h15.6a2 2 0 0 0 1.8-3L13.7 3.8a2 2 0 0 0-3.4 0z"></path></svg>
+        </div>
+        <small>POINTING MODEL / RESET CALIBRATION</small>
+        <h2 id="pointingModelCreateTitle">Create New Pointing Model?</h2>
+        <span id="pointingModelCreatePointCount">0 SAVED POINTS</span>
+        <p id="pointingModelCreateMessage">This will permanently clear every saved calibration point.</p>
+        <div class="pointing-model-create-actions">
+          <button id="pointingModelCreateCancel" type="button">No, Keep Current Model</button>
+          <button class="is-danger" id="pointingModelCreateConfirm" type="button">Yes, Create New Model</button>
+          <button class="is-success" id="pointingModelCreateDone" type="button" hidden>Done — Add New Points</button>
+        </div>
+      </div>
+    </section>
+
+    <section
+      class="pointing-model-create-dialog"
+      id="pointingModelAddDialog"
+      hidden
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="pointingModelAddTitle"
+      aria-describedby="pointingModelAddMessage"
+    >
+      <div class="pointing-model-create-card">
+        <div class="pointing-model-create-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"></circle><circle cx="12" cy="12" r="3"></circle><path d="M12 2v3M12 19v3M2 12h3M19 12h3"></path></svg>
+        </div>
+        <small>POINTING MODEL / ADD CALIBRATION POINT</small>
+        <h2 id="pointingModelAddTitle">Add This Point to the Model?</h2>
+        <span id="pointingModelAddGrid">--</span>
+        <div class="pointing-model-add-summary" aria-label="Pointing calibration values">
+          <span><small>DEM TARGET</small><strong id="pointingModelAddReference">--</strong></span>
+          <span><small>MOUNT TELEMETRY</small><strong id="pointingModelAddTelemetry">--</strong></span>
+          <span><small>DIFFERENCE</small><strong id="pointingModelAddDifference">--</strong></span>
+        </div>
+        <p id="pointingModelAddMessage">The current mount direction will be saved and the Pointing Model will be recalculated immediately. The mount will not move.</p>
+        <div class="pointing-model-create-actions">
+          <button id="pointingModelAddCancel" type="button">Cancel</button>
+          <button class="is-success" id="pointingModelAddConfirm" type="button">Yes, Add to Model</button>
+          <button class="is-success" id="pointingModelAddDone" type="button" hidden>Done</button>
+        </div>
+      </div>
+    </section>
+
+    <section
+      class="pointing-model-editor pointing-favorite-window"
+      id="pointingFavoriteWindow"
+      hidden
+      data-floating-window="pointingFavoriteWindow"
+      data-floating-window-view="pointing"
+      role="dialog"
+      aria-modal="false"
+      aria-labelledby="pointingFavoriteTitle"
+    >
+      <header class="pointing-model-editor-header" data-floating-window-handle>
+        <div>
+          <small>POINTING MODEL / SAVED TARGETS</small>
+          <h2 id="pointingFavoriteTitle">Favorite Point</h2>
+          <p>Select GO TO to point the mount using the latest terrain and compensation model.</p>
+        </div>
+        <div><button id="pointingFavoriteClose" type="button" aria-label="Close Favorite Point window">×</button></div>
+      </header>
+      <div class="pointing-model-editor-table-wrap">
+        <table class="pointing-model-editor-table pointing-favorite-table">
+          <thead><tr><th>Grid</th><th>Latitude</th><th>Longitude</th><th>Elevation</th><th>Saved</th><th>Action</th></tr></thead>
+          <tbody id="pointingFavoriteBody"></tbody>
+        </table>
+        <p class="pointing-model-editor-empty" id="pointingFavoriteEmpty" hidden>No favorite points have been saved yet.</p>
+      </div>
+      <footer><span><i></i> Favorite pins are shown in cyan on the 3D terrain map.</span></footer>
     </section>
 
     <div class="tuning-step-panel" id="tuningStepPanel" hidden data-floating-window="tuningStepPanel">
@@ -1034,13 +1120,13 @@
         </div>
       </header>
       <div class="pointing-alignment-body">
-        <div class="pointing-alignment-cameras">
+        <div class="pointing-alignment-cameras" data-camera-layout="horizontal">
           <article class="pointing-camera-feed is-thermal">
             <header><span><i></i>THERMAL · PRIMARY ALIGNMENT</span><em>640 × 512</em></header>
             <div class="pointing-camera-viewport"><img id="pointingAlignmentThermalImage" alt="Thermal camera alignment view"><span class="camera-reticle" aria-hidden="true"></span></div>
           </article>
           <article class="pointing-camera-feed is-visible">
-            <header><span><i></i>VISIBLE · REFERENCE</span><em>1920 × 1080</em></header>
+            <header><span><i></i>VISIBLE · REFERENCE</span><em>1280 × 720</em></header>
             <div class="pointing-camera-viewport"><img id="pointingAlignmentVisibleImage" alt="Visible camera alignment view"><span class="camera-reticle" aria-hidden="true"></span></div>
           </article>
         </div>
@@ -1327,6 +1413,7 @@
         <p id="directionControlMessage" class="direction-control-message">Press and hold to move • Release to stop</p>
         <small class="direction-control-safety" id="directionControlSafety">Diagonal speed is normalized. Axis and runtime limits remain enforced.</small>
       </div>
+      <i class="direction-resize-handle" data-resize-edge="n" aria-hidden="true"></i><i class="direction-resize-handle" data-resize-edge="e" aria-hidden="true"></i><i class="direction-resize-handle" data-resize-edge="s" aria-hidden="true"></i><i class="direction-resize-handle" data-resize-edge="w" aria-hidden="true"></i><i class="direction-resize-handle" data-resize-edge="ne" aria-hidden="true"></i><i class="direction-resize-handle" data-resize-edge="nw" aria-hidden="true"></i><i class="direction-resize-handle" data-resize-edge="se" aria-hidden="true"></i><i class="direction-resize-handle" data-resize-edge="sw" aria-hidden="true"></i>
     </section>
 
     <section class="pointing-camera-window" id="pointingCameraWindow" hidden data-floating-window="pointing-camera-window" data-floating-window-view="pointing" role="dialog" aria-modal="false" aria-labelledby="pointingCameraTitle">
@@ -1338,7 +1425,7 @@
         </button>
         <button id="pointingCameraClose" type="button" aria-label="Close Pointing Model camera view">×</button>
       </header>
-      <div class="pointing-camera-body">
+      <div class="pointing-camera-body" data-camera-layout="vertical">
         <article class="pointing-camera-feed is-thermal">
           <header><span><i></i>THERMAL <b class="pointing-camera-zoom-pct" id="pointingCameraThermalZoomPct">ZOOM --.-%</b></span><em>640 × 512</em></header>
           <div class="pointing-camera-viewport">
@@ -1347,7 +1434,7 @@
           </div>
         </article>
         <article class="pointing-camera-feed is-visible">
-          <header><span><i></i>VISIBLE <b class="pointing-camera-zoom-pct" id="pointingCameraVisibleZoomPct">ZOOM --.-%</b></span><em>1920 × 1080</em></header>
+          <header><span><i></i>VISIBLE <b class="pointing-camera-zoom-pct" id="pointingCameraVisibleZoomPct">ZOOM --.-%</b></span><em>1280 × 720</em></header>
           <div class="pointing-camera-viewport">
             <img id="pointingCameraVisibleImage" alt="Visible camera live view">
             <span class="camera-reticle" aria-hidden="true"></span>
@@ -1549,7 +1636,7 @@
           <button id="cameraLiveClose" type="button" aria-label="Close live camera window">×</button>
         </div>
       </header>
-      <div class="camera-live-grid">
+      <div class="camera-live-grid" data-camera-layout="horizontal">
         <article class="camera-feed thermal-feed">
           <header>
             <div><span class="feed-dot"></span><strong>THERMAL LIVE</strong></div>
@@ -1558,6 +1645,7 @@
           <div class="camera-viewport">
             <img id="thermalLiveImage" class="camera-real-frame" alt="Thermal camera Station simulation stream">
             <img id="thermalRealImage" class="camera-real-frame" alt="Thermal camera live stream" hidden>
+            <svg id="thermalDetectionOverlay" class="camera-detection-overlay" viewBox="0 0 640 512" preserveAspectRatio="xMidYMid slice" role="img" aria-label="No active Thermal heat signatures"></svg>
             <div class="camera-stream-loader" data-camera-loader="thermal" role="status" aria-live="polite">
               <i aria-hidden="true"></i>
               <span><strong>Connecting Thermal Camera</strong><small>Establishing JPEG stream…</small></span>
@@ -1571,7 +1659,7 @@
         <article class="camera-feed visible-feed">
           <header>
             <div><span class="feed-dot"></span><strong>VISIBLE LIVE</strong></div>
-            <span>1920 × 1080 · RGB</span>
+            <span>1280 × 720 · RGB</span>
           </header>
           <div class="camera-viewport">
             <img id="visibleLiveImage" class="camera-real-frame" alt="Visible camera Station simulation stream">
@@ -1589,8 +1677,30 @@
       <footer class="camera-live-footer">
         <div class="camera-record-controls">
           <button class="camera-record-button" id="cameraRecordButton" type="button"><i></i><span>Start Fire Event</span></button>
-          <span class="camera-record-timer" id="cameraRecordTimer">00:00</span>
+          <button class="camera-video-record-button" id="cameraVideoRecordButton" type="button"><i></i><span>Start Record</span></button>
+          <span class="camera-video-record-timer" id="cameraVideoRecordTimer" hidden>00:00</span>
           <span class="camera-record-status" id="cameraRecordStatus"><i class="status-dot"></i> Both camera streams connected</span>
+        </div>
+        <div class="camera-upload-progress is-idle" id="cameraUploadProgress" role="status" aria-live="polite">
+          <div class="camera-upload-progress-track">
+            <i id="cameraUploadProgressBar"></i>
+            <span id="cameraUploadProgressText">Upload idle</span>
+          </div>
+        </div>
+        <div class="camera-live-zoom-control" id="cameraLiveZoomControl" aria-label="Linked camera zoom control">
+          <span class="camera-live-zoom-readout">
+            <small>LINKED ZOOM</small>
+            <output id="cameraLiveLinkedZoomPct">--.-%</output>
+          </span>
+          <label for="cameraLiveZoomStep">
+            <small>STEP</small>
+            <span><input id="cameraLiveZoomStep" type="number" min="0" max="10" step="0.1" value="10.0" inputmode="decimal"><em>%</em></span>
+          </label>
+          <div class="camera-live-zoom-buttons">
+            <button id="cameraLiveZoomOut" type="button" aria-label="Zoom both cameras out">−</button>
+            <button id="cameraLiveZoomIn" type="button" aria-label="Zoom both cameras in">+</button>
+          </div>
+          <span class="camera-live-zoom-message" id="cameraLiveZoomMessage" role="status" aria-live="polite">Thermal camera is the linked zoom reference.</span>
         </div>
         <span id="cameraRecordEvent">Ready to start a manual fire event</span>
       </footer>
@@ -1625,7 +1735,7 @@
 
       <div class="camera-calibration-body">
         <p class="camera-calibration-help">Align the movable Visible crosshair with the fixed Thermal center. Both previews are sampled on the same frame clock.</p>
-        <div class="camera-calibration-previews" id="cameraCalibrationPreviews">
+        <div class="camera-calibration-previews" id="cameraCalibrationPreviews" data-camera-layout="horizontal">
           <article>
             <header><span><i class="is-thermal"></i> THERMAL REFERENCE</span><strong>FIXED CENTER</strong></header>
             <div class="camera-calibration-viewport">
@@ -1634,7 +1744,7 @@
             </div>
           </article>
           <article>
-            <header><span><i></i> VISIBLE CAMERA</span><strong id="cameraCalibrationVisibleResolution">VISIBLE 1920 × 1080 · PREVIEW 910 × 512</strong></header>
+            <header><span><i></i> VISIBLE CAMERA</span><strong id="cameraCalibrationVisibleResolution">VISIBLE 1280 × 720 · NATIVE RATIO</strong></header>
             <div class="camera-calibration-viewport">
               <canvas id="cameraCalibrationVisibleCanvas" width="910" height="512" aria-label="Visible camera calibration preview"></canvas>
               <span id="cameraCalibrationVisiblePosition">X +0 px · Y +0 px</span>
@@ -1696,7 +1806,8 @@
       </footer>
     </section>
 
-    <script type="module" src="{{ url_for('static', filename='desktop/js/pointing_terrain_3d.js') }}?v=23"></script>
-  <script src="{{ url_for('static', filename='desktop/js/dashboard.js') }}?v=45"></script>
+    <script src="{{ url_for('static', filename='shared/camera_pair_control.js') }}?v=1"></script>
+    <script type="module" src="{{ url_for('static', filename='desktop/js/pointing_terrain_3d.js') }}?v=36"></script>
+  <script src="{{ url_for('static', filename='desktop/js/dashboard.js') }}?v=76"></script>
   </body>
 </html>

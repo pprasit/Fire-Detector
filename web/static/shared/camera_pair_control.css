@@ -1,0 +1,13 @@
+.narit-camera-pair{--camera-pair-gap:10px;display:grid;gap:var(--camera-pair-gap);min-width:0;min-height:0}
+.narit-camera-pair[data-layout="horizontal"]{grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:minmax(0,1fr)}
+.narit-camera-pair[data-layout="vertical"]{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) minmax(0,1fr)}
+.narit-camera-pair .camera-feed,.narit-camera-pair .camera,.narit-camera-pair .camera-monitor-feed,.narit-camera-pair .pointing-camera-feed{min-width:0;min-height:0;overflow:hidden}
+.narit-camera-pair .camera-viewport,.narit-camera-pair .scene,.narit-camera-pair .camera-monitor-viewport,.narit-camera-pair .pointing-camera-viewport{position:relative;min-width:0;min-height:0;overflow:hidden;background:#020709}
+.narit-camera-pair .thermal-feed .camera-viewport,.narit-camera-pair .camera:first-child .scene,.narit-camera-pair .camera-monitor-feed.is-thermal .camera-monitor-viewport,.narit-camera-pair .pointing-camera-feed.is-thermal .pointing-camera-viewport{aspect-ratio:5 / 4}
+.narit-camera-pair .visible-feed .camera-viewport,.narit-camera-pair .camera:nth-child(2) .scene,.narit-camera-pair .camera-monitor-feed.is-visible .camera-monitor-viewport,.narit-camera-pair .pointing-camera-feed.is-visible .pointing-camera-viewport{aspect-ratio:16 / 9}
+.narit-camera-pair[data-camera-reference="thermal"] .camera-monitor-feed.is-visible .camera-monitor-viewport{aspect-ratio:5 / 4}
+.narit-camera-pair[data-camera-reference="visible"] .camera-monitor-feed .camera-monitor-viewport{aspect-ratio:16 / 9}
+.narit-camera-pair[data-camera-reference="visible"] .camera-monitor-feed.is-thermal .camera-monitor-viewport img{position:absolute;inset:0;width:100%;height:100%;max-width:none;max-height:none;transform:none;object-fit:cover!important}
+.narit-camera-pair img,.narit-camera-pair video{display:block;width:100%;height:100%;object-fit:contain!important;object-position:center;background:#020709}
+.narit-camera-pair.camera-calibration-previews article:first-child .camera-calibration-viewport{aspect-ratio:5 / 4}.narit-camera-pair.camera-calibration-previews article:nth-child(2) .camera-calibration-viewport{aspect-ratio:16 / 9}.narit-camera-pair .camera-calibration-viewport canvas{width:100%;height:100%;object-fit:contain;background:#020709}
+@media(max-width:760px){.narit-camera-pair[data-layout="horizontal"]{grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto}}

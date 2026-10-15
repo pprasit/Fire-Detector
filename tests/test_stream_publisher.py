@@ -18,6 +18,7 @@ SPEC.loader.exec_module(publish_live_stream)
 class FakeProcess:
     def __init__(self):
         self.stderr = []
+        self.stdout = []
         self.pid = 123
 
     def wait(self):
@@ -28,6 +29,12 @@ class FakeProcess:
 
 
 class StreamPublisherTests(unittest.TestCase):
+    def test_realtime_policy_discards_backlog_within_about_one_second(self):
+        self.assertEqual(publish_live_stream.RTSP_SEND_QUEUE_LIMIT_BYTES, 64 * 1024)
+        self.assertEqual(publish_live_stream.RTSP_QUEUE_POLL_SECONDS, 0.5)
+        self.assertEqual(publish_live_stream.RTSP_QUEUE_FAILURE_LIMIT, 2)
+        self.assertEqual(publish_live_stream.PROGRESS_STALL_SECONDS, 3.0)
+
     def test_publisher_fetches_fresh_credentials_on_every_start(self):
         fetches = []
         commands = []
@@ -51,7 +58,7 @@ class StreamPublisherTests(unittest.TestCase):
             patch.object(publish_live_stream, "fetch_publisher_credentials", fetch),
             patch.object(publish_live_stream, "measured_upload_capacity", return_value=None),
             patch.object(publish_live_stream.subprocess, "Popen", popen),
-            patch.object(sys, "argv", ["publish_live_stream.py", "--camera", "thermal"]),
+            patch.object(sys, "argv", ["publish_live_stream.py", "--camera", "thermal", "--once"]),
         ):
             self.assertEqual(publish_live_stream.main(), 0)
             self.assertEqual(publish_live_stream.main(), 0)
@@ -59,11 +66,13 @@ class StreamPublisherTests(unittest.TestCase):
         self.assertEqual(len(fetches), 2)
         self.assertEqual(len(commands), 2)
         command = commands[0]
+        self.assertEqual(command[command.index("-progress") + 1], "pipe:1")
+        self.assertEqual(command[command.index("-stats_period") + 1], "1")
         self.assertEqual(command[command.index("-rtsp_transport") + 1], "tcp")
         self.assertEqual(command[command.index("-b:v") + 1], "400k")
         self.assertEqual(command[command.index("-bufsize") + 1], "200k")
-        self.assertEqual(command[command.index("-buffer_size") + 1], str(256 * 1024))
-        self.assertEqual(command[command.index("-rw_timeout") + 1], "10000000")
+        self.assertEqual(command[command.index("-buffer_size") + 1], str(64 * 1024))
+        self.assertEqual(command[command.index("-rw_timeout") + 1], "3000000")
         self.assertEqual(
             command[command.index("-vf") + 1],
             "fps=15,scale=640:512:force_original_aspect_ratio=decrease,"
@@ -136,6 +145,59 @@ class StreamPublisherTests(unittest.TestCase):
         result = type("Result", (), {"stdout": output})()
         with patch.object(publish_live_stream.subprocess, "run", return_value=result):
             self.assertEqual(publish_live_stream.rtsp_send_queue_bytes(42), 5678)
+
+    def test_socket_parser_reports_actual_sent_bytes(self):
+        output = (
+            'ESTAB 0 5678 100.64.0.1:2 100.102.91.123:8554 users:(("ffmpeg",pid=42,fd=4))\n'
+            '\t cubic wscale:7,7 bytes_acked:8999 bytes_sent:9000 retrans:0/0\n'
+        )
+        result = type("Result", (), {"stdout": output})()
+        with patch.object(publish_live_stream.subprocess, "run", return_value=result):
+            self.assertEqual(publish_live_stream.rtsp_socket_stats(42), {
+                "send_queue_bytes": 5678,
+                "bytes_sent": 9000,
+            })
+
+    def test_progress_tracker_only_advances_encoded_frame_counter(self):
+        tracker = publish_live_stream.ProgressTracker()
+        with patch.object(publish_live_stream.time, "time", return_value=1234.5):
+            tracker.update("frame", "10")
+            tracker.update("frame", "10")
+            tracker.update("frame", "not-a-number")
+        self.assertEqual(tracker.snapshot(), (10, 1234.5))
+
+    def test_watchdog_distinguishes_output_and_capture_stalls(self):
+        self.assertIsNone(publish_live_stream.publisher_stall_reason(4.9, 20.0, True))
+        self.assertIsNone(publish_live_stream.publisher_stall_reason(20.0, 2.9, True))
+        self.assertEqual(
+            publish_live_stream.publisher_stall_reason(20.0, 3.0, True),
+            "output_stall",
+        )
+        self.assertEqual(
+            publish_live_stream.publisher_stall_reason(20.0, 3.0, False),
+            "capture_stall",
+        )
+
+    def test_health_state_contains_progress_but_no_credentials(self):
+        with tempfile.TemporaryDirectory() as directory, patch.object(
+            publish_live_stream,
+            "STREAM_POLICY_STATE_DIR",
+            Path(directory),
+        ):
+            publish_live_stream.write_stream_health_state("visible", {
+                "state": "publishing",
+                "encoded_frames": 42,
+                "bytes_sent": 8192,
+                "rtsp_session_active": True,
+            })
+            payload = json.loads(
+                (Path(directory) / "stream-health-visible.json").read_text()
+            )
+
+        self.assertEqual(payload["encoded_frames"], 42)
+        self.assertEqual(payload["bytes_sent"], 8192)
+        self.assertNotIn("username", payload)
+        self.assertNotIn("password", payload)
 
     def test_log_sanitizer_removes_plain_and_url_encoded_secrets(self):
         line = "publisher/password publisher%2Fpassword rtsp://private-url"

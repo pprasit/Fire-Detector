@@ -30,7 +30,25 @@ CAMERA_POOL_PROFILES: dict[str, dict[str, Any]] = {
             "visible": (480, 270),
         },
     },
+    "monitor": {
+        "description": "Bandwidth-bounded latest-frame preview for Camera View",
+        "latest_only": True,
+        "max_fps": 12,
+        "jpeg_quality": 68,
+        "dimensions": {
+            "thermal": (512, 410),
+            "visible": (960, 540),
+        },
+    },
 }
+
+
+class CameraSourceValidationError(ValueError):
+    """A frame source contradicts the Station's production/simulation mode."""
+
+    def __init__(self, code: str, message: str) -> None:
+        super().__init__(message)
+        self.code = code
 
 
 class CameraFramePool:
@@ -39,7 +57,8 @@ class CameraFramePool:
     sources = ("simulation", "live")
     cameras = ("thermal", "visible")
 
-    def __init__(self) -> None:
+    def __init__(self, *, simulation_enabled: bool = False) -> None:
+        self.simulation_enabled = simulation_enabled
         self.lock = Lock()
         self.updated = Condition(self.lock)
         self.frames: dict[tuple[str, str], dict[str, Any]] = {}
@@ -78,6 +97,19 @@ class CameraFramePool:
         There is deliberately no FIFO: superseded frames are discarded at
         ingest, preventing a slow consumer from accumulating seconds of delay.
         """
+        declared_simulated = metadata.get("simulated")
+        if not self.simulation_enabled and source == "simulation":
+            raise CameraSourceValidationError(
+                "SIMULATION_BLOCKED_IN_PRODUCTION",
+                "Simulation frames are disabled while simulation_mode.enabled is false.",
+            )
+        if not self.simulation_enabled and source == "live" and (
+            declared_simulated is not False or metadata.get("source_verified") is not True
+        ):
+            raise CameraSourceValidationError(
+                "CAMERA_SOURCE_INVALID",
+                "Production live frames must explicitly declare simulated=false and source_verified=true.",
+            )
         self.sequence += 1
         sequence = self.sequence
         clean_metadata = {**metadata, "simulated": source == "simulation"}

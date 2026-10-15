@@ -21,7 +21,7 @@ from urllib.parse import urlsplit
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_SETTINGS = PROJECT_ROOT / "AppSetting.JSON"
-MAX_VIDEO_BYTES = 100 * 1024 * 1024
+MAX_VIDEO_BYTES = 512 * 1024 * 1024
 
 
 def utc_now() -> str:
@@ -85,10 +85,11 @@ def read_response(response: http.client.HTTPResponse) -> object:
 
 
 def upload_video(base_url: str, ca_file: str, device_id: str, secret: bytes,
-                 event_id: str, camera: str, video: Path, timeout: float) -> object:
+                 event_id: str, camera: str, video: Path, timeout: float,
+                 progress_callback=None) -> object:
     size = video.stat().st_size
     if size > MAX_VIDEO_BYTES:
-        raise ValueError(f"{video} is {size} bytes; simulator limit is {MAX_VIDEO_BYTES} bytes")
+        raise ValueError(f"{video} is {size} bytes; upload limit is {MAX_VIDEO_BYTES} bytes")
     path = f"/api/v1/events/{device_id}/{event_id}/media/{camera}"
     digest = file_sha256(video)
     headers = signed_headers(device_id, secret, "PUT", path, digest)
@@ -100,8 +101,12 @@ def upload_video(base_url: str, ca_file: str, device_id: str, secret: bytes,
             connection.putheader(name, value)
         connection.endheaders()
         with video.open("rb") as source:
+            sent = 0
             for chunk in iter(lambda: source.read(1024 * 1024), b""):
                 connection.send(chunk)
+                sent += len(chunk)
+                if progress_callback is not None:
+                    progress_callback(sent, size)
         return read_response(connection.getresponse())
     finally:
         connection.close()

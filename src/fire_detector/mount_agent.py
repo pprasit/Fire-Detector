@@ -154,6 +154,7 @@ class MountAgent:
         terrain_path: Path | None = None,
         terrain_updated: Callable[[], Any] | None = None,
         command_monitor: Any | None = None,
+        camera_telemetry_provider: Callable[[], dict[str, Any]] | None = None,
     ) -> None:
         self._command_handler = command_handler
         self._telemetry_provider = telemetry_provider
@@ -161,6 +162,7 @@ class MountAgent:
         self._terrain_path = terrain_path
         self._terrain_updated = terrain_updated
         self._command_monitor = command_monitor
+        self._camera_telemetry_provider = camera_telemetry_provider
         self._stop = Event()
         self._leases = ControlLeaseManager()
         self._local_thread: Thread | None = None
@@ -707,10 +709,7 @@ class MountAgent:
         LOGGER.info("Station configuration revision %s synchronized.", self._station_config_synced_revision)
 
     def _camera_telemetry_event(self, snapshot: dict[str, Any], device_id: str) -> dict[str, Any] | None:
-        metadata = self._settings_provider().get("camera_metadata")
-        thermal = metadata.get("thermal_camera") if isinstance(metadata, dict) else None
-        if not isinstance(thermal, dict):
-            return None
+        cameras = self._camera_telemetry_provider() if self._camera_telemetry_provider else {}
         axes = snapshot.get("axes") if isinstance(snapshot, dict) else None
         azimuth: dict[str, Any] = {}
         altitude: dict[str, Any] = {}
@@ -730,15 +729,15 @@ class MountAgent:
             "sequence": self._camera_telemetry_sequence,
             "azimuth_deg": _number_or_none(azimuth.get("position_deg")),
             "altitude_deg": _number_or_none(altitude.get("position_deg")),
+            "pointing_azimuth_deg": _number_or_none(azimuth.get("pointing_position_deg")),
+            "pointing_altitude_deg": _number_or_none(altitude.get("pointing_position_deg")),
+            "pointing_model_applied": bool(
+                azimuth.get("pointing_model_applied") and altitude.get("pointing_model_applied")
+            ),
             "azimuth_velocity_deg_per_sec": _number_or_none(azimuth.get("velocity_deg_per_sec")),
             "altitude_velocity_deg_per_sec": _number_or_none(altitude.get("velocity_deg_per_sec")),
-            "thermal": {
-                "zoom_x": 1.0,
-                "horizontal_fov_deg": _number_or_none(thermal.get("horizontal_fov_max_deg")),
-                "vertical_fov_deg": _number_or_none(thermal.get("vertical_fov_max_deg")),
-                "palette": "iron",
-                "simulated": True,
-            },
+            "thermal": dict(cameras.get("thermal") or {}),
+            "visible": dict(cameras.get("visible") or {}),
         }
         return {
             "version": PROTOCOL_VERSION,

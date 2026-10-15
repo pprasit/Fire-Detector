@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import asdict
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import atexit
 import ast
 import base64
@@ -18,6 +18,8 @@ import os
 from pathlib import Path
 import random
 import re
+import signal
+import sqlite3
 import struct
 import subprocess
 import sys
@@ -54,7 +56,7 @@ from fire_detector.backup_api import (
     verify_backup_signature,
 )
 from fire_detector.camera_overlay import burn_camera_overlay
-from fire_detector.camera_frame_pool import CAMERA_POOL_PROFILES, CameraFramePool
+from fire_detector.camera_frame_pool import CAMERA_POOL_PROFILES, CameraFramePool, CameraSourceValidationError
 from fire_detector.odrive_connection import (
     ODriveConnectionError,
     connect,
@@ -71,7 +73,9 @@ UPDATER_SCRIPT_PATH = PROJECT_ROOT / "scripts" / "fire_detector_update.py"
 DEM_PATH = PROJECT_ROOT / "data" / "dem" / "output_hh.tif"
 POINTING_CACHE_DIR = PROJECT_ROOT / "data" / "pointing_cache"
 TELEMETRY_DATABASE_PATH = PROJECT_ROOT / "data" / "telemetry" / "mount_telemetry.sqlite3"
+POINTING_FAVORITES_DATABASE_PATH = PROJECT_ROOT / "data" / "pointing_favorites.sqlite3"
 BACKUP_DIR = PROJECT_ROOT / "data" / "backups"
+_DEM_PANORAMA_RENDER_LOCK = Lock()
 ARCGIS_WORLD_IMAGERY_EXPORT_URL = "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export"
 POINTING_IMAGERY_TEXTURE_SIZE = 4096
 POINTING_IMAGERY_JPEG_QUALITY = 88
@@ -82,7 +86,16 @@ CAMERA_CONTROL_ZOOM_URL = os.environ.get(
     "FIRE_DETECTOR_CAMERA_ZOOM_URL",
     "http://127.0.0.1:5005/api/camera/zoom",
 ).strip()
+CAMERA_CONTROL_SWEEP_URL = os.environ.get(
+    "FIRE_DETECTOR_CAMERA_SWEEP_URL",
+    "http://127.0.0.1:5005/api/sweep/control",
+).strip()
+CAMERA_CONTROL_SWEEP_STATUS_URL = os.environ.get(
+    "FIRE_DETECTOR_CAMERA_SWEEP_STATUS_URL",
+    "http://127.0.0.1:5005/api/sweep/status",
+).strip()
 CAMERA_ZOOM_STEP_PCT = 1.0
+MANUAL_CAMERA_RECORDING_MAX_DURATION_SEC = 30.0
 SYSTEM_DIST_PACKAGES = "/usr/lib/python3/dist-packages"
 ODRIVE_PRO_V44_MAX_CURRENT_AMP = 150.0
 SAFE_MAX_SLEW_RATE_DEG_PER_SEC = 100.0
@@ -1433,7 +1446,10 @@ class ODriveMonitor:
             )
 
             target = lower
-            while not stop_event.is_set():
+            while (
+                not stop_event.is_set()
+                and monotonic() - recording_started_at < MANUAL_CAMERA_RECORDING_MAX_DURATION_SEC
+            ):
                 phase = "moving-to-min" if target == lower else "moving-to-max"
                 with self._motor_calibration_lock:
                     self._motor_calibration_state[label].update(
@@ -2734,8 +2750,8 @@ def _stepped_camera_zoom_target(
         step = float(step_pct)
     except (TypeError, ValueError) as exc:
         raise ValueError("step_pct must be a number") from exc
-    if not math.isfinite(step) or step < 0.1 or step > 25.0:
-        raise ValueError("step_pct must be between 0.1 and 25")
+    if not math.isfinite(step) or step < 0.0 or step > 25.0:
+        raise ValueError("step_pct must be between 0 and 25")
     delta = step if normalized_direction == "in" else -step
     try:
         current = float(current_zoom_pct)
@@ -2785,6 +2801,76 @@ def _post_camera_zoom(camera: str, target_pct: float) -> dict[str, Any]:
     return response_payload
 
 
+def _camera_sweep_request(action: str | None = None) -> dict[str, Any]:
+    """Read or change the camera system's real sweep/mission state."""
+    if action is None:
+        upstream_request = urllib.request.Request(
+            CAMERA_CONTROL_SWEEP_STATUS_URL,
+            headers={"Accept": "application/json"},
+            method="GET",
+        )
+    else:
+        normalized_action = str(action).strip().lower()
+        if normalized_action not in {"start", "stop"}:
+            raise ValueError("action must be 'start' or 'stop'")
+        upstream_request = urllib.request.Request(
+            CAMERA_CONTROL_SWEEP_URL,
+            data=json.dumps({"action": normalized_action}).encode("utf-8"),
+            headers={"Content-Type": "application/json", "Accept": "application/json"},
+            method="POST",
+        )
+    try:
+        with urllib.request.urlopen(upstream_request, timeout=4.0) as response:
+            response_payload = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        try:
+            error_payload = json.loads(exc.read().decode("utf-8"))
+            detail = error_payload.get("message") or error_payload.get("error")
+        except (AttributeError, json.JSONDecodeError, UnicodeDecodeError):
+            detail = None
+        raise RuntimeError(detail or f"Camera sweep API returned HTTP {exc.code}") from exc
+    except (urllib.error.URLError, TimeoutError, OSError) as exc:
+        raise RuntimeError("Camera sweep API is unavailable") from exc
+    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+        raise RuntimeError("Camera sweep API returned an invalid response") from exc
+    if not isinstance(response_payload, dict):
+        raise RuntimeError("Camera sweep API returned an invalid response")
+    if action is not None and response_payload.get("status") != "ok":
+        raise RuntimeError(response_payload.get("message") or "Camera sweep command was rejected")
+    return response_payload
+
+
+def _camera_panorama_request(endpoint: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Proxy the integrated Thermal panorama planner and capture engine."""
+    normalized_endpoint = str(endpoint).strip().lower()
+    if normalized_endpoint not in {"calculate", "start", "stop", "resume", "status", "save"}:
+        raise ValueError("Unknown panorama endpoint")
+    url = f"http://127.0.0.1:5005/api/panorama/{normalized_endpoint}"
+    method = "GET" if normalized_endpoint == "status" else "POST"
+    data = None if method == "GET" else json.dumps(payload or {}).encode("utf-8")
+    headers = {"Accept": "application/json"}
+    if data is not None:
+        headers["Content-Type"] = "application/json"
+    upstream_request = urllib.request.Request(url, data=data, headers=headers, method=method)
+    try:
+        with urllib.request.urlopen(upstream_request, timeout=6.0) as response:
+            response_payload = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        try:
+            error_payload = json.loads(exc.read().decode("utf-8"))
+            detail = error_payload.get("message") or error_payload.get("error")
+        except (AttributeError, json.JSONDecodeError, UnicodeDecodeError):
+            detail = None
+        raise RuntimeError(detail or f"Panorama API returned HTTP {exc.code}") from exc
+    except (urllib.error.URLError, TimeoutError, OSError) as exc:
+        raise RuntimeError("Panorama API is unavailable") from exc
+    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+        raise RuntimeError("Panorama API returned an invalid response") from exc
+    if not isinstance(response_payload, dict):
+        raise RuntimeError("Panorama API returned an invalid response")
+    return response_payload
+
+
 def create_app() -> Flask:
     app = Flask(
         __name__,
@@ -2821,6 +2907,35 @@ def create_app() -> Flask:
     command_router = MountCommandRouter(
         ManagedMotionController(raw_monitor, command_manager, "mount-agent")
     )
+    camera_pool = CameraFramePool(simulation_enabled=simulation_enabled)
+
+    def camera_telemetry_provider() -> dict[str, Any]:
+        cameras: dict[str, Any] = {}
+        for camera in ("thermal", "visible"):
+            frame = camera_pool.latest("live", camera)
+            metadata = dict(frame.get("metadata") or {}) if frame else {}
+            received = frame.get("received_monotonic") if frame else None
+            age_ms = (
+                max(0.0, (monotonic() - float(received)) * 1000.0)
+                if isinstance(received, (int, float)) else None
+            )
+            verified_live = (
+                frame is not None
+                and metadata.get("simulated") is False
+                and metadata.get("source_verified") is True
+                and age_ms is not None
+                and age_ms <= 2000.0
+            )
+            cameras[camera] = {
+                **metadata,
+                "simulated": False if verified_live else None,
+                "source": "live" if verified_live else None,
+                "connected": verified_live,
+                "age_ms": round(age_ms, 1) if age_ms is not None else None,
+                "error": None if verified_live else "LIVE_CAMERA_UNAVAILABLE",
+            }
+        return cameras
+
     mount_agent = MountAgent(
         command_router.dispatch,
         raw_monitor.snapshot,
@@ -2828,6 +2943,7 @@ def create_app() -> Flask:
         terrain_path=DEM_PATH,
         terrain_updated=_terrain_updated,
         command_monitor=api_command_monitor,
+        camera_telemetry_provider=camera_telemetry_provider,
     )
     mount_agent.start()
     atexit.register(mount_agent.stop)
@@ -2839,10 +2955,22 @@ def create_app() -> Flask:
     app.extensions["api_command_monitor"] = api_command_monitor
     app.extensions["jog_command_registry"] = jog_commands
     app.extensions["raw_monitor"] = raw_monitor
+    # Manual recordings are transient upload buffers. If the process was
+    # restarted mid-recording, no worker remains that can safely resume them.
+    # Remove only those known part files so stale sessions cannot fill Station disk.
+    manual_recording_root = PROJECT_ROOT / "data" / "recordings" / "manual"
+    for orphan in manual_recording_root.glob("camera-*/*-part-*.mp4"):
+        orphan.unlink(missing_ok=True)
+    for orphan_dir in manual_recording_root.glob("camera-*"):
+        try:
+            orphan_dir.rmdir()
+        except OSError:
+            pass
     camera_recording_lock = Lock()
     camera_recording: dict[str, Any] = {"status": "idle"}
+    manual_video_lock = Lock()
+    manual_video: dict[str, Any] = {"status": "idle"}
     camera_preview_started_monotonic = monotonic()
-    camera_pool = CameraFramePool()
     app.extensions["camera_frame_pool"] = camera_pool
     # Compatibility aliases keep route code readable while all state and
     # synchronization are owned by one explicit central pool.
@@ -2961,6 +3089,30 @@ def create_app() -> Flask:
                            metadata: dict[str, Any]) -> dict[str, Any]:
         return camera_pool.store_locked(source, camera, payload, mime_type, metadata)
 
+    def simulation_camera_allowed() -> bool:
+        return bool(_load_app_settings().get("simulation_mode", {}).get("enabled", False))
+
+    def verified_camera_frame(source: str, camera: str) -> dict[str, Any] | None:
+        """Return only a fresh frame whose provenance matches the active mode."""
+        if source == "simulation":
+            if not simulation_camera_allowed():
+                return None
+        elif source != "live":
+            return None
+        frame = camera_pool.latest(source, camera)
+        if frame is None:
+            return None
+        received = frame.get("received_monotonic")
+        metadata = frame.get("metadata") or {}
+        if not isinstance(received, (int, float)) or monotonic() - float(received) > 2.0:
+            return None
+        expected_simulated = source == "simulation"
+        if metadata.get("simulated") is not expected_simulated:
+            return None
+        if source == "live" and metadata.get("source_verified") is not True:
+            return None
+        return frame
+
     def camera_recording_snapshot() -> dict[str, Any]:
         with camera_recording_lock:
             snapshot = dict(camera_recording)
@@ -2968,6 +3120,429 @@ def create_app() -> Flask:
             snapshot["elapsed_sec"] = round(max(0.0, monotonic() - snapshot["started_monotonic"]), 1)
         snapshot.pop("started_monotonic", None)
         return snapshot
+
+    def manual_video_snapshot() -> dict[str, Any]:
+        with manual_video_lock:
+            snapshot = dict(manual_video)
+        if snapshot.get("status") == "recording":
+            snapshot["elapsed_sec"] = round(max(0.0, monotonic() - snapshot["started_monotonic"]), 1)
+        for private_key in ("started_monotonic", "stop_event", "thread", "output_dir", "output_paths"):
+            snapshot.pop(private_key, None)
+        return snapshot
+
+    def camera_recording_frame_rate() -> int:
+        """Use the fastest cadence currently delivered for both camera feeds."""
+        rates: list[int] = []
+        now = time.time()
+        for camera in ("thermal", "visible"):
+            try:
+                state = json.loads(Path(f"/run/fire-detector/stream-policy-{camera}.json").read_text(encoding="utf-8"))
+                rate = int(state["frame_rate"])
+                if now - float(state["updated_at"]) > 10.0 or not 1 <= rate <= 60:
+                    raise ValueError
+                rates.append(rate)
+            except (OSError, ValueError, TypeError, KeyError, json.JSONDecodeError):
+                # The camera publisher's production target is 15 FPS. A stale
+                # policy file must not silently return recording to the old
+                # six-FPS web-preview cadence.
+                rates.append(15)
+        return min(rates)
+
+    def record_manual_camera_video(source: str, output_dir: Path, stop_event: Event) -> None:
+        """Encode and upload independent native-resolution camera MP4 files."""
+        from PIL import Image, ImageOps
+
+        recording_started_at = monotonic()
+        frame_rate = camera_recording_frame_rate()
+        dimensions = {"thermal": (640, 512), "visible": (1280, 720)}
+        output_paths = {camera: output_dir / f"{camera}.mp4" for camera in dimensions}
+        processes: dict[str, subprocess.Popen[bytes]] = {}
+        deadline_reached = Event()
+
+        def enforce_recording_deadline() -> None:
+            deadline_reached.set()
+            stop_event.set()
+            for encoder in tuple(processes.values()):
+                if encoder.poll() is None:
+                    encoder.send_signal(signal.SIGINT)
+
+        deadline_timer = Timer(MANUAL_CAMERA_RECORDING_MAX_DURATION_SEC, enforce_recording_deadline)
+        try:
+            output_dir.mkdir(parents=True, exist_ok=True)
+            for camera, (width, height) in dimensions.items():
+                processes[camera] = subprocess.Popen([
+                    "ffmpeg", "-hide_banner", "-nostdin", "-loglevel", "error", "-y",
+                    "-f", "rawvideo", "-pix_fmt", "rgb24", "-s:v", f"{width}x{height}",
+                    "-r", str(frame_rate), "-i", "pipe:0", "-an", "-c:v", "libx264",
+                    "-preset", "ultrafast", "-tune", "zerolatency", "-crf", "24", "-pix_fmt", "yuv420p",
+                    "-movflags", "+faststart", str(output_paths[camera]),
+                ], stdin=subprocess.PIPE, stderr=subprocess.PIPE)
+            deadline_timer.start()
+            next_frame_at = monotonic()
+            encoder_stopped = False
+            while not stop_event.is_set():
+                frames = {camera: verified_camera_frame(source, camera) for camera in dimensions}
+                if source == "simulation" and any(frame is None for frame in frames.values()):
+                    frames = {
+                        "thermal": {"data": (PROJECT_ROOT / "data" / "simulated_camera" / "thermal-sip30-150-sample.png").read_bytes()},
+                        "visible": {"data": (PROJECT_ROOT / "data" / "simulated_camera" / "visible-khao-sok-sample.jpg").read_bytes()},
+                    }
+                if any(frame is None for frame in frames.values()):
+                    stop_event.wait(0.1)
+                    continue
+                try:
+                    rendered = {}
+                    for camera, size in dimensions.items():
+                        with Image.open(BytesIO(frames[camera]["data"])) as camera_source:
+                            contained = ImageOps.contain(
+                                camera_source.convert("RGB"), size,
+                                method=Image.Resampling.LANCZOS,
+                            )
+                            native_frame = Image.new("RGB", size)
+                            native_frame.paste(
+                                contained,
+                                ((size[0] - contained.width) // 2, (size[1] - contained.height) // 2),
+                            )
+                            rendered[camera] = native_frame
+                except (OSError, ValueError):
+                    stop_event.wait(0.05)
+                    continue
+                for camera, process in processes.items():
+                    assert process.stdin is not None
+                    try:
+                        process.stdin.write(rendered[camera].tobytes())
+                    except (BrokenPipeError, OSError, ValueError):
+                        encoder_stopped = True
+                        break
+                if encoder_stopped:
+                    break
+                next_frame_at += 1.0 / frame_rate
+                stop_event.wait(max(0.0, next_frame_at - monotonic()))
+            with manual_video_lock:
+                manual_video.update(status="finalizing", message="30-second limit reached; finalizing both MP4 files")
+            for process in processes.values():
+                if process.stdin is not None:
+                    try:
+                        process.stdin.close()
+                    except (BrokenPipeError, OSError, ValueError):
+                        pass
+            for camera, process in processes.items():
+                return_code = process.wait(timeout=15)
+                if return_code != 0 and not deadline_reached.is_set():
+                    error = (process.stderr.read() if process.stderr else b"").decode("utf-8", "replace").strip()
+                    raise RuntimeError(error or f"FFmpeg could not finalize the {camera} MP4 file.")
+            if any(not path.exists() or path.stat().st_size == 0 for path in output_paths.values()):
+                raise RuntimeError("No camera frames were available to record.")
+            helper_path = PROJECT_ROOT / "scripts" / "simulate_fire_events.py"
+            helper_spec = importlib.util.spec_from_file_location("manual_video_upload", helper_path)
+            if helper_spec is None or helper_spec.loader is None:
+                raise RuntimeError(f"Could not load video upload helper: {helper_path}")
+            helper = importlib.util.module_from_spec(helper_spec)
+            helper_spec.loader.exec_module(helper)
+            settings = _load_app_settings()
+            remote = settings["mount_agent"]["remote"]
+            device_id = str(remote["device_id"])
+            configured_url = str(remote["media_upload_url"])
+            base_url = configured_url.split("/api/", 1)[0]
+            secret = Path(str(remote["secret_file"])).read_bytes().strip()
+            ca_file = str(remote.get("ca_file") or "")
+            event_id = output_dir.name
+            duration_sec = max(0.1, monotonic() - recording_started_at)
+            with manual_video_lock:
+                manual_video.update(status="uploading", message="Uploading Thermal and Visible MP4 files to Server")
+            for camera, path in output_paths.items():
+                helper.upload_video(base_url, ca_file, device_id, secret, event_id, camera, path, 180)
+            station = settings.get("station", {})
+            detected_at = datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+            payload = {
+                "event_id": event_id,
+                "station_id": device_id,
+                "detected_at": detected_at,
+                "latitude": float(station.get("latitude", 0.0)),
+                "longitude": float(station.get("longitude", 0.0)),
+                "area_m2": 0.0,
+                "confidence": 1.0,
+                "severity": "low",
+                "title": "Manual Thermal + Visible recording",
+                "summary": "Independent native-resolution camera recordings saved from Station Camera View",
+                "thermal_duration_ms": round(duration_sec * 1000),
+                "visible_duration_ms": round(duration_sec * 1000),
+                "recording_fps": frame_rate,
+            }
+            result = helper.finalize_event(base_url, ca_file, device_id, secret, payload, 180)
+            incident = result.get("incident", {}) if isinstance(result, dict) else {}
+            with manual_video_lock:
+                manual_video.update(
+                    status="ready", message="Thermal and Visible MP4 files uploaded to Server",
+                    incident_id=incident.get("id"),
+                )
+        except Exception as exc:
+            for process in processes.values():
+                if process.poll() is None:
+                    process.kill()
+                    process.wait(timeout=2)
+            for path in output_paths.values():
+                path.unlink(missing_ok=True)
+            with manual_video_lock:
+                manual_video.update(status="error", message=str(exc))
+        finally:
+            deadline_timer.cancel()
+            for path in output_paths.values():
+                path.unlink(missing_ok=True)
+            try:
+                output_dir.rmdir()
+            except OSError:
+                pass
+
+    def record_segmented_camera_video(source: str, output_dir: Path, stop_event: Event) -> None:
+        """Continuously record paired feeds, rolling and uploading every 30 seconds."""
+        from PIL import Image, ImageOps
+
+        session_started_at = datetime.now(timezone.utc)
+        started_monotonic = monotonic()
+        frame_rate = camera_recording_frame_rate()
+        dimensions = {"thermal": (640, 512), "visible": (1280, 720)}
+        processes: dict[str, subprocess.Popen[bytes]] = {}
+        uploads: dict[int, Thread] = {}
+        results: dict[int, dict[str, Any]] = {}
+        results_lock = Lock()
+        upload_serial_lock = Lock()
+
+        helper_path = PROJECT_ROOT / "scripts" / "simulate_fire_events.py"
+        helper_spec = importlib.util.spec_from_file_location("segmented_video_upload", helper_path)
+        if helper_spec is None or helper_spec.loader is None:
+            with manual_video_lock:
+                manual_video.update(status="error", message=f"Could not load upload helper: {helper_path}")
+            return
+        helper = importlib.util.module_from_spec(helper_spec)
+        helper_spec.loader.exec_module(helper)
+        settings = _load_app_settings()
+        remote = settings["mount_agent"]["remote"]
+        device_id = str(remote["device_id"])
+        base_url = str(remote["media_upload_url"]).split("/api/", 1)[0]
+        secret = Path(str(remote["secret_file"])).read_bytes().strip()
+        ca_file = str(remote.get("ca_file") or "")
+        station = settings.get("station", {})
+
+        def paths_for(part: int) -> dict[str, Path]:
+            return {camera: output_dir / f"{camera}-part-{part:03d}.mp4" for camera in dimensions}
+
+        def upload_part(part: int, duration_sec: float, camera_metadata: dict[str, Any]) -> None:
+            paths = paths_for(part)
+            event_id = f"{output_dir.name}-part-{part:03d}"
+            upload_serial_lock.acquire()
+            try:
+                for camera, path in paths.items():
+                    total_bytes = path.stat().st_size
+
+                    def report_progress(sent: int, total: int, *, current_camera: str = camera,
+                                        current_name: str = path.name) -> None:
+                        with manual_video_lock:
+                            manual_video["upload_progress"] = {
+                                "status": "uploading", "part": part, "camera": current_camera,
+                                "filename": current_name, "bytes_sent": sent, "bytes_total": total,
+                                "percent": round((sent / total * 100.0) if total else 0.0, 1),
+                            }
+
+                    with manual_video_lock:
+                        manual_video["upload_progress"] = {
+                            "status": "uploading", "part": part, "camera": camera,
+                            "filename": path.name, "bytes_sent": 0, "bytes_total": total_bytes,
+                            "percent": 0.0,
+                        }
+                    helper.upload_video(
+                        base_url, ca_file, device_id, secret, event_id, camera, path, 180,
+                        progress_callback=report_progress,
+                    )
+                detected_at = session_started_at + timedelta(
+                    seconds=(part - 1) * MANUAL_CAMERA_RECORDING_MAX_DURATION_SEC,
+                )
+                duration_ms = round(max(0.1, min(MANUAL_CAMERA_RECORDING_MAX_DURATION_SEC, duration_sec)) * 1000)
+                payload = {
+                    "event_id": event_id, "station_id": device_id,
+                    "detected_at": detected_at.isoformat(timespec="milliseconds").replace("+00:00", "Z"),
+                    "latitude": float(station.get("latitude", 0.0)),
+                    "longitude": float(station.get("longitude", 0.0)),
+                    "area_m2": 0.0, "confidence": 1.0, "severity": "low",
+                    "title": f"Manual camera recording · Part {part}",
+                    "summary": f"Continuous recording {output_dir.name}, part {part}",
+                    "thermal_duration_ms": duration_ms, "visible_duration_ms": duration_ms,
+                    "recording_fps": frame_rate, "recording_session_id": output_dir.name,
+                    "part_number": part, "recording_source": source,
+                    "camera_metadata": camera_metadata,
+                }
+                response = helper.finalize_event(base_url, ca_file, device_id, secret, payload, 180)
+                incident = response.get("incident", {}) if isinstance(response, dict) else {}
+                with results_lock:
+                    results[part] = {"ok": True, "incident_id": incident.get("id")}
+                for path in paths.values():
+                    path.unlink(missing_ok=True)
+                with manual_video_lock:
+                    manual_video.update(
+                        parts_uploaded=sum(1 for item in results.values() if item.get("ok")),
+                        upload_progress={
+                            "status": "idle", "part": part, "camera": None, "filename": None,
+                            "bytes_sent": 0, "bytes_total": 0, "percent": 0.0,
+                        },
+                    )
+            except Exception as exc:
+                with results_lock:
+                    results[part] = {"ok": False, "error": str(exc)}
+                with manual_video_lock:
+                    manual_video["upload_progress"] = {
+                        "status": "error", "part": part, "camera": None, "filename": None,
+                        "bytes_sent": 0, "bytes_total": 0, "percent": 0.0,
+                        "message": str(exc),
+                    }
+                stop_event.set()
+            finally:
+                upload_serial_lock.release()
+
+        def start_upload(part: int, duration_sec: float = MANUAL_CAMERA_RECORDING_MAX_DURATION_SEC) -> None:
+            if part in uploads:
+                return
+            paths = paths_for(part)
+            if not all(path.is_file() and path.stat().st_size > 0 for path in paths.values()):
+                return
+            part_started = session_started_at + timedelta(
+                seconds=(part - 1) * MANUAL_CAMERA_RECORDING_MAX_DURATION_SEC,
+            )
+            part_ended = part_started + timedelta(seconds=duration_sec)
+            camera_metadata: dict[str, Any] = {}
+            for camera, (width, height) in dimensions.items():
+                latest = verified_camera_frame(source, camera) or {}
+                frame_metadata = deepcopy(latest.get("metadata") or {})
+                camera_metadata[camera] = {
+                    "camera": camera,
+                    "recording_source": source,
+                    "width": width,
+                    "height": height,
+                    "resolution": f"{width}x{height}",
+                    "fps": frame_rate,
+                    "part_number": part,
+                    "started_at": part_started.isoformat(timespec="milliseconds").replace("+00:00", "Z"),
+                    "ended_at": part_ended.isoformat(timespec="milliseconds").replace("+00:00", "Z"),
+                    "duration_ms": round(duration_sec * 1000),
+                    "frame_metadata": frame_metadata,
+                }
+            thread = Thread(
+                target=upload_part, args=(part, duration_sec, camera_metadata),
+                name=f"camera-upload-{output_dir.name}-part-{part:03d}", daemon=True,
+            )
+            uploads[part] = thread
+            thread.start()
+
+        def open_encoders(part: int) -> None:
+            processes.clear()
+            for camera, (width, height) in dimensions.items():
+                latest = verified_camera_frame(source, camera) or {}
+                metadata = latest.get("metadata") or {}
+                zoom_x = metadata.get("zoom_x", "unknown")
+                zoom_pct = metadata.get("zoom_pct", "unknown")
+                processes[camera] = subprocess.Popen([
+                    "ffmpeg", "-hide_banner", "-nostdin", "-loglevel", "error", "-y",
+                    "-f", "rawvideo", "-pix_fmt", "rgb24", "-s:v", f"{width}x{height}",
+                    "-r", str(frame_rate), "-i", "pipe:0", "-an", "-c:v", "libx264",
+                    "-preset", "ultrafast", "-tune", "zerolatency", "-crf", "24",
+                    "-pix_fmt", "yuv420p", "-g", str(frame_rate), "-keyint_min", str(frame_rate),
+                    "-sc_threshold", "0", "-movflags", "+faststart+use_metadata_tags",
+                    "-metadata", f"camera_type={camera}",
+                    "-metadata", f"recording_source={source}",
+                    "-metadata", f"recording_session_id={output_dir.name}",
+                    "-metadata", f"part_number={part}",
+                    "-metadata", f"resolution={width}x{height}",
+                    "-metadata", f"frame_rate={frame_rate}",
+                    "-metadata", f"zoom_x={zoom_x}",
+                    "-metadata", f"zoom_pct={zoom_pct}",
+                    str(paths_for(part)[camera]),
+                ], stdin=subprocess.PIPE, stderr=subprocess.PIPE)
+
+        def close_encoders() -> None:
+            for process in processes.values():
+                if process.stdin is not None:
+                    process.stdin.close()
+            for camera, process in processes.items():
+                if process.wait(timeout=20) != 0:
+                    detail = (process.stderr.read() if process.stderr else b"").decode("utf-8", "replace").strip()
+                    raise RuntimeError(detail or f"Could not finalize {camera} video part")
+
+        try:
+            output_dir.mkdir(parents=True, exist_ok=True)
+            current_part = 1
+            part_started_at = monotonic()
+            open_encoders(current_part)
+            next_frame_at = monotonic()
+            while not stop_event.is_set():
+                if monotonic() - part_started_at >= MANUAL_CAMERA_RECORDING_MAX_DURATION_SEC:
+                    close_encoders()
+                    start_upload(current_part)
+                    current_part += 1
+                    part_started_at = monotonic()
+                    open_encoders(current_part)
+                    next_frame_at = part_started_at
+                    with manual_video_lock:
+                        manual_video.update(current_part=current_part)
+                frames = {camera: verified_camera_frame(source, camera) for camera in dimensions}
+                if source == "simulation" and any(frame is None for frame in frames.values()):
+                    frames = {
+                        "thermal": {"data": (PROJECT_ROOT / "data" / "simulated_camera" / "thermal-sip30-150-sample.png").read_bytes()},
+                        "visible": {"data": (PROJECT_ROOT / "data" / "simulated_camera" / "visible-khao-sok-sample.jpg").read_bytes()},
+                    }
+                if any(frame is None for frame in frames.values()):
+                    if source == "live":
+                        raise RuntimeError(
+                            "LIVE_CAMERA_UNAVAILABLE: verified Thermal and Visible frames are required"
+                        )
+                    stop_event.wait(0.05)
+                    continue
+                for camera, size in dimensions.items():
+                    with Image.open(BytesIO(frames[camera]["data"])) as camera_source:
+                        image = ImageOps.contain(camera_source.convert("RGB"), size, method=Image.Resampling.LANCZOS)
+                    native = Image.new("RGB", size)
+                    native.paste(image, ((size[0] - image.width) // 2, (size[1] - image.height) // 2))
+                    assert processes[camera].stdin is not None
+                    processes[camera].stdin.write(native.tobytes())
+                next_frame_at += 1.0 / frame_rate
+                stop_event.wait(max(0.0, next_frame_at - monotonic()))
+            with manual_video_lock:
+                manual_video.update(status="finalizing", message="Finalizing current video part")
+            close_encoders()
+            elapsed = max(0.1, monotonic() - started_monotonic)
+            for path in output_dir.glob("*-part-*.mp4"):
+                match = re.search(r"-part-(\d+)\.mp4$", path.name)
+                if match:
+                    part = int(match.group(1))
+                    part_duration = min(MANUAL_CAMERA_RECORDING_MAX_DURATION_SEC, max(0.1, elapsed - (part - 1) * MANUAL_CAMERA_RECORDING_MAX_DURATION_SEC))
+                    start_upload(part, part_duration)
+            with manual_video_lock:
+                manual_video.update(status="uploading", message="Uploading remaining video parts to Server")
+            for thread in uploads.values():
+                thread.join(timeout=210)
+            failures = [item["error"] for item in results.values() if not item.get("ok")]
+            if failures:
+                raise RuntimeError(failures[0])
+            if not results:
+                raise RuntimeError("No video part was recorded")
+            with manual_video_lock:
+                manual_video.update(
+                    status="ready", message=f"Uploaded {len(results)} video parts",
+                    parts_uploaded=len(results), current_part=None,
+                )
+        except Exception as exc:
+            stop_event.set()
+            for process in processes.values():
+                if process.poll() is None:
+                    process.kill()
+                    process.wait(timeout=2)
+            with manual_video_lock:
+                manual_video.update(status="error", message=str(exc))
+        finally:
+            for path in output_dir.glob("*-part-*.mp4"):
+                path.unlink(missing_ok=True)
+            try:
+                output_dir.rmdir()
+            except OSError:
+                pass
 
     def finish_camera_recording(recording: dict[str, Any], duration_sec: float) -> None:
         event_id = str(recording["event_id"])
@@ -3001,7 +3576,7 @@ def create_app() -> Flask:
                 overlay_text.write_text(
                     "ELAPSED %{pts:hms}\n"
                     f"UTC %{{pts:gmtime:{start_epoch:.3f}:%Y-%m-%d %H\\:%M\\:%S}}\n"
-                    f"ZOOM {zoom:.2f}x\nRES {resolution}",
+                    f"ZOOM {max(0.0, min(100.0, (zoom - 1.0) * 25.0)):.1f}%\nRES {resolution}",
                     encoding="utf-8",
                 )
                 overlay = (
@@ -3279,9 +3854,11 @@ def create_app() -> Flask:
         """Return the station-owned normalized setpoint and live readback."""
         with camera_zoom_command_lock:
             live = live_camera_zoom_percentages()
-            linked = camera_zoom_linked.get("target")
+            linked = live.get("thermal")
+            if linked is None:
+                linked = camera_zoom_linked.get("target")
             if not isinstance(linked, (int, float)) or not math.isfinite(linked):
-                linked = live.get("thermal", live.get("visible"))
+                linked = live.get("visible")
         if linked is None:
             return jsonify({
                 "ok": False,
@@ -3302,13 +3879,15 @@ def create_app() -> Flask:
 
         with camera_zoom_command_lock:
             live = live_camera_zoom_percentages()
-            current = camera_zoom_linked.get("target")
+            # Thermal readback is authoritative. This also repairs a mismatch:
+            # both lenses receive one target derived from the current Thermal
+            # percentage, while their drivers map that percentage to their own
+            # physical focal/zoom ranges.
+            current = live.get("thermal")
+            if current is None:
+                current = camera_zoom_linked.get("target")
             if not isinstance(current, (int, float)) or not math.isfinite(current):
-                # Thermal is the deterministic initial reference. Once this
-                # endpoint issues a command, the station's linked setpoint is
-                # authoritative for both cameras regardless of readback
-                # quantization in either ONVIF implementation.
-                current = live.get("thermal", live.get("visible", math.nan))
+                current = live.get("visible", math.nan)
             try:
                 target = (
                     _absolute_camera_zoom_target(payload.get("target_zoom_pct"))
@@ -3352,6 +3931,74 @@ def create_app() -> Flask:
             "status": "at_limit" if already_linked else "accepted",
             "upstream": upstream,
         })
+
+    @app.get("/api/camera-control/sweep")
+    def api_camera_control_sweep_status():
+        """Proxy the camera mission state used by the Mission Design toggle."""
+        try:
+            sweep = _camera_sweep_request()
+        except RuntimeError as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 502
+        return jsonify({"ok": True, "sweep": sweep})
+
+    @app.post("/api/camera-control/sweep")
+    def api_camera_control_sweep():
+        """Start or stop the integrated camera sweep module."""
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            return jsonify({"ok": False, "error": "Request body must be a JSON object."}), 400
+        try:
+            sweep = _camera_sweep_request(payload.get("action"))
+        except ValueError as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 400
+        except RuntimeError as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 502
+        return jsonify({"ok": True, "sweep": sweep})
+
+    @app.get("/api/camera-control/panorama/status")
+    def api_camera_panorama_status():
+        try:
+            panorama = _camera_panorama_request("status")
+        except RuntimeError as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 502
+        return jsonify({"ok": True, "panorama": panorama})
+
+    @app.post("/api/camera-control/panorama/<action>")
+    def api_camera_panorama_action(action: str):
+        if action not in {"calculate", "start", "stop", "resume", "save"}:
+            return jsonify({"ok": False, "error": "Unknown panorama action."}), 404
+        payload = request.get_json(silent=True)
+        if payload is None:
+            payload = {}
+        if not isinstance(payload, dict):
+            return jsonify({"ok": False, "error": "Request body must be a JSON object."}), 400
+        try:
+            panorama = _camera_panorama_request(action, payload)
+        except (ValueError, RuntimeError) as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 502
+        return jsonify({"ok": True, "panorama": panorama})
+
+    @app.get("/api/camera-control/panorama/image/<session_id>/<path:filename>")
+    def api_camera_panorama_image(session_id: str, filename: str):
+        """Stream a generated panorama frame without exposing the camera service."""
+        if not re.fullmatch(r"[A-Za-z0-9_-]+", session_id) or any(
+            part in {"", ".", ".."} for part in filename.split("/")
+        ):
+            return jsonify({"ok": False, "error": "Invalid panorama image path."}), 400
+        image_url = (
+            "http://127.0.0.1:5005/api/panorama/image/"
+            f"{urllib.parse.quote(session_id, safe='')}/"
+            f"{urllib.parse.quote(filename, safe='/')}"
+        )
+        try:
+            with urllib.request.urlopen(image_url, timeout=8.0) as upstream:
+                image_data = upstream.read()
+                content_type = upstream.headers.get_content_type()
+        except (urllib.error.URLError, TimeoutError, OSError) as exc:
+            return jsonify({"ok": False, "error": f"Panorama image unavailable: {exc}"}), 502
+        response = Response(image_data, mimetype=content_type)
+        response.headers["Cache-Control"] = "private, max-age=300"
+        return response
 
     @app.get("/api/network/capacity-test")
     def api_network_capacity_test_status():
@@ -3427,6 +4074,13 @@ def create_app() -> Flask:
     def api_camera_preview(camera: str):
         from PIL import Image
 
+        if not simulation_camera_allowed():
+            return jsonify({
+                "ok": False,
+                "code": "SIMULATION_BLOCKED_IN_PRODUCTION",
+                "error": "Sample camera previews are disabled in production.",
+            }), 409
+
         samples = {
             "thermal": "thermal-sip30-150-sample.png",
             "visible": "visible-khao-sok-sample.jpg",
@@ -3458,7 +4112,7 @@ def create_app() -> Flask:
                 frame,
                 captured_at=datetime.now(timezone.utc),
                 elapsed_sec=monotonic() - camera_preview_started_monotonic,
-                zoom_x=zoom,
+                zoom_pct=max(0.0, min(100.0, (zoom - 1.0) * 25.0)),
             )
 
         output = BytesIO()
@@ -3475,8 +4129,93 @@ def create_app() -> Flask:
     def api_camera_recording_status():
         return jsonify(camera_recording_snapshot())
 
+    @app.get("/api/camera-recording/manual")
+    def api_manual_camera_recording_status():
+        return jsonify(manual_video_snapshot())
+
+    @app.post("/api/camera-recording/manual/start")
+    def api_manual_camera_recording_start():
+        payload = request.get_json(silent=True) or {}
+        requested_source = str(payload.get("source") or "live").strip().lower()
+        if requested_source not in {"live", "simulation"}:
+            return jsonify({"ok": False, "error": "source must be live or simulation"}), 400
+        simulation_mode_enabled = bool(_load_app_settings().get("simulation_mode", {}).get("enabled", False))
+        if requested_source == "simulation" and not simulation_mode_enabled:
+            return jsonify({
+                "ok": False,
+                "code": "SIMULATION_BLOCKED_IN_PRODUCTION",
+                "error": "Simulation recording is disabled while simulation_mode.enabled is false.",
+            }), 409
+        source = requested_source
+        if verified_camera_frame(source, "thermal") is None or verified_camera_frame(source, "visible") is None:
+            if source == "simulation":
+                return jsonify({"ok": False, "error": "Simulation camera frames are not available."}), 409
+            return jsonify({
+                "ok": False,
+                "code": "LIVE_CAMERA_UNAVAILABLE",
+                "error": "Both live Thermal and Visible frames must be connected before recording.",
+            }), 409
+        with manual_video_lock:
+            if manual_video.get("status") == "recording":
+                return jsonify({"ok": False, "error": "A manual camera recording is already active."}), 409
+            recording_id = datetime.now().strftime("camera-%Y%m%d-%H%M%S")
+            output_dir = PROJECT_ROOT / "data" / "recordings" / "manual" / recording_id
+            output_paths = {camera: output_dir / f"{camera}.mp4" for camera in ("thermal", "visible")}
+            stop_event = Event()
+            worker = Thread(
+                target=record_segmented_camera_video,
+                args=(source, output_dir, stop_event),
+                name=f"manual-video-{recording_id}",
+                daemon=True,
+            )
+            manual_video.clear()
+            manual_video.update(
+                status="recording", message="Recording continuously · splitting every 30 seconds",
+                event_id=recording_id, source=source,
+                frame_rate=camera_recording_frame_rate(),
+                max_duration_sec=MANUAL_CAMERA_RECORDING_MAX_DURATION_SEC,
+                current_part=1, parts_uploaded=0,
+                upload_progress={
+                    "status": "idle", "part": None, "camera": None, "filename": None,
+                    "bytes_sent": 0, "bytes_total": 0, "percent": 0.0,
+                },
+                started_monotonic=monotonic(), output_dir=output_dir, output_paths=output_paths,
+                stop_event=stop_event, thread=worker,
+            )
+            worker.start()
+        return jsonify({"ok": True, **manual_video_snapshot()}), 201
+
+    @app.post("/api/camera-recording/manual/stop")
+    def api_manual_camera_recording_stop():
+        with manual_video_lock:
+            if manual_video.get("status") != "recording":
+                return jsonify({"ok": False, "error": "No manual camera recording is active."}), 409
+            stop_event = manual_video["stop_event"]
+            worker = manual_video["thread"]
+            manual_video.update(status="finalizing", message="Finalizing and uploading both MP4 files")
+        stop_event.set()
+        worker.join(timeout=210)
+        with manual_video_lock:
+            status = manual_video.get("status")
+            error = manual_video.get("message")
+        if worker.is_alive():
+            return jsonify({"ok": False, "error": "MP4 finalization timed out."}), 504
+        if status != "ready":
+            return jsonify({"ok": False, "error": error or "MP4 recording failed."}), 500
+        result = {"ok": True, **manual_video_snapshot()}
+        with manual_video_lock:
+            manual_video.clear()
+            manual_video.update(status="idle", message="Ready to record")
+        return jsonify(result)
+
     @app.post("/api/camera-recording/start")
     def api_camera_recording_start():
+        if not simulation_camera_allowed():
+            return jsonify({
+                "ok": False,
+                "code": "SIMULATION_BLOCKED_IN_PRODUCTION",
+                "error": "The legacy Fire Event recorder uses simulation media and is blocked in production. Use Start Record for verified live cameras.",
+            }), 409
         payload = request.get_json(silent=True) or {}
         with camera_recording_lock:
             if camera_recording.get("status") in {"recording", "saving", "uploading"}:
@@ -3543,6 +4282,12 @@ def create_app() -> Flask:
         if source not in {"simulation", "live"}:
             source = "live"
         if role == "producer":
+            if source == "simulation" and not simulation_camera_allowed():
+                ws.send(json.dumps({
+                    "type": "error", "code": "SIMULATION_BLOCKED_IN_PRODUCTION",
+                    "message": "Simulation producer rejected while simulation mode is disabled.",
+                }, separators=(",", ":")))
+                return
             with camera_stream_lock:
                 camera_stream_producers[source]["connections"] += 1
             try:
@@ -3553,8 +4298,11 @@ def create_app() -> Flask:
                     if isinstance(raw, bytes):
                         decoded_binary = decode_binary_camera_frame(raw)
                         if decoded_binary is not None:
-                            with camera_stream_updated:
-                                store_camera_frame(source, *decoded_binary)
+                            try:
+                                with camera_stream_updated:
+                                    store_camera_frame(source, *decoded_binary)
+                            except CameraSourceValidationError as exc:
+                                ws.send(json.dumps({"type": "error", "code": exc.code, "message": str(exc)}, separators=(",", ":")))
                         continue
                     if not isinstance(raw, str) or len(raw) > 16 * 1024 * 1024:
                         continue
@@ -3581,7 +4329,10 @@ def create_app() -> Flask:
                         continue
                     with camera_stream_lock:
                         for camera, payload, mime_type, metadata in clean_messages:
-                            store_camera_frame(source, camera, payload, mime_type, metadata)
+                            try:
+                                store_camera_frame(source, camera, payload, mime_type, metadata)
+                            except CameraSourceValidationError as exc:
+                                ws.send(json.dumps({"type": "error", "code": exc.code, "message": str(exc)}, separators=(",", ":")))
             finally:
                 with camera_stream_lock:
                     camera_stream_producers[source]["connections"] = max(
@@ -3631,6 +4382,8 @@ def create_app() -> Flask:
         source = request.args.get("source", "live").strip().lower()
         if source not in {"simulation", "live"}:
             return jsonify({"ok": False, "error": "source must be live or simulation"}), 400
+        if source == "simulation" and not simulation_camera_allowed():
+            return jsonify({"ok": False, "code": "SIMULATION_BLOCKED_IN_PRODUCTION", "error": "Simulation frames are disabled in production."}), 409
         mime_type = (request.mimetype or "").lower()
         if mime_type not in {"image/jpeg", "image/png"}:
             return jsonify({"ok": False, "error": "Content-Type must be image/jpeg or image/png"}), 415
@@ -3649,8 +4402,11 @@ def create_app() -> Flask:
             if not isinstance(parsed_metadata, dict):
                 return jsonify({"ok": False, "error": "X-Camera-Metadata must be a JSON object"}), 400
             metadata = parsed_metadata
-        with camera_stream_updated:
-            frame = store_camera_frame(source, camera, payload, mime_type, metadata)
+        try:
+            with camera_stream_updated:
+                frame = store_camera_frame(source, camera, payload, mime_type, metadata)
+        except CameraSourceValidationError as exc:
+            return jsonify({"ok": False, "code": exc.code, "error": str(exc)}), 409
         return jsonify({"ok": True, "camera": camera, "source": source, "sequence": frame["sequence"]}), 202
 
     @app.get("/api/camera-stream")
@@ -3744,16 +4500,22 @@ def create_app() -> Flask:
         """
         if source not in {"simulation", "live"} or camera not in {"thermal", "visible"}:
             return jsonify({"ok": False, "error": "Unknown camera stream."}), 404
-        frame = camera_pool.latest(source, camera)
+        if source == "simulation" and not simulation_camera_allowed():
+            return jsonify({"ok": False, "code": "SIMULATION_BLOCKED_IN_PRODUCTION", "error": "Simulation frames are disabled in production."}), 409
+        frame = verified_camera_frame(source, camera)
         if frame is None:
-            return jsonify({"ok": False, "error": "No camera frame is available yet."}), 404
+            code = "LIVE_CAMERA_UNAVAILABLE" if source == "live" else "CAMERA_SOURCE_INVALID"
+            return jsonify({"ok": False, "code": code, "error": "No fresh verified camera frame is available."}), 503
 
         payload = frame["data"]
         mime_type = str(frame.get("mime_type") or "image/jpeg")
         sequence = int(frame.get("sequence", 0))
+        requested_profile = request.args.get("profile", "").strip().lower()
         pointing_preview = request.args.get("preview", "").strip().lower() == "pointing"
-        profile_name = "pointing" if pointing_preview else "full"
-        if pointing_preview and source == "live":
+        profile_name = "pointing" if pointing_preview else (
+            requested_profile if requested_profile in {"monitor"} else "full"
+        )
+        if profile_name != "full" and source == "live":
             profile = camera_pool.profile_spec(profile_name, camera)
             cache_key = (source, camera, profile_name)
             with camera_pointing_preview_cache_lock:
@@ -3822,8 +4584,44 @@ def create_app() -> Flask:
         """
         if source not in {"simulation", "live"}:
             return jsonify({"ok": False, "error": "Unknown camera stream."}), 404
-        thermal = camera_pool.latest(source, "thermal")
-        visible = camera_pool.latest(source, "visible")
+        if source == "simulation" and not simulation_camera_allowed():
+            return jsonify({"ok": False, "code": "SIMULATION_BLOCKED_IN_PRODUCTION", "error": "Simulation frames are disabled in production."}), 409
+
+        def nonnegative_query_integer(name: str, maximum: int) -> int:
+            try:
+                return max(0, min(maximum, int(request.args.get(name, "0"))))
+            except (TypeError, ValueError):
+                return 0
+
+        # A viewer supplies the last pair it displayed. Wait for both cameras
+        # to advance so a slow source controls the delivered frame rate and a
+        # slow client never downloads the same JPEG pair repeatedly. There is
+        # still only one retained frame per camera, so no video queue can form.
+        after_thermal = nonnegative_query_integer("after_thermal", 2_147_483_647)
+        after_visible = nonnegative_query_integer("after_visible", 2_147_483_647)
+        wait_ms = nonnegative_query_integer("wait_ms", 1000)
+        pair_advanced = True
+        if wait_ms and (after_thermal or after_visible):
+            deadline = monotonic() + wait_ms / 1000.0
+            with camera_stream_updated:
+                while True:
+                    retained_thermal = camera_stream_images.get((source, "thermal"))
+                    retained_visible = camera_stream_images.get((source, "visible"))
+                    pair_advanced = bool(
+                        retained_thermal
+                        and retained_visible
+                        and int(retained_thermal.get("sequence", 0)) > after_thermal
+                        and int(retained_visible.get("sequence", 0)) > after_visible
+                    )
+                    if pair_advanced:
+                        break
+                    remaining = deadline - monotonic()
+                    if remaining <= 0:
+                        break
+                    camera_stream_updated.wait(timeout=remaining)
+
+        thermal = verified_camera_frame(source, "thermal")
+        visible = verified_camera_frame(source, "visible")
         if thermal is None or visible is None:
             missing = [
                 camera for camera, frame in (("thermal", thermal), ("visible", visible))
@@ -3832,10 +4630,69 @@ def create_app() -> Flask:
             return jsonify({
                 "ok": False,
                 "error": f"No latest frame is available for {', '.join(missing)}.",
-            }), 404
+                "code": "LIVE_CAMERA_UNAVAILABLE" if source == "live" else "CAMERA_SOURCE_INVALID",
+            }), 503
+        if not pair_advanced:
+            return Response(
+                status=204,
+                headers={
+                    "Cache-Control": "no-store, no-cache, must-revalidate",
+                    "X-Camera-Transport": "latest-frame-pair-wait",
+                },
+            )
 
-        thermal_payload = bytes(thermal["data"])
-        visible_payload = bytes(visible["data"])
+        requested_profile = request.args.get("profile", "").strip().lower()
+        profile_name = requested_profile if requested_profile in {"monitor"} else "full"
+
+        def pair_payload(frame: dict[str, Any], camera: str) -> tuple[bytes, str]:
+            original = bytes(frame["data"])
+            mime_type = str(frame.get("mime_type") or "image/jpeg")
+            if profile_name == "full" or source != "live":
+                return original, mime_type
+            sequence = int(frame.get("sequence", 0))
+            cache_key = (source, camera, profile_name)
+            with camera_pointing_preview_cache_lock:
+                cached = camera_pointing_preview_cache.get(cache_key)
+                if cached and int(cached.get("sequence", -1)) == sequence:
+                    return bytes(cached["data"]), "image/jpeg"
+            try:
+                from PIL import Image, ImageOps
+
+                profile = camera_pool.profile_spec(profile_name, camera)
+                with Image.open(BytesIO(original)) as image:
+                    image.load()
+                    rendered = ImageOps.fit(
+                        image.convert("RGB"),
+                        profile["dimensions"],
+                        method=Image.Resampling.BILINEAR,
+                    )
+                    output = BytesIO()
+                    rendered.save(
+                        output,
+                        format="JPEG",
+                        quality=int(profile["jpeg_quality"]),
+                        optimize=False,
+                    )
+                    payload = output.getvalue()
+                with camera_pointing_preview_cache_lock:
+                    camera_pointing_preview_cache[cache_key] = {
+                        "sequence": sequence,
+                        "data": payload,
+                    }
+                return payload, "image/jpeg"
+            except (OSError, ValueError):
+                return original, mime_type
+
+        thermal_payload, thermal_type = pair_payload(thermal, "thermal")
+        visible_payload, visible_type = pair_payload(visible, "visible")
+        def retained_age_ms(frame: dict[str, Any]) -> float | None:
+            received = frame.get("received_monotonic")
+            if not isinstance(received, (int, float)):
+                return None
+            return max(0.0, (monotonic() - float(received)) * 1000.0)
+
+        thermal_age_ms = retained_age_ms(thermal)
+        visible_age_ms = retained_age_ms(visible)
         payload = (
             b"NCP1"
             + len(thermal_payload).to_bytes(4, "big")
@@ -3855,11 +4712,14 @@ def create_app() -> Flask:
                 "Pragma": "no-cache",
                 "X-Camera-Pair-Format": "NCP1",
                 "X-Camera-Pair-Metadata": metadata_json,
-                "X-Camera-Thermal-Type": str(thermal.get("mime_type") or "image/jpeg"),
-                "X-Camera-Visible-Type": str(visible.get("mime_type") or "image/jpeg"),
+                "X-Camera-Thermal-Type": thermal_type,
+                "X-Camera-Visible-Type": visible_type,
                 "X-Camera-Thermal-Sequence": str(int(thermal.get("sequence", 0))),
                 "X-Camera-Visible-Sequence": str(int(visible.get("sequence", 0))),
+                "X-Camera-Thermal-Age-Ms": "" if thermal_age_ms is None else f"{thermal_age_ms:.1f}",
+                "X-Camera-Visible-Age-Ms": "" if visible_age_ms is None else f"{visible_age_ms:.1f}",
                 "X-Camera-Pool": "central-latest-frame",
+                "X-Camera-Profile": profile_name,
                 "X-Camera-Transport": "latest-frame-pair-request",
             },
         )
@@ -3869,6 +4729,8 @@ def create_app() -> Flask:
         """Stream camera video as server-originated MJPEG without Base64/JSON framing."""
         if source not in {"simulation", "live"} or camera not in {"thermal", "visible"}:
             return jsonify({"ok": False, "error": "Unknown camera stream."}), 404
+        if source == "simulation" and not simulation_camera_allowed():
+            return jsonify({"ok": False, "code": "SIMULATION_BLOCKED_IN_PRODUCTION", "error": "Simulation streaming is disabled in production."}), 409
         pointing_preview = request.args.get("preview", "").strip().lower() == "pointing"
         command = None
         if source == "simulation":
@@ -3902,6 +4764,13 @@ def create_app() -> Flask:
                         if frame is None or int(frame["sequence"]) <= last_sequence:
                             continue
                         last_sequence = int(frame["sequence"])
+                        received = frame.get("received_monotonic")
+                        metadata = frame.get("metadata") or {}
+                        fresh = isinstance(received, (int, float)) and monotonic() - float(received) <= 2.0
+                        source_valid = metadata.get("simulated") is (source == "simulation")
+                        verified = source != "live" or metadata.get("source_verified") is True
+                        if not fresh or not source_valid or not verified:
+                            continue
                     payload = frame["data"]
                     mime_type = frame["mime_type"]
                     metadata_json = json.dumps(
@@ -3974,11 +4843,39 @@ def create_app() -> Flask:
         except ValueError:
             resolution_m = POINTING_GRID_RESOLUTION_M
         try:
+            rebuild = str(request.args.get("rebuild", "")).strip().lower() in {"1", "true", "yes"}
             if resolution_m > 0:
-                return jsonify(_pointing_model_raster_payload(resolution_m=max(20.0, min(resolution_m, 500.0))))
+                return jsonify(_pointing_model_raster_payload(
+                    resolution_m=max(20.0, min(resolution_m, 500.0)),
+                    force_rebuild=rebuild,
+                ))
             return jsonify(_pointing_model_payload(size=max(40, min(size, 220))))
         except Exception as exc:
             return jsonify({"ok": False, "error": f"Could not load pointing model: {exc}"}), 500
+
+    @app.get("/api/pointing/cache-key")
+    def api_pointing_cache_key():
+        try:
+            resolution_m = float(request.args.get("resolution_m", str(POINTING_GRID_RESOLUTION_M)))
+            cache_key = _pointing_cache_key(max(20.0, min(resolution_m, 500.0)))
+            return jsonify({"ok": True, "cache_key": cache_key["digest"]})
+        except (TypeError, ValueError) as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 400
+
+    @app.route("/api/mission-design/dem-panorama", methods=["GET", "POST"])
+    def api_mission_design_dem_panorama():
+        """Report or create the cached DEM panorama used behind the scan grid."""
+        try:
+            request_payload = request.get_json(silent=True) or {}
+            payload = _mission_design_dem_panorama(
+                create=request.method == "POST",
+                force=request.method == "POST" and request_payload.get("force") is True,
+            )
+        except FileNotFoundError as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 409
+        except Exception as exc:
+            return jsonify({"ok": False, "error": f"Could not create DEM panorama: {exc}"}), 500
+        return jsonify({"ok": True, **payload})
 
     @app.get("/api/pointing/sample")
     def api_pointing_sample():
@@ -4143,9 +5040,65 @@ def create_app() -> Flask:
             "model": settings["pointing_alignment"]["model"],
         })
 
+    @app.delete("/api/pointing/alignment-points")
+    def api_delete_all_pointing_alignment_points():
+        """Start a new Pointing Model by atomically clearing every observation."""
+        try:
+            alignment = _load_app_settings().get("pointing_alignment", {})
+            points = alignment.get("points", [])
+            cleared_count = len(points) if isinstance(points, list) else 0
+            settings = _merge_app_settings({
+                "pointing_alignment": {
+                    "latest": None,
+                    "points": [],
+                },
+            })
+        except ValueError as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 400
+        except Exception as exc:
+            return jsonify({"ok": False, "error": f"Could not create a new Pointing Model: {exc}"}), 500
+        return jsonify({
+            "ok": True,
+            "cleared_count": cleared_count,
+            "settings": settings,
+            "model": settings["pointing_alignment"]["model"],
+        })
+
     @app.get("/api/pointing/cache/<path:filename>")
     def api_pointing_cache(filename: str):
         return send_from_directory(POINTING_CACHE_DIR, filename)
+
+    @app.get("/api/pointing/favorites")
+    def api_pointing_favorites():
+        return jsonify({"ok": True, "favorites": _load_pointing_favorites()})
+
+    @app.post("/api/pointing/favorites")
+    def api_save_pointing_favorite():
+        payload = request.get_json(silent=True) or {}
+        try:
+            latitude = _required_finite_number(payload, "latitude", minimum=-90.0, maximum=90.0)
+            longitude = _required_finite_number(payload, "longitude", minimum=-180.0, maximum=180.0)
+            sample = _pointing_sample(latitude, longitude)
+            if sample.get("inside_dem") is not True or sample.get("inside_radius") is not True:
+                raise ValueError("Favorite point must be inside the DEM pointing radius.")
+            favorite = _save_pointing_favorite(sample)
+        except ValueError as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 400
+        except Exception as exc:
+            return jsonify({"ok": False, "error": f"Could not save favorite point: {exc}"}), 500
+        return jsonify({"ok": True, "favorite": favorite, "favorites": _load_pointing_favorites()})
+
+    @app.delete("/api/pointing/favorites/<favorite_id>")
+    def api_delete_pointing_favorite(favorite_id: str):
+        if re.fullmatch(r"[0-9a-f]{16}", favorite_id) is None:
+            return jsonify({"ok": False, "error": "Favorite point ID is invalid."}), 400
+        try:
+            deleted = _delete_pointing_favorite(favorite_id)
+        except Exception as exc:
+            return jsonify({"ok": False, "error": f"Could not delete favorite point: {exc}"}), 500
+        if not deleted:
+            return jsonify({"ok": False, "error": "Favorite point was not found."}), 404
+        return jsonify({"ok": True, "favorites": _load_pointing_favorites()})
 
     @app.post("/api/settings/apply")
     def api_apply_settings():
@@ -4158,8 +5111,6 @@ def create_app() -> Flask:
             position_conversion_changed = any(
                 previous_limits.get(key) != applied_limits.get(key)
                 for key in (
-                    "azimuth_ccw_limit_deg",
-                    "azimuth_cw_limit_deg",
                     "azimuth_position_offset_deg",
                     "altitude_position_offset_deg",
                     "azimuth_position_scale",
@@ -4167,8 +5118,11 @@ def create_app() -> Flask:
                 )
             )
             if position_conversion_changed:
-                # Limits define which equivalent azimuth branch is valid, so a
-                # changed envelope must also reinitialize software unwrapping.
+                # Rebase only when the encoder-to-display conversion changes.
+                # Changing the allowed motion envelope must preserve the live
+                # unwrapped branch; clearing it here used to turn (for example)
+                # -246 Deg into its equivalent +114 Deg and draw a false 360
+                # degree jump even though the mount had not moved.
                 monitor.rebase_position_offsets()
         except ValueError as exc:
             return jsonify({"ok": False, "error": str(exc)}), 400
@@ -4367,6 +5321,19 @@ def create_app() -> Flask:
     def api_velocity_command_motors():
         try:
             velocities = _parse_velocity_payload(request.get_json(silent=True) or {})
+            issued_at_text = request.headers.get("X-Motion-Issued-At-Ms", "")
+            if issued_at_text and any(abs(float(value)) > 1e-9 for value in velocities.values()):
+                try:
+                    issued_at_ms = float(issued_at_text)
+                except (TypeError, ValueError) as exc:
+                    raise ValueError("X-Motion-Issued-At-Ms must be a Unix timestamp in milliseconds.") from exc
+                command_age_ms = time.time() * 1000.0 - issued_at_ms
+                if command_age_ms > 1000.0:
+                    raise ValueError(
+                        f"Motion command expired in transit ({command_age_ms:.0f} ms old); press again."
+                    )
+                if command_age_ms < -30_000.0:
+                    raise ValueError("Browser clock is too far ahead of the Station clock.")
             client_id = request.headers.get("X-Motion-Client-ID", "")
             sequence_text = request.headers.get("X-Motion-Command-Sequence", "")
             try:
@@ -5490,12 +6457,38 @@ def _fit_pointing_alignment_model(points: list[dict[str, Any]]) -> dict[str, Any
     base = {
         "active": False,
         "point_count": len(points),
-        "required_point_count": 2,
+        "required_point_count": 1,
         "recommended_point_count": 3,
-        "status": "Add at least two well-separated reference points.",
+        "status": "Add one reference point to activate compensation.",
     }
-    if len(points) < 2:
+    if not points:
         return base
+    if len(points) == 1:
+        point = points[0]
+        azimuth_offset = _signed_degree_delta(
+            point["telemetry_azimuth_deg"], point["reference_azimuth_deg"],
+        )
+        # Commands map world -> mount, so both offsets must be measured mount
+        # minus reference. The display path applies the exact inverse.
+        altitude_offset = point["telemetry_altitude_deg"] - point["reference_altitude_deg"]
+        correction = math.hypot(
+            azimuth_offset * math.cos(math.radians(point["reference_altitude_deg"])),
+            altitude_offset,
+        )
+        active = correction <= 20.0
+        return {
+            **base,
+            "active": active,
+            "mode": "single_point_offset",
+            "status": (
+                "Live single-point compensation active; add two more separated points for a rigid 3D fit."
+                if active else "Single-point correction exceeds 20 degrees; review the saved point."
+            ),
+            "azimuth_offset_deg": round(azimuth_offset, 6),
+            "altitude_offset_deg": round(altitude_offset, 6),
+            "rms_error_deg": 0.0,
+            "max_error_deg": 0.0,
+        }
     mount_vectors = [
         _direction_vector(point["telemetry_azimuth_deg"], point["telemetry_altitude_deg"])
         for point in points
@@ -5588,6 +6581,19 @@ def _apply_pointing_alignment_model(
     """Convert a nominal world direction into the compensated mount command."""
     if not isinstance(model, dict) or model.get("active") is not True:
         return azimuth_deg, altitude_deg, False
+    if model.get("mode") == "single_point_offset":
+        try:
+            corrected_azimuth = (azimuth_deg + float(model["azimuth_offset_deg"])) % 360.0
+            corrected_altitude = altitude_deg + float(model["altitude_offset_deg"])
+            correction = _vector_angle_deg(
+                _direction_vector(azimuth_deg, altitude_deg),
+                _direction_vector(corrected_azimuth, corrected_altitude),
+            )
+        except (KeyError, TypeError, ValueError):
+            return azimuth_deg, altitude_deg, False
+        if correction > 20.0 or not -90.0 <= corrected_altitude <= 90.0:
+            return azimuth_deg, altitude_deg, False
+        return corrected_azimuth, corrected_altitude, True
     matrix = model.get("rotation_matrix")
     if not isinstance(matrix, list) or len(matrix) != 3:
         return azimuth_deg, altitude_deg, False
@@ -5602,6 +6608,38 @@ def _apply_pointing_alignment_model(
     if correction > 20.0:
         return azimuth_deg, altitude_deg, False
     return corrected_azimuth, corrected_altitude, True
+
+
+def _mount_direction_through_pointing_model(
+    mount_azimuth_deg: float,
+    mount_altitude_deg: float,
+    model: dict[str, Any] | None,
+) -> tuple[float, float, bool]:
+    """Convert measured mount coordinates into the compensated pointing direction."""
+    if not isinstance(model, dict) or model.get("active") is not True:
+        return mount_azimuth_deg, mount_altitude_deg, False
+    if model.get("mode") == "single_point_offset":
+        try:
+            pointing_azimuth = (mount_azimuth_deg - float(model["azimuth_offset_deg"])) % 360.0
+            pointing_altitude = mount_altitude_deg - float(model["altitude_offset_deg"])
+        except (KeyError, TypeError, ValueError):
+            return mount_azimuth_deg, mount_altitude_deg, False
+        if not -90.0 <= pointing_altitude <= 90.0:
+            return mount_azimuth_deg, mount_altitude_deg, False
+        return pointing_azimuth, pointing_altitude, True
+    matrix = model.get("rotation_matrix")
+    if not isinstance(matrix, list) or len(matrix) != 3:
+        return mount_azimuth_deg, mount_altitude_deg, False
+    try:
+        mount = _direction_vector(mount_azimuth_deg, mount_altitude_deg)
+        pointing = _matrix_vector(matrix, mount)
+        pointing_azimuth, pointing_altitude = _direction_angles(pointing)
+    except (TypeError, ValueError, IndexError):
+        return mount_azimuth_deg, mount_altitude_deg, False
+    correction = _vector_angle_deg(mount, _direction_vector(pointing_azimuth, pointing_altitude))
+    if correction > 20.0:
+        return mount_azimuth_deg, mount_altitude_deg, False
+    return pointing_azimuth, pointing_altitude, True
 
 
 def _clean_camera_metadata(metadata: dict[str, Any]) -> dict[str, dict[str, Any]]:
@@ -5851,6 +6889,43 @@ def _apply_position_offsets_to_payload(data: dict[str, Any], unwrap_state: dict[
                 unwrap_state
                 and unwrap_state.get(label, {}).get("region_confirmed", False)
             )
+
+    # Preserve the hardware-calibrated mount coordinate for control and safety,
+    # while also publishing the optical direction after applying the inverse
+    # Pointing Model. UI consumers may display the latter, but commands, limits,
+    # and future model observations must remain in mount coordinates.
+    axis_by_label = {
+        str(axis.get("label")): axis
+        for axis in axes
+        if isinstance(axis, dict)
+    }
+    azimuth_axis = axis_by_label.get("Azimuth")
+    altitude_axis = axis_by_label.get("Altitude")
+    for axis in (azimuth_axis, altitude_axis):
+        if axis is not None:
+            axis["mount_position_deg"] = axis.get("position_deg")
+            axis["pointing_position_deg"] = axis.get("position_deg")
+            axis["pointing_model_applied"] = False
+    mount_azimuth = _finite_float((azimuth_axis or {}).get("position_deg"))
+    mount_altitude = _finite_float((altitude_axis or {}).get("position_deg"))
+    if mount_azimuth is None or mount_altitude is None:
+        return
+    model = _load_app_settings().get("pointing_alignment", {}).get("model")
+    pointing_azimuth, pointing_altitude, applied = _mount_direction_through_pointing_model(
+        mount_azimuth,
+        mount_altitude,
+        model,
+    )
+    # Keep Azimuth on the same continuous revolution as mount telemetry so the
+    # display cannot jump by 360 degrees when compensation activates.
+    pointing_azimuth = min(
+        (pointing_azimuth + revolution for revolution in (-720.0, -360.0, 0.0, 360.0, 720.0)),
+        key=lambda candidate: abs(candidate - mount_azimuth),
+    )
+    azimuth_axis["pointing_position_deg"] = pointing_azimuth
+    altitude_axis["pointing_position_deg"] = pointing_altitude
+    azimuth_axis["pointing_model_applied"] = applied
+    altitude_axis["pointing_model_applied"] = applied
 
 
 def _axis_display_position_deg(label: str, position_deg: float, offset_deg: float, azimuth_sensors: dict[str, Any] | None) -> float:
@@ -7970,6 +9045,87 @@ def _system_info_payload() -> dict[str, Any]:
     }
 
 
+def _pointing_favorites_connection() -> sqlite3.Connection:
+    POINTING_FAVORITES_DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    connection = sqlite3.connect(POINTING_FAVORITES_DATABASE_PATH, timeout=5.0)
+    connection.row_factory = sqlite3.Row
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS pointing_favorites (
+            id TEXT PRIMARY KEY,
+            grid_cell TEXT NOT NULL UNIQUE,
+            latitude REAL NOT NULL,
+            longitude REAL NOT NULL,
+            elevation_m REAL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )
+    """)
+    return connection
+
+
+def _load_pointing_favorites() -> list[dict[str, Any]]:
+    connection = _pointing_favorites_connection()
+    try:
+        rows = connection.execute(
+            "SELECT id, grid_cell, latitude, longitude, elevation_m, created_at, updated_at "
+            "FROM pointing_favorites ORDER BY updated_at DESC"
+        ).fetchall()
+    finally:
+        connection.close()
+    return [dict(row) for row in rows]
+
+
+def _save_pointing_favorite(sample: dict[str, Any]) -> dict[str, Any]:
+    grid_cell = str((sample.get("grid_cell") or {}).get("id") or "")
+    if not grid_cell:
+        raise ValueError("The terrain point does not have a valid grid cell.")
+    now = _timestamp()
+    favorite_id = hashlib.sha256(grid_cell.encode("utf-8")).hexdigest()[:16]
+    values = (
+        favorite_id,
+        grid_cell,
+        float(sample["latitude"]),
+        float(sample["longitude"]),
+        _finite_float(sample.get("elevation_m")),
+        now,
+        now,
+    )
+    connection = _pointing_favorites_connection()
+    try:
+        connection.execute("""
+            INSERT INTO pointing_favorites
+                (id, grid_cell, latitude, longitude, elevation_m, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(grid_cell) DO UPDATE SET
+                latitude = excluded.latitude,
+                longitude = excluded.longitude,
+                elevation_m = excluded.elevation_m,
+                updated_at = excluded.updated_at
+        """, values)
+        row = connection.execute(
+            "SELECT id, grid_cell, latitude, longitude, elevation_m, created_at, updated_at "
+            "FROM pointing_favorites WHERE grid_cell = ?",
+            (grid_cell,),
+        ).fetchone()
+        connection.commit()
+    finally:
+        connection.close()
+    return dict(row)
+
+
+def _delete_pointing_favorite(favorite_id: str) -> bool:
+    connection = _pointing_favorites_connection()
+    try:
+        cursor = connection.execute(
+            "DELETE FROM pointing_favorites WHERE id = ?",
+            (favorite_id,),
+        )
+        connection.commit()
+        return cursor.rowcount > 0
+    finally:
+        connection.close()
+
+
 def _firmware_version() -> str:
     return _git_output("describe", "--tags", "--always", "--dirty") or "unknown"
 
@@ -8014,12 +9170,17 @@ def _write_update_state(status: str, message: str) -> None:
         return
 
 
-def _pointing_model_raster_payload(resolution_m: float) -> dict[str, Any]:
+def _pointing_model_raster_payload(
+    resolution_m: float,
+    *,
+    force_rebuild: bool = False,
+) -> dict[str, Any]:
     global _POINTING_RASTER_CACHE
     cache_key = _pointing_cache_key(resolution_m)
-    if _POINTING_RASTER_CACHE is not None and _POINTING_RASTER_CACHE.get("key") == cache_key["digest"]:
-        return _POINTING_RASTER_CACHE["payload"]
-    cached_payload = _load_pointing_raster_payload(cache_key["digest"])
+    if (not force_rebuild and _POINTING_RASTER_CACHE is not None
+            and _POINTING_RASTER_CACHE.get("key") == cache_key["digest"]):
+        return {**_POINTING_RASTER_CACHE["payload"], "cached": True}
+    cached_payload = None if force_rebuild else _load_pointing_raster_payload(cache_key["digest"])
     if cached_payload is not None:
         _POINTING_RASTER_CACHE = {"key": cache_key["digest"], "payload": cached_payload}
         return cached_payload
@@ -8079,6 +9240,7 @@ def _pointing_model_raster_payload(resolution_m: float) -> dict[str, Any]:
     payload = {
         "ok": True,
         "cached": False,
+        "cache_key": cache_key["digest"],
         "radius_km": POINTING_RADIUS_KM,
         "grid_size": size,
         "grid_resolution_m": round(resolution_m, 3),
@@ -8155,15 +9317,20 @@ def _pointing_model_raster_payload(resolution_m: float) -> dict[str, Any]:
 
 
 def _pointing_cache_key(resolution_m: float) -> dict[str, Any]:
-    app_stat = APP_SETTINGS_PATH.stat() if APP_SETTINGS_PATH.exists() else None
     dem_stat = DEM_PATH.stat() if DEM_PATH.exists() else None
+    settings = _load_app_settings()
+    station = settings.get("station", {})
     payload = {
-        "version": 6,
+        "version": 8,
         "resolution_m": round(resolution_m, 3),
         "radius_km": POINTING_RADIUS_KM,
         "refraction_coefficient": ATMOSPHERIC_REFRACTION_COEFFICIENT,
-        "settings_mtime": app_stat.st_mtime if app_stat else 0.0,
-        "settings_size": app_stat.st_size if app_stat else 0,
+        "station": {
+            "latitude": station.get("latitude"),
+            "longitude": station.get("longitude"),
+            "elevation_above_ground_m": station.get("elevation_above_ground_m"),
+            "azimuth_north_offset_deg": station.get("azimuth_north_offset_deg"),
+        },
         "dem_mtime": dem_stat.st_mtime if dem_stat else 0.0,
         "dem_size": dem_stat.st_size if dem_stat else 0,
     }
@@ -8174,6 +9341,121 @@ def _pointing_cache_key(resolution_m: float) -> dict[str, Any]:
 
 def _pointing_cache_paths(digest: str) -> tuple[Path, Path]:
     return POINTING_CACHE_DIR / f"pointing_{digest}.png", POINTING_CACHE_DIR / f"pointing_{digest}.json"
+
+
+def _mission_design_dem_panorama(*, create: bool = False, force: bool = False) -> dict[str, Any]:
+    """Return cache state and optionally render a +10 to -15 degree panorama."""
+    cache_key = _pointing_cache_key(POINTING_GRID_RESOLUTION_M)
+    terrain_digest = cache_key["digest"]
+    settings = _load_app_settings()
+    station = settings.get("station", {})
+    pointing_model = settings.get("pointing_alignment", {}).get("model") or {}
+    panorama_key_payload = {
+        "version": 2,
+        "terrain_digest": terrain_digest,
+        "azimuth_north_offset_deg": station.get("azimuth_north_offset_deg", 0.0),
+        "pointing_model": pointing_model,
+        "altitude_top_deg": 10.0,
+        "altitude_bottom_deg": -15.0,
+        "width": 7200,
+        "height": 500,
+    }
+    panorama_digest = hashlib.sha256(
+        json.dumps(panorama_key_payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()[:20]
+    image_path = POINTING_CACHE_DIR / f"pointing_{terrain_digest}_dem_panorama_mount_{panorama_digest}.png"
+    panorama_metadata_path = POINTING_CACHE_DIR / f"pointing_{terrain_digest}_dem_panorama_mount_{panorama_digest}.json"
+
+    def cached_payload() -> dict[str, Any] | None:
+        if not image_path.is_file() or not panorama_metadata_path.is_file():
+            return None
+        try:
+            metadata = json.loads(panorama_metadata_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return None
+        if not isinstance(metadata, dict):
+            return None
+        return {
+            "available": True,
+            "cached": True,
+            "cache_key": panorama_digest,
+            "src": f"/api/pointing/cache/{image_path.name}",
+            "panorama": metadata,
+        }
+
+    cached = cached_payload()
+    if cached is not None and not force:
+        return cached
+    if not create:
+        return {
+            "available": False,
+            "cached": False,
+            "cache_key": panorama_digest,
+            "src": None,
+            "panorama": {
+                "azimuth_min_deg": 0.0,
+                "azimuth_max_deg": 360.0,
+                "altitude_min_deg": -15.0,
+                "altitude_max_deg": 10.0,
+            },
+        }
+
+    with _DEM_PANORAMA_RENDER_LOCK:
+        cached = cached_payload()
+        if cached is not None and not force:
+            return cached
+        model = _pointing_model_raster_payload(POINTING_GRID_RESOLUTION_M)
+        model_digest = str(model.get("cache_key") or terrain_digest)
+        if model_digest != terrain_digest:
+            raise RuntimeError("Pointing Model cache changed while preparing the panorama.")
+        _, pointing_metadata_path = _pointing_cache_paths(terrain_digest)
+        imagery_paths = {
+            "overview": POINTING_CACHE_DIR / f"pointing_{terrain_digest}_satellite.jpg",
+            "detail": POINTING_CACHE_DIR / f"pointing_{terrain_digest}_satellite_detail.jpg",
+            "precision": POINTING_CACHE_DIR / f"pointing_{terrain_digest}_satellite_precision.jpg",
+        }
+        missing = [path.name for path in imagery_paths.values() if not path.is_file()]
+        if missing:
+            raise FileNotFoundError(
+                "Pointing Model satellite imagery is not ready: " + ", ".join(missing)
+            )
+        from fire_detector.dem_panorama import render_dem_panorama
+
+        panorama = render_dem_panorama(
+            dem_path=DEM_PATH,
+            metadata_path=pointing_metadata_path,
+            imagery_paths=imagery_paths,
+            output_path=image_path,
+            width=7200,
+            height=500,
+            altitude_top_deg=10.0,
+            altitude_bottom_deg=-15.0,
+            max_distance_m=POINTING_RADIUS_KM * 1000.0,
+            radial_step_m=15.0,
+            pointing_model=pointing_model,
+            azimuth_north_offset_deg=float(station.get("azimuth_north_offset_deg", 0.0)),
+        )
+        panorama.update({
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "imagery_source": "Pointing Model nested ArcGIS World Imagery",
+            "pointing_cache_key": terrain_digest,
+            "panorama_cache_key": panorama_digest,
+        })
+        temporary_metadata_path = panorama_metadata_path.with_name(
+            f".{panorama_metadata_path.name}.tmp"
+        )
+        temporary_metadata_path.write_text(
+            json.dumps(panorama, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        temporary_metadata_path.replace(panorama_metadata_path)
+        return {
+            "available": True,
+            "cached": False,
+            "cache_key": panorama_digest,
+            "src": f"/api/pointing/cache/{image_path.name}",
+            "panorama": panorama,
+        }
 
 
 def _load_pointing_raster_payload(digest: str) -> dict[str, Any] | None:
@@ -8283,9 +9565,9 @@ def _write_pointing_raster_pngs(
         height_pixels[col, row] = round(max(0.0, min(1.0, (elevation - (elevation_min or 0.0)) / elevation_range)) * 255.0)
         visible = visibility[index]
         if visible is True:
-            visibility_pixels[col, row] = (128, 245, 162, 82)
+            visibility_pixels[col, row] = (0, 0, 0, 0)
         elif visible is False:
-            visibility_pixels[col, row] = (2, 10, 12, 168)
+            visibility_pixels[col, row] = (0, 0, 0, 190)
     terrain_image.save(terrain_path, format="PNG")
     visibility_image.save(visibility_path, format="PNG")
     height_size = min(384, size)

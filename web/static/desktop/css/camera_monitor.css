@@ -8,10 +8,10 @@
 * { box-sizing: border-box; }
 
 html,
-body { min-width: 320px; min-height: 100%; margin: 0; }
+body { width: 100%; height: 100%; min-width: 320px; margin: 0; overflow: hidden; }
 
 body {
-  min-height: 100vh;
+  height: 100vh;
   background:
     radial-gradient(circle at 78% -10%, rgba(31, 127, 100, .14), transparent 34%),
     linear-gradient(135deg, #071116, #04090c 70%);
@@ -23,7 +23,10 @@ select { font: inherit; }
 
 .camera-monitor-shell {
   display: grid;
-  min-height: 100vh;
+  width: 100%;
+  height: 100vh;
+  min-height: 0;
+  overflow: hidden;
   grid-template-rows: auto minmax(0, 1fr);
 }
 
@@ -64,7 +67,9 @@ select { font: inherit; }
 .camera-monitor-workspace {
   display: grid;
   min-height: 0;
-  grid-template-columns: minmax(0, 1fr) 300px;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto clamp(180px, 18vh, 200px);
+  align-content: start;
   gap: 10px;
   padding: 10px;
 }
@@ -75,6 +80,7 @@ select { font: inherit; }
   min-height: 0;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+  align-items: start;
 }
 
 .camera-monitor-feed {
@@ -82,7 +88,7 @@ select { font: inherit; }
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  grid-template-rows: 39px minmax(0, 1fr);
+  grid-template-rows: 39px auto;
   border: 1px solid #283b44;
   border-radius: 6px;
   background: #03080b;
@@ -155,10 +161,31 @@ select { font: inherit; }
   border-radius: 6px;
   background: rgba(9, 20, 26, .94);
 }
+
+/* The direction controller is a full-width lower deck. Keeping it out of the
+   camera columns gives both feeds identical geometry and maximum scan area. */
+.camera-monitor-workspace > .camera-monitor-direction {
+  grid-column: 1;
+  display: grid;
+  grid-template-columns: 190px minmax(170px, .7fr) minmax(210px, .8fr) 230px minmax(240px, 1fr);
+  grid-template-rows: minmax(58px, auto) minmax(58px, auto);
+  align-items: center;
+  gap: 8px 14px;
+  height: 100%;
+  overflow: hidden;
+  padding: 8px 14px;
+}
+.camera-monitor-workspace > .camera-monitor-direction .direction-title{grid-row:1 / span 2;padding:0 14px 0 0;border:0;border-right:1px solid #263943;white-space:nowrap}
+.camera-monitor-workspace > .camera-monitor-direction > label{grid-row:1;align-self:end}.camera-monitor-workspace > .camera-monitor-direction > label:nth-of-type(1){grid-column:2}.camera-monitor-workspace > .camera-monitor-direction > label:nth-of-type(2){grid-column:3}
+.camera-monitor-workspace > .camera-monitor-direction .direction-pad{grid-column:4;grid-row:1 / span 2;padding:0;grid-template-columns:repeat(3,64px);gap:8px}
+.camera-monitor-workspace > .camera-monitor-direction .direction-pad button{width:64px;height:46px;font-size:21px}
+.camera-monitor-workspace > .camera-monitor-direction .direction-message{grid-column:5;grid-row:1;align-self:end;min-height:34px}
+.camera-monitor-workspace > .camera-monitor-direction .direction-safety{grid-column:5;grid-row:2;align-self:start}
+.linked-zoom-panel{grid-column:2 / span 2;grid-row:2;align-self:center;min-width:0}.linked-zoom-panel label{position:relative;display:block;color:#70a38d;font-size:9px;font-weight:800;letter-spacing:.06em}.linked-zoom-panel label>span{position:absolute;z-index:1;left:12px;top:-5px;padding:0 7px;background:#09141a}.linked-zoom-panel label>div{display:flex;width:100%}.linked-zoom-panel input{width:100%;min-width:0;min-height:46px;padding:5px 14px 0;text-align:right;color:#70e9a2;border:1px solid #35624f;border-radius:5px 0 0 5px;background:#07140f}.linked-zoom-panel em{display:grid;min-width:52px;place-items:center;color:#70e9a2;border:1px solid #35624f;border-left:0;border-radius:0 5px 5px 0;font-size:9px;font-style:normal}.linked-zoom-panel small{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}.linked-zoom-panel.is-busy{opacity:.65}.linked-zoom-panel.is-error input{border-color:#ff8277}.linked-zoom-panel.is-ok input{border-color:#68e195}
 .direction-title { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-bottom: 12px; border-bottom: 1px solid #263943; }
 .direction-title small { color: #708b98; font-size: 8px; font-weight: 800; letter-spacing: .1em; }
 .direction-title h2 { margin: 3px 0 0; font-size: 16px; }
-.direction-title > span { padding: 5px 7px; color: #ff7d72; border: 1px solid rgba(255, 125, 114, .32); border-radius: 4px; font-size: 8px; font-weight: 900; }
+.direction-title > span { display: none; padding: 5px 7px; color: #ff7d72; border: 1px solid rgba(255, 125, 114, .32); border-radius: 4px; font-size: 8px; font-weight: 900; }
 .direction-title > span.is-armed { color: #63e18e; border-color: rgba(99, 225, 142, .4); }
 .camera-monitor-direction > label { display: grid; gap: 6px; color: #8097a2; font-size: 9px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
 .camera-monitor-direction label > div { display: flex; align-items: center; }

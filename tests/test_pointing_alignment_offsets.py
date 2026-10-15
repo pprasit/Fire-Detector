@@ -7,6 +7,7 @@ from fire_detector.web_server import (
     _clean_pointing_alignment,
     _earth_curvature_drop_m,
     _fit_pointing_alignment_model,
+    _mount_direction_through_pointing_model,
     _sightline_geometry,
 )
 
@@ -124,14 +125,60 @@ class PointingAlignmentOffsetTests(unittest.TestCase):
         self.assertTrue(applied)
         self.assertAlmostEqual(command_azimuth, 87.0, places=4)
         self.assertAlmostEqual(command_altitude, 5.0, places=4)
+        pointing_azimuth, pointing_altitude, inverse_applied = _mount_direction_through_pointing_model(
+            command_azimuth,
+            command_altitude,
+            model,
+        )
+        self.assertTrue(inverse_applied)
+        self.assertAlmostEqual(pointing_azimuth, 80.0, places=4)
+        self.assertAlmostEqual(pointing_altitude, 5.0, places=4)
 
-    def test_model_requires_two_well_separated_points(self):
+    def test_first_point_activates_live_offset_compensation(self):
+        template = {
+            "reference_altitude_deg": -8.0,
+            "telemetry_altitude_deg": -11.0,
+        }
+        one = [{**template, "reference_azimuth_deg": 10.0, "telemetry_azimuth_deg": 11.0}]
+        model = _fit_pointing_alignment_model(one)
+        self.assertTrue(model["active"])
+        self.assertEqual(model["mode"], "single_point_offset")
+        command_azimuth, command_altitude, applied = _apply_pointing_alignment_model(80.0, 5.0, model)
+        self.assertTrue(applied)
+        self.assertAlmostEqual(command_azimuth, 81.0)
+        self.assertAlmostEqual(command_altitude, 2.0)
+        pointing_azimuth, pointing_altitude, inverse_applied = _mount_direction_through_pointing_model(
+            command_azimuth,
+            command_altitude,
+            model,
+        )
+        self.assertTrue(inverse_applied)
+        self.assertAlmostEqual(pointing_azimuth, 80.0)
+        self.assertAlmostEqual(pointing_altitude, 5.0)
+
+    def test_status_payload_keeps_raw_mount_and_pointing_coordinates_separate(self):
+        self.assertIn('axis["mount_position_deg"] = axis.get("position_deg")', SERVER)
+        self.assertIn('axis["pointing_position_deg"] = axis.get("position_deg")', SERVER)
+        self.assertIn("_mount_direction_through_pointing_model(", SERVER)
+
+    def test_single_point_altitude_offset_maps_reference_to_observed_mount(self):
+        model = _fit_pointing_alignment_model([{
+            "reference_azimuth_deg": 93.538,
+            "telemetry_azimuth_deg": 93.247382,
+            "reference_altitude_deg": -8.669,
+            "telemetry_altitude_deg": -11.268715,
+        }])
+        self.assertAlmostEqual(model["altitude_offset_deg"], -2.599715)
+        _, command_altitude, applied = _apply_pointing_alignment_model(-8.0, -8.669, model)
+        self.assertTrue(applied)
+        self.assertAlmostEqual(command_altitude, -11.268715)
+
+    def test_two_close_points_wait_for_better_rigid_fit(self):
         template = {
             "reference_altitude_deg": 0.0,
             "telemetry_altitude_deg": 0.0,
         }
         one = [{**template, "reference_azimuth_deg": 10.0, "telemetry_azimuth_deg": 11.0}]
-        self.assertFalse(_fit_pointing_alignment_model(one)["active"])
         close = one + [{**template, "reference_azimuth_deg": 12.0, "telemetry_azimuth_deg": 13.0}]
         model = _fit_pointing_alignment_model(close)
         self.assertFalse(model["active"])

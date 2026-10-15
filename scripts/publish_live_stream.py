@@ -14,6 +14,7 @@ import threading
 import time
 import urllib.parse
 import urllib.request
+from typing import Any
 
 from fetch_stream_credentials import fetch_publisher_credentials
 
@@ -49,12 +50,19 @@ STREAM_PROFILES = {
     },
 }
 DEFAULT_STREAM_PROFILE = "relay"
-RTSP_SOCKET_BUFFER_BYTES = 256 * 1024
-RTSP_IO_TIMEOUT_US = 10 * 1_000_000
-RTSP_SEND_QUEUE_LIMIT_BYTES = 128 * 1024
-RTSP_SEND_QUEUE_RECOVERY_BYTES = 32 * 1024
-RTSP_QUEUE_POLL_SECONDS = 2.0
-RTSP_QUEUE_FAILURE_LIMIT = 3
+RTSP_SOCKET_BUFFER_BYTES = 64 * 1024
+RTSP_IO_TIMEOUT_US = 3 * 1_000_000
+# Live observation must prefer a gap over stale video.  A congested TCP
+# publisher is replaced before its ordered send queue can become seconds old.
+RTSP_SEND_QUEUE_LIMIT_BYTES = 64 * 1024
+RTSP_SEND_QUEUE_RECOVERY_BYTES = 16 * 1024
+RTSP_QUEUE_POLL_SECONDS = 0.5
+RTSP_QUEUE_FAILURE_LIMIT = 2
+PROGRESS_STALL_SECONDS = 3.0
+PUBLISHER_START_GRACE_SECONDS = 5.0
+RECONNECT_BACKOFF_MIN_SECONDS = 2.0
+RECONNECT_BACKOFF_MAX_SECONDS = 60.0
+RECONNECT_STABLE_RESET_SECONDS = 60.0
 CAPACITY_RECHECK_SECONDS = 15.0
 ADAPTIVE_UPGRADE_STABLE_SECONDS = 180.0
 LOCAL_NETWORK_THROUGHPUT_URL = "http://127.0.0.1:8000/api/network/throughput"
@@ -63,6 +71,7 @@ TARGET_FRAME_RATE = FRAME_RATE_STEPS[0]
 UPLOAD_UTILIZATION_LIMIT = 0.80
 CONTROL_RESERVE_KBPS = 150.0
 STREAM_POLICY_STATE_DIR = Path("/run/fire-detector")
+CAMERA_STATUS_URL = "http://127.0.0.1:8000/api/camera-stream"
 
 
 def sanitized(line: str, secrets: tuple[str, ...]) -> str:
@@ -97,6 +106,36 @@ def write_stream_policy_state(
         temporary.replace(target)
     except OSError:
         return
+
+
+def write_stream_health_state(camera: str, payload: dict[str, Any]) -> None:
+    """Atomically expose per-camera publisher progress without credentials."""
+    state = {"camera": camera, **payload, "updated_at": time.time()}
+    try:
+        STREAM_POLICY_STATE_DIR.mkdir(parents=True, exist_ok=True)
+        target = STREAM_POLICY_STATE_DIR / f"stream-health-{camera}.json"
+        temporary = target.with_suffix(".tmp")
+        temporary.write_text(json.dumps(state, separators=(",", ":")), encoding="utf-8")
+        temporary.replace(target)
+    except OSError:
+        return
+
+
+def camera_capture_health(camera: str, timeout: float = 1.0) -> dict[str, Any]:
+    """Check actual latest-frame progress in the Station pool, not camera flags alone."""
+    try:
+        request = urllib.request.Request(CAMERA_STATUS_URL, headers={"Accept": "application/json"})
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            payload = json.load(response)
+        state = payload["sources"]["live"]["cameras"][camera]
+        age_ms = float(state["age_ms"])
+        return {
+            "fresh": bool(state.get("connected")) and age_ms < 5_000,
+            "age_ms": round(age_ms, 1),
+            "sequence": int(state["sequence"]),
+        }
+    except (OSError, ValueError, TypeError, KeyError, json.JSONDecodeError):
+        return {"fresh": False, "age_ms": None, "sequence": None}
 
 
 def selected_profile(value: str | None = None) -> str:
@@ -196,12 +235,12 @@ def adaptive_transition(
     return None
 
 
-def rtsp_send_queue_bytes(pid: int) -> int | None:
-    """Return this FFmpeg process's queued RTSP/TCP bytes, if observable."""
+def rtsp_socket_stats(pid: int) -> dict[str, int] | None:
+    """Return actual RTSP/TCP session queue and cumulative sent bytes for FFmpeg."""
     try:
         result = subprocess.run(
             [
-                "ss", "-Htnp", "dst", SERVER_HOST,
+                "ss", "-Htinp", "dst", SERVER_HOST,
                 "dport", "=", f":{SERVER_PORT}",
             ],
             capture_output=True,
@@ -211,15 +250,69 @@ def rtsp_send_queue_bytes(pid: int) -> int | None:
         )
     except (OSError, subprocess.SubprocessError):
         return None
-    for line in result.stdout.splitlines():
+    lines = result.stdout.splitlines()
+    for index, line in enumerate(lines):
         if re.search(rf"\bpid={pid},", line):
             fields = line.split()
             if len(fields) >= 3:
                 try:
-                    return int(fields[2])
+                    stats = {"send_queue_bytes": int(fields[2]), "bytes_sent": 0}
                 except ValueError:
                     return None
+                detail = lines[index + 1] if index + 1 < len(lines) else ""
+                match = re.search(r"\bbytes_sent:(\d+)", detail)
+                if match:
+                    stats["bytes_sent"] = int(match.group(1))
+                return stats
     return None
+
+
+def rtsp_send_queue_bytes(pid: int) -> int | None:
+    """Compatibility wrapper used by policy tests and callers."""
+    stats = rtsp_socket_stats(pid)
+    return None if stats is None else stats["send_queue_bytes"]
+
+
+class ProgressTracker:
+    """Thread-safe FFmpeg encoded-frame progress."""
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self.frames = 0
+        self.last_frame_at: float | None = None
+
+    def update(self, key: str, value: str) -> None:
+        if key != "frame":
+            return
+        try:
+            frames = int(value)
+        except ValueError:
+            return
+        with self._lock:
+            if frames > self.frames:
+                self.frames = frames
+                self.last_frame_at = time.time()
+
+    def snapshot(self) -> tuple[int, float | None]:
+        with self._lock:
+            return self.frames, self.last_frame_at
+
+
+def read_ffmpeg_progress(stream: Any, tracker: ProgressTracker) -> None:
+    for raw_line in stream:
+        key, separator, value = raw_line.strip().partition("=")
+        if separator:
+            tracker.update(key, value)
+
+
+def publisher_stall_reason(
+    uptime: float,
+    progress_age: float,
+    capture_fresh: bool,
+) -> str | None:
+    if uptime < PUBLISHER_START_GRACE_SECONDS or progress_age < PROGRESS_STALL_SECONDS:
+        return None
+    return "output_stall" if capture_fresh else "capture_stall"
 
 
 def monitor_rtsp_policy(
@@ -229,10 +322,15 @@ def monitor_rtsp_policy(
     frame_rate: int,
     profile: str,
     initial_capacity_limit: int,
+    progress: ProgressTracker,
 ) -> None:
-    """Adapt one publisher using capacity and bounded RTSP queue hysteresis."""
+    """Adapt policy and replace a publisher when frames or network bytes stall."""
     consecutive_over_limit = 0
-    stable_since = time.monotonic()
+    started = time.monotonic()
+    stable_since = started
+    last_progress = started
+    last_frames = 0
+    last_bytes_sent = 0
     capacity_limit = initial_capacity_limit
     next_capacity_check = 0.0
     while process.poll() is None and not stopped.wait(RTSP_QUEUE_POLL_SECONDS):
@@ -240,7 +338,27 @@ def monitor_rtsp_policy(
         if now >= next_capacity_check:
             capacity_limit = recommended_frame_rate(measured_upload_capacity(), profile)
             next_capacity_check = now + CAPACITY_RECHECK_SECONDS
-        queued = rtsp_send_queue_bytes(process.pid)
+        socket_stats = rtsp_socket_stats(process.pid)
+        queued = None if socket_stats is None else socket_stats["send_queue_bytes"]
+        bytes_sent = 0 if socket_stats is None else socket_stats["bytes_sent"]
+        frames, last_frame_at = progress.snapshot()
+        if frames > last_frames or bytes_sent > last_bytes_sent:
+            last_progress = now
+        last_frames = max(last_frames, frames)
+        last_bytes_sent = max(last_bytes_sent, bytes_sent)
+        capture = camera_capture_health(str(action.get("camera") or "unknown"))
+        progress_age = now - last_progress
+        write_stream_health_state(str(action.get("camera") or "unknown"), {
+            "state": "publishing" if socket_stats is not None else "connecting",
+            "publisher_pid": process.pid,
+            "rtsp_session_active": socket_stats is not None,
+            "encoded_frames": frames,
+            "bytes_sent": bytes_sent,
+            "send_queue_bytes": queued,
+            "last_frame_at": last_frame_at,
+            "progress_age_seconds": round(progress_age, 1),
+            "capture": capture,
+        })
         write_stream_policy_state(
             str(action.get("camera") or "unknown"),
             profile,
@@ -258,6 +376,17 @@ def monitor_rtsp_policy(
             consecutive_over_limit = 0
             if queued > RTSP_SEND_QUEUE_RECOVERY_BYTES:
                 stable_since = now
+        stall_reason = publisher_stall_reason(now - started, progress_age, capture["fresh"])
+        if stall_reason is not None:
+            reason = stall_reason
+            action.update(reason=reason, target_frame_rate=frame_rate)
+            sys.stderr.write(
+                f"{camera_label(action)} watchdog: no encoded-frame or RTSP-byte progress "
+                f"for {progress_age:.1f}s; restarting {reason.replace('_', ' ')} pipeline.\n"
+            )
+            sys.stderr.flush()
+            process.terminate()
+            return
         transition = adaptive_transition(
             frame_rate,
             capacity_limit,
@@ -288,6 +417,10 @@ def monitor_rtsp_policy(
         sys.stderr.flush()
         process.terminate()
         return
+
+
+def camera_label(action: dict[str, str | int | None]) -> str:
+    return str(action.get("camera") or "unknown").capitalize()
 
 
 def run_publisher(
@@ -321,6 +454,7 @@ def run_publisher(
     source_url = f"{LOCAL_STREAM_BASE}/{camera}"
     command = [
         "ffmpeg", "-hide_banner", "-nostdin", "-loglevel", "warning",
+        "-stats_period", "1", "-progress", "pipe:1",
         "-fflags", "nobuffer", "-flags", "low_delay", "-i", source_url,
         "-an", "-vf", f"fps={frame_rate},scale={width}:{height}:force_original_aspect_ratio=decrease,"
         f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2,format=yuv420p",
@@ -341,8 +475,17 @@ def run_publisher(
         flush=True,
     )
     write_stream_policy_state(camera, profile, frame_rate, "publisher_start", 0)
-    process = subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     assert process.stderr is not None
+    assert process.stdout is not None
+    progress = ProgressTracker()
+    progress_reader = threading.Thread(
+        target=read_ffmpeg_progress,
+        args=(process.stdout, progress),
+        name=f"{camera}-ffmpeg-progress",
+        daemon=True,
+    )
+    progress_reader.start()
     watchdog_stopped = threading.Event()
     watchdog_action: dict[str, str | int | None] = {
         "camera": camera,
@@ -358,6 +501,7 @@ def run_publisher(
             frame_rate,
             profile,
             capacity_limit,
+            progress,
         ),
         name=f"{camera}-adaptive-stream-policy",
         daemon=True,
@@ -371,12 +515,14 @@ def run_publisher(
     finally:
         watchdog_stopped.set()
         watchdog.join(timeout=RTSP_QUEUE_POLL_SECONDS + 0.5)
+        progress_reader.join(timeout=1.0)
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--camera", required=True, choices=tuple(STREAMS))
     parser.add_argument("--profile", choices=tuple(STREAM_PROFILES), default=None)
+    parser.add_argument("--once", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
     camera = args.camera
     profile = selected_profile(args.profile)
@@ -387,17 +533,65 @@ def main() -> int:
         if upload_capacity is not None else "no recent manual capacity result"
     )
     print(f"Adaptive stream policy selected {frame_rate} FPS from {capacity_label}.", flush=True)
+    backoff = RECONNECT_BACKOFF_MIN_SECONDS
+    reconnects = 0
     while True:
-        capacity_limit = recommended_frame_rate(measured_upload_capacity(), profile)
-        return_code, action = run_publisher(camera, profile, frame_rate, capacity_limit)
+        started = time.monotonic()
+        write_stream_health_state(camera, {
+            "state": "fetching_credentials",
+            "reconnects": reconnects,
+            "rtsp_session_active": False,
+        })
+        try:
+            capacity_limit = recommended_frame_rate(measured_upload_capacity(), profile)
+            return_code, action = run_publisher(camera, profile, frame_rate, capacity_limit)
+        except Exception as exc:
+            # Exception messages are deliberately endpoint/status only; request headers and
+            # credential material are never logged.
+            sys.stderr.write(
+                f"{camera.capitalize()} publisher setup failed: {exc}; retrying in {backoff:.0f}s.\n"
+            )
+            sys.stderr.flush()
+            write_stream_health_state(camera, {
+                "state": "credential_retry",
+                "reconnects": reconnects,
+                "rtsp_session_active": False,
+                "retry_in_seconds": backoff,
+                "error": type(exc).__name__,
+            })
+            if args.once:
+                return 1
+            time.sleep(backoff)
+            backoff = min(backoff * 2, RECONNECT_BACKOFF_MAX_SECONDS)
+            reconnects += 1
+            continue
         reason = action.get("reason")
-        if reason is None:
+        if args.once:
             return return_code
+        uptime = time.monotonic() - started
+        if uptime >= RECONNECT_STABLE_RESET_SECONDS:
+            backoff = RECONNECT_BACKOFF_MIN_SECONDS
+        sys.stderr.write(
+            f"{camera.capitalize()} publisher exited code={return_code} reason={reason or 'process_exit'}; "
+            f"requesting fresh credentials and retrying in {backoff:.0f}s.\n"
+        )
+        sys.stderr.flush()
+        write_stream_health_state(camera, {
+            "state": "reconnecting",
+            "reconnects": reconnects,
+            "rtsp_session_active": False,
+            "last_exit_code": return_code,
+            "reason": reason or "process_exit",
+            "retry_in_seconds": backoff,
+        })
         target_frame_rate = int(action.get("target_frame_rate") or frame_rate)
         frame_rate = target_frame_rate
         if reason == "backlog" and frame_rate == FRAME_RATE_STEPS[-1]:
             sys.stderr.write("Adaptive policy reached minimum 3 FPS; reconnecting with a clean queue.\n")
             sys.stderr.flush()
+        time.sleep(backoff)
+        backoff = min(backoff * 2, RECONNECT_BACKOFF_MAX_SECONDS)
+        reconnects += 1
 
 
 if __name__ == "__main__":

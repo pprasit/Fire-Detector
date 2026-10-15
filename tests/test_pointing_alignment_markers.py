@@ -8,6 +8,7 @@ DASHBOARD_SCRIPT = PROJECT_ROOT / "web" / "static" / "desktop" / "js" / "dashboa
 DESKTOP_TEMPLATE = PROJECT_ROOT / "web" / "templates" / "desktop" / "index.html"
 MISSION_CSS = PROJECT_ROOT / "web" / "static" / "desktop" / "css" / "mission_control.css"
 DASHBOARD_CSS = PROJECT_ROOT / "web" / "static" / "desktop" / "css" / "dashboard.css"
+SERVER = PROJECT_ROOT / "src" / "fire_detector" / "web_server.py"
 
 
 class PointingAlignmentMarkerTests(unittest.TestCase):
@@ -18,12 +19,29 @@ class PointingAlignmentMarkerTests(unittest.TestCase):
         cls.template = DESKTOP_TEMPLATE.read_text(encoding="utf-8")
         cls.mission_css = MISSION_CSS.read_text(encoding="utf-8")
         cls.dashboard_css = DASHBOARD_CSS.read_text(encoding="utf-8")
+        cls.server = SERVER.read_text(encoding="utf-8")
 
     def test_saved_alignment_points_are_passed_to_the_terrain(self):
         self.assertIn("appSettings.pointing_alignment?.points || []", self.dashboard)
+
+    def test_create_new_model_requires_themed_confirmation_and_clears_all_points(self):
+        self.assertIn('id = "pointingModelCreateOpen"', self.dashboard)
+        self.assertIn('id="pointingModelCreateDialog"', self.template)
+        self.assertIn('fetch("/api/pointing/alignment-points", { method: "DELETE" })', self.dashboard)
+        self.assertIn("pointingAlignmentOffset = { azimuth: 0, altitude: 0 };", self.dashboard)
+        self.assertIn('@app.delete("/api/pointing/alignment-points")', self.server)
+        self.assertIn('"latest": None', self.server)
+        self.assertIn('"points": []', self.server)
+        self.assertNotIn('window.confirm("Create New Pointing Model', self.dashboard)
         self.assertIn("window.pointingTerrain3D?.setAlignmentPoints(points)", self.dashboard)
         self.assertIn("setAlignmentPoints(points = [])", self.terrain)
         self.assertIn("this.localPositionForSample(point)", self.terrain)
+
+    def test_display_uses_pointing_corrected_position_without_replacing_mount_position(self):
+        self.assertIn("function axisPointingPosition(axis)", self.dashboard)
+        self.assertIn("axis?.pointing_position_deg", self.dashboard)
+        self.assertIn("toNumber(axes.Azimuth.position_deg)", self.dashboard)
+        self.assertIn("toNumber(axes.Altitude.position_deg)", self.dashboard)
 
     def test_markers_are_purple_map_pins_and_scale_with_zoom(self):
         self.assertIn("const purple = 0xa855f7", self.terrain)

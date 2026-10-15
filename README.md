@@ -177,3 +177,29 @@ GitHub password, or private SSH key in the bootstrap script. The default
 production hostname is `iriv-production`; the dashboard is available at
 `http://iriv-production.local:8000` or through the assigned Tailscale IP after
 installation.
+
+## Mission Design (desktop menu 07)
+
+Open `/?view=mission` on the Station dashboard to design ordered Azimuth /
+Altitude waypoints with independent Thermal / Visible target zoom, arrival
+speed, and scan duration. Select a numbered point directly on the Scan Path to
+open its draggable editor. Preview runs the ordered points once. The centre
+Scan Path and vertically stacked camera views remain visible together without
+a separate scan-pattern control. Reports and Settings are menu items 08 and 09.
+
+The Panorama Mapping planner starts at Azimuth 0° / Altitude 0°, completes a
+full 360° row, then steps downward using the effective Thermal vertical FOV
+minus the requested edge overlap. Alternate rows reverse direction to avoid an
+empty return rotation. The planner reads the Station's Thermal 1× horizontal
+and vertical FOV plus lower Altitude limit from `/api/settings`; operators may
+override those values, zoom, and overlap. These inputs are stored with the
+browser draft. Its amber path remains a preview until the operator accepts it
+as the main Mission path.
+
+Drafts are saved in this browser's local storage and can be exported as CSV.
+Camera panels use the same continuous live MJPEG transport as Camera View and
+show the mount's **current** view at the incoming feed rate, not a prediction of a selected waypoint. Draft zoom values
+and motion previews do not send hardware commands. The example angle/zoom
+ranges are design constraints, not verified Station capabilities. Applying
+waypoint missions to hardware is not implemented in this editor; the existing
+Mission Control worker and its validation remain separate.

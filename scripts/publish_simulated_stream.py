@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import base64
 from datetime import datetime, timezone
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -39,6 +40,9 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--camera", required=True, choices=tuple(STREAMS))
     args = parser.parse_args()
+    settings = json.loads((PROJECT_ROOT / "AppSetting.JSON").read_text(encoding="utf-8"))
+    if settings.get("simulation_mode", {}).get("enabled") is not True:
+        raise RuntimeError("SIMULATION_BLOCKED_IN_PRODUCTION: simulation_mode.enabled is false")
     camera = args.camera
     username = base64.b64decode(os.environ["PUBLISHER_USERNAME_B64"], validate=True).decode()
     password = base64.b64decode(os.environ["PUBLISHER_PASSWORD_B64"], validate=True).decode()

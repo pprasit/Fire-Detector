@@ -21,6 +21,8 @@ const fields = {
   directionPad: document.getElementById("directionPad"),
   directionStop: document.getElementById("directionStop"),
   directionMessage: document.getElementById("directionMessage"),
+  linkedZoomPct: document.getElementById("linkedZoomPct"),
+  linkedZoomMessage: document.getElementById("linkedZoomMessage"),
 };
 
 const frameTimers = new Map();
@@ -35,6 +37,15 @@ let activeJog = null;
 let activeMode = "jog";
 let statusTimer = null;
 let frameController = null;
+let linkedZoomBusy = false;
+let lastPairDisplayedAt = 0;
+let lastPairSequences = { thermal: 0, visible: 0 };
+const PAIR_REQUEST_TIMEOUT_MS = 3000;
+const PAIR_MAX_AGE_MS = 2500;
+const PAIR_DISCONNECT_GRACE_MS = 6000;
+const PAIR_MAX_FPS = 12;
+const PAIR_INTERVAL_MS = Math.ceil(1000 / PAIR_MAX_FPS);
+const PAIR_SOURCE_WAIT_MS = 750;
 
 function numberOrNull(value) {
   const number = Number(value);
@@ -79,6 +90,8 @@ function renderPoolStatus() {
 
 function releaseFrameStreams() {
   frameSession += 1;
+  lastPairDisplayedAt = 0;
+  lastPairSequences = { thermal: 0, visible: 0 };
   frameTimers.forEach((timer) => clearTimeout(timer));
   frameTimers.clear();
   frameController?.abort();
@@ -134,7 +147,11 @@ async function displayCameraBlob(camera, blob, session) {
 function markCameraPairUnavailable(message) {
   ["thermal", "visible"].forEach((camera) => {
     const { image, state } = cameraElements(camera);
+    const objectUrl = frameObjectUrls.get(camera);
+    if (objectUrl) URL.revokeObjectURL(objectUrl);
+    frameObjectUrls.delete(camera);
     readyCameras.delete(camera);
+    image.removeAttribute("src");
     image.classList.remove("is-ready");
     image.classList.add("is-error");
     state.hidden = false;
@@ -148,12 +165,23 @@ async function loadLatestPair(session) {
   const controller = new AbortController();
   frameController?.abort();
   frameController = controller;
-  const timeout = setTimeout(() => controller.abort(), 3000);
+  const timeout = setTimeout(() => controller.abort(), PAIR_REQUEST_TIMEOUT_MS);
   try {
+    const query = new URLSearchParams({
+      profile: "monitor",
+      wait_ms: String(PAIR_SOURCE_WAIT_MS),
+      _: String(Date.now()),
+    });
+    if (lastPairSequences.thermal > 0 && lastPairSequences.visible > 0) {
+      query.set("after_thermal", String(lastPairSequences.thermal));
+      query.set("after_visible", String(lastPairSequences.visible));
+    }
     const response = await fetch(
-      `/api/camera-frame/latest-pair/live?_=${Date.now()}`,
+      `/api/camera-frame/latest-pair/live?${query}`,
       { cache: "no-store", signal: controller.signal },
     );
+    const headersReceivedAt = performance.now();
+    if (response.status === 204) return false;
     if (!response.ok) throw new Error(`Camera pair unavailable (${response.status})`);
     const metadataHeader = response.headers.get("X-Camera-Pair-Metadata");
     if (metadataHeader) {
@@ -166,6 +194,14 @@ async function loadLatestPair(session) {
       }
     }
     const buffer = await response.arrayBuffer();
+    const deliveredAt = performance.now();
+    const retainedAge = Math.max(
+      Number(response.headers.get("X-Camera-Thermal-Age-Ms")) || 0,
+      Number(response.headers.get("X-Camera-Visible-Age-Ms")) || 0,
+    );
+    if (retainedAge + deliveredAt - headersReceivedAt > PAIR_MAX_AGE_MS) {
+      throw new Error("Camera pair arrived stale.");
+    }
     const view = new DataView(buffer);
     if (
       buffer.byteLength < 12
@@ -187,12 +223,24 @@ async function loadLatestPair(session) {
       displayCameraBlob("thermal", thermalBlob, session),
       displayCameraBlob("visible", visibleBlob, session),
     ]);
-    return results.some((result) => result.status === "fulfilled" && result.value === true);
+    const displayed = results.some((result) => result.status === "fulfilled" && result.value === true);
+    if (displayed) {
+      lastPairSequences = {
+        thermal: Number(response.headers.get("X-Camera-Thermal-Sequence")) || 0,
+        visible: Number(response.headers.get("X-Camera-Visible-Sequence")) || 0,
+      };
+      lastPairDisplayedAt = performance.now();
+    }
+    return displayed;
   } catch (error) {
     if (session !== frameSession || document.hidden) return false;
-    markCameraPairUnavailable(error.name === "AbortError"
-      ? "Camera pair request timed out. Retrying…"
-      : "Waiting for latest camera pair from central pool…");
+    if (!lastPairDisplayedAt || performance.now() - lastPairDisplayedAt > PAIR_DISCONNECT_GRACE_MS) {
+      markCameraPairUnavailable(error.name === "AbortError"
+        ? "Camera link slow — stale frames skipped."
+        : "Waiting for a current camera pair…");
+    } else {
+      fields.cameraPoolStatus.innerHTML = "<i></i>LIVE · SKIPPING DELAYED FRAME";
+    }
     return false;
   } finally {
     clearTimeout(timeout);
@@ -205,7 +253,7 @@ async function runFrameCycle(session) {
   const startedAt = performance.now();
   await loadLatestPair(session);
   if (session !== frameSession || document.hidden) return;
-  const delay = Math.max(0, 100 - (performance.now() - startedAt));
+  const delay = Math.max(0, PAIR_INTERVAL_MS - (performance.now() - startedAt));
   frameTimers.set("cycle", setTimeout(() => runFrameCycle(session), delay));
 }
 
@@ -228,7 +276,52 @@ function updateMetadata(camera, metadata) {
   zoom.textContent = percentage === null ? "ZOOM --.-%" : `ZOOM ${percentage.toFixed(1)}%`;
   const width = numberOrNull(metadata?.width);
   const height = numberOrNull(metadata?.height);
-  if (width !== null && height !== null) resolution.textContent = `${Math.round(width)} × ${Math.round(height)}`;
+  if (width !== null && height !== null) {
+    resolution.textContent = `${Math.round(width)} × ${Math.round(height)}`;
+  }
+  if (camera === "thermal" && percentage !== null && !linkedZoomBusy
+      && document.activeElement !== fields.linkedZoomPct) {
+    fields.linkedZoomPct.value = percentage.toFixed(1);
+  }
+}
+
+function setLinkedZoomMessage(message, state = "") {
+  const panel = fields.linkedZoomMessage.closest(".linked-zoom-panel");
+  fields.linkedZoomMessage.textContent = message;
+  panel.classList.remove("is-busy", "is-error", "is-ok");
+  if (state) panel.classList.add(state);
+}
+
+async function commitLinkedZoom() {
+  if (linkedZoomBusy) return;
+  const target = numberOrNull(fields.linkedZoomPct.value);
+  if (target === null || target < 0 || target > 100) {
+    setLinkedZoomMessage("Enter a value from 0 to 100%.", "is-error");
+    fields.linkedZoomPct.focus();
+    return;
+  }
+  linkedZoomBusy = true;
+  fields.linkedZoomPct.disabled = true;
+  setLinkedZoomMessage(`Applying ${target.toFixed(1)}% to both cameras…`, "is-busy");
+  try {
+    const response = await fetch("/api/camera-control/zoom", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ target_zoom_pct: target }),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || result.ok !== true) {
+      throw new Error(result.error || `Zoom command failed (${response.status})`);
+    }
+    const applied = numberOrNull(result.linked_zoom_pct) ?? target;
+    fields.linkedZoomPct.value = Math.max(0, Math.min(100, applied)).toFixed(1);
+    setLinkedZoomMessage("Applied to Thermal and Visible.", "is-ok");
+  } catch (error) {
+    setLinkedZoomMessage(error.message || "Zoom command failed.", "is-error");
+  } finally {
+    linkedZoomBusy = false;
+    fields.linkedZoomPct.disabled = false;
+  }
 }
 
 function renderStatus() {
@@ -286,6 +379,7 @@ async function sendJog(azimuth, altitude, showMessage = true) {
         "Content-Type": "application/json",
         "X-Motion-Client-ID": motionClientId,
         "X-Motion-Command-Sequence": String(motionSequence),
+        "X-Motion-Issued-At-Ms": String(Date.now()),
       },
       body: JSON.stringify({ Azimuth: String(azimuth), Altitude: String(altitude) }),
     });
@@ -413,6 +507,13 @@ fields.directionPad.querySelectorAll("[data-az]").forEach((button) => {
   button.addEventListener("click", (event) => event.preventDefault());
 });
 fields.directionStop.addEventListener("click", () => stopActiveJog(true));
+fields.linkedZoomPct.addEventListener("blur", commitLinkedZoom);
+fields.linkedZoomPct.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    fields.linkedZoomPct.blur();
+  }
+});
 
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {

@@ -24,7 +24,7 @@ def burn_camera_overlay(
     *,
     captured_at: datetime,
     elapsed_sec: float,
-    zoom_x: float,
+    zoom_pct: float,
 ) -> Image.Image:
     """Return an RGB frame with a legible, top-left telemetry overlay."""
     rendered = frame.convert("RGB")
@@ -36,7 +36,7 @@ def burn_camera_overlay(
     lines = (
         f"ELAPSED {format_elapsed(elapsed_sec)}",
         f"UTC {captured_utc:%Y-%m-%d %H:%M:%S.%f}"[:-3],
-        f"ZOOM {zoom_x:.2f}x",
+        f"ZOOM {max(0.0, min(100.0, zoom_pct)):.1f}%",
         f"RES {width}x{height}",
     )
     padding = max(5, round(font_size * 0.45))

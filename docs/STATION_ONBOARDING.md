@@ -245,6 +245,31 @@ runtime state file. `GET /api/stream/policy` exposes the lower of the Thermal
 and Visible rates to the IIV `frame_publisher`, so capture delivery and RTSP
 encoding use the same adaptive ceiling instead of manufacturing duplicate
 frames at the Station.
+
+Each camera publisher is an independent long-running supervisor. Credential,
+RTSP, encoder, and network failures trigger a fresh signed credential request
+and an exponential reconnect delay from 2 to 60 seconds. A connection lasting
+at least 60 seconds resets the delay. FFmpeg emits machine-readable encoded
+frame progress, while the watchdog reads cumulative TCP `bytes_sent` and
+verifies that the RTSP socket remains established. If neither counter advances
+for 15 seconds, only that camera's FFmpeg pipeline is terminated and rebuilt.
+The watchdog also checks latest-frame age from `GET /api/camera-stream`, so its
+health state distinguishes a live capture with stalled RTSP output
+(`output_stall`) from a stopped upstream capture (`capture_stall`). No
+credential or signed request header is written to the health files or journal.
+
+Operator checks (the health JSON contains counters and timestamps, never
+secrets):
+
+```bash
+systemctl status fire-detector-thermal-stream.service fire-detector-visible-stream.service
+journalctl -u fire-detector-thermal-stream.service -u fire-detector-visible-stream.service -f
+python -m json.tool /run/fire-detector/stream-health-thermal.json
+python -m json.tool /run/fire-detector/stream-health-visible.json
+sudo systemctl restart fire-detector-thermal-stream.service
+sudo systemctl restart fire-detector-visible-stream.service
+```
+
 Restart both publisher services after changing the profile. Never select
 `full` from an ISP speed-test result alone; verify the actual Station-to-NARIT
 path and RTSP send queues.

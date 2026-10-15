@@ -1577,7 +1577,7 @@ function renderStatus(data) {
   const liveAzimuth = Array.isArray(data?.axes)
     ? data.axes.find((axis) => axis?.label === "Azimuth" && axis?.available)
     : null;
-  window.pointingTerrain3D?.setMountAzimuth(data?.connected ? liveAzimuth?.position_deg : null);
+  window.pointingTerrain3D?.setMountAzimuth(data?.connected ? axisPointingPosition(liveAzimuth) : null);
   const timestamp = data.timestamp ? new Date(data.timestamp) : new Date();
   resetHistoryWhenServerRestarts(data.server_started_at);
   renderDriveErrorEvents(data.drive_error_events);
@@ -1811,7 +1811,7 @@ function renderAxis(label, axis, timestamp) {
   appendAxisHistory(label, axis, timestamp);
 
   ui.status.textContent = "Connected";
-  ui.position.textContent = `${formatNumber(axis.position_deg)} Deg`;
+  ui.position.textContent = `${formatNumber(axisPointingPosition(axis))} Deg`;
   ui.velocity.textContent = `${formatNumber(axis.velocity_deg_per_sec)} Deg/Sec`;
   ui.current.textContent = `${formatNumber(axis.current)} Amp`;
   ui.state.textContent = formatAxisState(axis.current_state);
@@ -2424,8 +2424,8 @@ function renderSkySphere(data) {
   // mount coordinate (direction and position offset already applied). Using
   // the encoder's absolute/raw coordinate here puts the actual marker in a
   // different quadrant even though the numeric readout is correct.
-  const azimuthDeg = toNumber(azimuth?.position_deg);
-  const altitudeDeg = toNumber(altitude?.position_deg);
+  const azimuthDeg = axisPointingPosition(azimuth);
+  const altitudeDeg = axisPointingPosition(altitude);
 
   renderSkyAxisActuals("Azimuth", azimuth);
   renderSkyAxisActuals("Altitude", altitude);
@@ -3243,6 +3243,10 @@ function formatDuration(milliseconds) {
 function toNumber(value) {
   if (value === null || value === undefined || Number.isNaN(Number(value))) return null;
   return Number(value);
+}
+
+function axisPointingPosition(axis) {
+  return toNumber(axis?.pointing_position_deg) ?? toNumber(axis?.position_deg);
 }
 
 function formatNumber(value) {
@@ -5072,7 +5076,7 @@ function updatePointingReadouts() {
 function renderPointingModel() {
   const liveAzimuth = axesByLabel().Azimuth;
   window.pointingTerrain3D?.setMountAzimuth(
-    latestStatus?.connected && liveAzimuth?.available ? liveAzimuth.position_deg : null,
+    latestStatus?.connected && liveAzimuth?.available ? axisPointingPosition(liveAzimuth) : null,
   );
   if (pointing3DReady && window.pointingTerrain3D) {
     window.pointingTerrain3D.applyLayers(pointingLayerState());
@@ -6277,16 +6281,21 @@ function refreshCameraLiveWindow() {
   const elapsed = Math.max(0, (performance.now() - cameraLiveStartedAt) / 1000);
   const cycleProgress = (streamTime % 40) / 20;
   const zoom = cameraSourceMode === "simulation" ? 1 + 4 * (cycleProgress <= 1 ? cycleProgress : 2 - cycleProgress) : 1;
-  const zoomLabel = `${zoom.toFixed(1)}×`;
-  if (fields.thermalLiveZoom) fields.thermalLiveZoom.textContent = zoomLabel;
-  if (fields.visibleLiveZoom) fields.visibleLiveZoom.textContent = zoomLabel;
+  const fallbackZoomPct = cameraSourceMode === "simulation" ? Math.max(0, Math.min(100, (zoom - 1) * 25)) : null;
   const elapsedTenths = Math.floor(elapsed * 10);
   const elapsedText = `${String(Math.floor(elapsedTenths / 36000)).padStart(2, "0")}:${String(Math.floor(elapsedTenths / 600) % 60).padStart(2, "0")}:${String(Math.floor(elapsedTenths / 10) % 60).padStart(2, "0")}.${elapsedTenths % 10}`;
   const utc = `${now.toISOString().slice(0, 23).replace("T", " ")} UTC`;
   const thermalMeta = cameraSourceMode === "live" ? cameraStreamMetadata.thermal : {};
   const visibleMeta = cameraSourceMode === "live" ? cameraStreamMetadata.visible : {};
-  if (fields.thermalLiveBurnin) fields.thermalLiveBurnin.textContent = `ELAPSED ${elapsedText}\nUTC ${thermalMeta.captured_at || utc}\nZOOM ${Number(thermalMeta.zoom_x || zoom).toFixed(2)}x\nRES ${thermalMeta.resolution || "640x512"}`;
-  if (fields.visibleLiveBurnin) fields.visibleLiveBurnin.textContent = `ELAPSED ${elapsedText}\nUTC ${visibleMeta.captured_at || utc}\nZOOM ${Number(visibleMeta.zoom_x || zoom).toFixed(2)}x\nRES ${visibleMeta.resolution || "1280x720"}`;
+  const zoomPct = metadata => Number.isFinite(Number(metadata.zoom_pct)) ? Number(metadata.zoom_pct) : fallbackZoomPct;
+  const thermalZoomPct = zoomPct(thermalMeta);
+  const visibleZoomPct = zoomPct(visibleMeta);
+  const thermalZoomLabel = thermalZoomPct === null ? "--.-%" : `${thermalZoomPct.toFixed(1)}%`;
+  const visibleZoomLabel = visibleZoomPct === null ? "--.-%" : `${visibleZoomPct.toFixed(1)}%`;
+  if (fields.thermalLiveZoom) fields.thermalLiveZoom.textContent = thermalZoomLabel;
+  if (fields.visibleLiveZoom) fields.visibleLiveZoom.textContent = visibleZoomLabel;
+  if (fields.thermalLiveBurnin) fields.thermalLiveBurnin.textContent = `ELAPSED ${elapsedText}\nUTC ${thermalMeta.captured_at || utc}\nZOOM ${thermalZoomLabel}\nRES ${thermalMeta.resolution || "640x512"}`;
+  if (fields.visibleLiveBurnin) fields.visibleLiveBurnin.textContent = `ELAPSED ${elapsedText}\nUTC ${visibleMeta.captured_at || utc}\nZOOM ${visibleZoomLabel}\nRES ${visibleMeta.resolution || "1280x720"}`;
   cameraLiveAnimationFrame = requestAnimationFrame(refreshCameraLiveWindow);
 }
 

@@ -22,6 +22,12 @@ LOGGER = logging.getLogger("local-camera-simulation")
 STREAM_URL = "ws://127.0.0.1:8000/ws/camera-stream?role=producer&source=simulation"
 
 
+def require_simulation_mode() -> None:
+    settings = json.loads((PROJECT_ROOT / "AppSetting.JSON").read_text(encoding="utf-8"))
+    if settings.get("simulation_mode", {}).get("enabled") is not True:
+        raise RuntimeError("SIMULATION_BLOCKED_IN_PRODUCTION: simulation_mode.enabled is false")
+
+
 def frame_payload(camera: str, phase_seconds: float, sequence: int) -> dict[str, object]:
     image, width, height, zoom = simulated_zoom_frame(
         DEFAULT_FRAMES[camera], camera, phase_seconds,
@@ -70,6 +76,7 @@ def main() -> int:
     if not 1.0 <= args.frame_rate <= 10.0:
         parser.error("--frame-rate must be between 1 and 10")
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    require_simulation_mode()
     publish(args.frame_rate)
     return 0
 

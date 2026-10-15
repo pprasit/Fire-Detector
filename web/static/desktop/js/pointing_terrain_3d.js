@@ -20,6 +20,10 @@ class PointingTerrain3D {
     this.focusFeatherTexture = null;
     this.detailHeightTextures = [];
     this.visibility = null;
+    this.visibilityTexture = null;
+    this.visibilityOpacity = 0;
+    this.terrainWidthM = 0;
+    this.terrainDepthM = 0;
     this.grid = null;
     this.station = null;
     this.scanCoverage = null;
@@ -29,6 +33,7 @@ class PointingTerrain3D {
     this.mountDirectionIndicator = null;
     this.mountAzimuthDeg = null;
     this.alignmentMarkers = null;
+    this.favoriteMarkers = null;
     this.activeAlignmentPointId = "";
     this.focusAnimation = null;
     this.selection = null;
@@ -42,8 +47,10 @@ class PointingTerrain3D {
     this.selectionLabelLongitude = null;
     this.selectionLabelAzimuth = null;
     this.selectionLabelAltitude = null;
+    this.selectionLabelElevation = null;
     this.selectionLabelGoto = null;
     this.selectionLabelAddModel = null;
+    this.selectionLabelSaveFavorite = null;
     this.selectionLabelClose = null;
     this.dismissedSelectionLabelKey = "";
     this.raycaster = new THREE.Raycaster();
@@ -54,6 +61,9 @@ class PointingTerrain3D {
     this.navigationPointer = null;
     this.suppressSelectionUntil = 0;
     this.satelliteEnabled = true;
+    this.modelPointsEnabled = true;
+    this.favoritePointsEnabled = true;
+    this.directionOverlayEnabled = true;
     this.terrainHeightSampler = null;
     // Match the closest OrbitControls dolly distance. Collision should stop
     // the camera at the DEM surface, not create a visible safety gap above it.
@@ -73,6 +83,7 @@ class PointingTerrain3D {
       antialias: true,
       alpha: false,
       logarithmicDepthBuffer: true,
+      preserveDrawingBuffer: true,
     });
     const satelliteSources = [
       raster.satellite_high_resolution_src,
@@ -131,7 +142,11 @@ class PointingTerrain3D {
       satellite: satelliteTexture,
       satelliteDetail: satelliteDetailTexture,
       satellitePrecision: satellitePrecisionTexture,
+      visibility: visibilityTexture,
     };
+    this.visibilityTexture = visibilityTexture;
+    this.terrainWidthM = widthM;
+    this.terrainDepthM = depthM;
     const imageryAttribution = document.getElementById("pointingImageryAttribution");
     if (imageryAttribution && satelliteTexture) {
       const detailLabels = [];
@@ -163,6 +178,7 @@ class PointingTerrain3D {
       metalness: 0,
       side: THREE.DoubleSide,
     });
+    this.configureVisibilityMask(this.material);
     this.terrain = new THREE.Mesh(geometry, this.material);
     this.terrain.name = "dem-terrain";
     this.scene.add(this.terrain);
@@ -195,57 +211,6 @@ class PointingTerrain3D {
       name: "station-precision-imagery",
       y: 4,
     });
-
-    if (visibilityTexture) {
-      this.visibilityMaterial = new THREE.ShaderMaterial({
-        uniforms: {
-          visibilityMap: { value: visibilityTexture },
-          displacementMap: { value: heightTexture },
-          displacementScale: { value: Math.max(0.001, elevationMax - elevationMin) * verticalExaggeration },
-          displacementBias: { value: elevationMin },
-          layerOpacity: { value: layers?.visibility === false ? 0 : 1 },
-        },
-        vertexShader: `
-          varying vec2 vUv;
-          uniform sampler2D displacementMap;
-          uniform float displacementScale;
-          uniform float displacementBias;
-          void main() {
-            vUv = uv;
-            float height = texture2D(displacementMap, uv).r * displacementScale + displacementBias;
-            vec3 displaced = position + normal * height;
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(displaced, 1.0);
-          }
-        `,
-        fragmentShader: `
-          varying vec2 vUv;
-          uniform sampler2D visibilityMap;
-          uniform float layerOpacity;
-          void main() {
-            vec4 source = texture2D(visibilityMap, vUv);
-            float coverage = smoothstep(0.01, 0.08, source.a);
-            float luminance = dot(source.rgb, vec3(0.2126, 0.7152, 0.0722));
-            float visibleClass = smoothstep(0.12, 0.52, luminance);
-            float boundary = 1.0 - smoothstep(0.0, 0.28, abs(visibleClass - 0.5));
-            vec3 blockedColor = vec3(1.0, 0.22, 0.18);
-            vec3 visibleColor = vec3(0.14, 0.96, 0.58);
-            vec3 color = mix(blockedColor, visibleColor, visibleClass);
-            color = mix(color, vec3(0.95, 1.0, 0.96), boundary * 0.30);
-            float alpha = (mix(0.14, 0.23, visibleClass) + boundary * 0.16) * coverage * layerOpacity;
-            if (alpha < 0.002) discard;
-            gl_FragColor = vec4(color, alpha);
-          }
-        `,
-        transparent: true,
-        depthWrite: false,
-        polygonOffset: true,
-        polygonOffsetFactor: -2,
-      });
-      this.visibility = new THREE.Mesh(geometry.clone(), this.visibilityMaterial);
-      this.visibility.position.y = 4;
-      this.visibility.renderOrder = 2;
-      this.scene.add(this.visibility);
-    }
 
     this.gridMaterial = new THREE.MeshStandardMaterial({
       color: 0xffc070,
@@ -600,6 +565,7 @@ class PointingTerrain3D {
         coordinateRow("LON", "pointingHoverLongitude"),
         coordinateRow("AZ", "pointingHoverAzimuth"),
         coordinateRow("ALT", "pointingHoverAltitude"),
+        coordinateRow("ELEV", "pointingHoverElevation"),
       );
       const actions = document.createElement("div");
       actions.className = "pointing-hover-actions";
@@ -611,9 +577,25 @@ class PointingTerrain3D {
       addModelButton.id = "pointingHoverAddModel";
       addModelButton.type = "button";
       addModelButton.textContent = "ADD TO MODEL";
-      actions.append(gotoButton, addModelButton);
+      const saveFavoriteButton = document.createElement("button");
+      saveFavoriteButton.id = "pointingHoverSaveFavorite";
+      saveFavoriteButton.type = "button";
+      saveFavoriteButton.textContent = "ADD FAVORITE POINT";
+      actions.append(gotoButton, addModelButton, saveFavoriteButton);
       label.append(actions);
       this.canvas.parentElement.append(label);
+    }
+    if (label && !document.getElementById("pointingHoverElevation")) {
+      const row = document.createElement("span");
+      row.innerHTML = '<b>ELEV</b><em id="pointingHoverElevation">--</em>';
+      label.querySelector(".pointing-hover-actions")?.before(row);
+    }
+    if (label && !document.getElementById("pointingHoverSaveFavorite")) {
+      const saveFavoriteButton = document.createElement("button");
+      saveFavoriteButton.id = "pointingHoverSaveFavorite";
+      saveFavoriteButton.type = "button";
+      saveFavoriteButton.textContent = "ADD FAVORITE POINT";
+      label.querySelector(".pointing-hover-actions")?.append(saveFavoriteButton);
     }
     this.selectionLabel = label;
     this.selectionLabelGrid = document.getElementById("pointingHoverGrid");
@@ -621,8 +603,10 @@ class PointingTerrain3D {
     this.selectionLabelLongitude = document.getElementById("pointingHoverLongitude");
     this.selectionLabelAzimuth = document.getElementById("pointingHoverAzimuth");
     this.selectionLabelAltitude = document.getElementById("pointingHoverAltitude");
+    this.selectionLabelElevation = document.getElementById("pointingHoverElevation");
     this.selectionLabelGoto = document.getElementById("pointingHoverGoto");
     this.selectionLabelAddModel = document.getElementById("pointingHoverAddModel");
+    this.selectionLabelSaveFavorite = document.getElementById("pointingHoverSaveFavorite");
     this.selectionLabelClose = document.getElementById("pointingHoverClose");
     if (this.selectionLabelClose && !this.selectionLabelClose.dataset.bound) {
       this.selectionLabelClose.dataset.bound = "true";
@@ -649,6 +633,14 @@ class PointingTerrain3D {
         event.preventDefault();
         event.stopPropagation();
         window.dispatchEvent(new CustomEvent("pointing-map-add-model"));
+      });
+    }
+    if (this.selectionLabelSaveFavorite && !this.selectionLabelSaveFavorite.dataset.bound) {
+      this.selectionLabelSaveFavorite.dataset.bound = "true";
+      this.selectionLabelSaveFavorite.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        window.dispatchEvent(new CustomEvent("pointing-map-save-favorite"));
       });
     }
   }
@@ -695,7 +687,13 @@ class PointingTerrain3D {
       this.navigationPointer = null;
       this.scheduleFocusImagery();
     };
-    const contextMenu = (event) => event.preventDefault();
+    const contextMenu = (event) => {
+      event.preventDefault();
+      if (performance.now() < this.suppressSelectionUntil) return;
+      const target = this.pick(event);
+      if (!target) return;
+      window.dispatchEvent(new CustomEvent("pointing-map-favorite-request", { detail: target }));
+    };
     const keyDown = (event) => this.handleEarthKey(event);
     canvas.addEventListener("pointerdown", pointerDown, true);
     canvas.addEventListener("pointermove", pointerMove, true);
@@ -892,7 +890,7 @@ class PointingTerrain3D {
       ? ((azimuth % 360) + 360) % 360
       : null;
     if (!this.mountDirectionIndicator) return;
-    this.mountDirectionIndicator.visible = this.mountAzimuthDeg !== null;
+    this.mountDirectionIndicator.visible = this.directionOverlayEnabled && this.mountAzimuthDeg !== null;
     if (this.mountAzimuthDeg !== null) {
       this.mountDirectionIndicator.rotation.y = -THREE.MathUtils.degToRad(this.mountAzimuthDeg);
     }
@@ -966,6 +964,7 @@ class PointingTerrain3D {
       markers.add(marker);
     });
     this.alignmentMarkers = markers;
+    markers.visible = this.modelPointsEnabled;
     this.scene.add(markers);
     this.updateAlignmentMarkerPresentation();
   }
@@ -1202,6 +1201,56 @@ class PointingTerrain3D {
     return this.focusFeatherTexture;
   }
 
+  configureVisibilityMask(material) {
+    if (!material || !this.visibilityTexture || !this.terrainWidthM || !this.terrainDepthM) return;
+    const state = {
+      texture: this.visibilityTexture,
+      opacity: this.visibilityOpacity,
+      shader: null,
+    };
+    material.userData.visibilityMask = state;
+    material.onBeforeCompile = (shader) => {
+      state.shader = shader;
+      shader.uniforms.visibilityMap = { value: state.texture };
+      shader.uniforms.visibilityOpacity = { value: state.opacity };
+      shader.uniforms.visibilityWidthM = { value: this.terrainWidthM };
+      shader.uniforms.visibilityDepthM = { value: this.terrainDepthM };
+      shader.vertexShader = shader.vertexShader
+        .replace(
+          "#include <common>",
+          `#include <common>
+          varying vec2 vGlobalVisibilityUv;
+          uniform float visibilityWidthM;
+          uniform float visibilityDepthM;`,
+        )
+        .replace(
+          "#include <begin_vertex>",
+          `#include <begin_vertex>
+          vec4 visibilityWorldPosition = modelMatrix * vec4(position, 1.0);
+          vGlobalVisibilityUv = vec2(
+            visibilityWorldPosition.x / visibilityWidthM + 0.5,
+            -visibilityWorldPosition.z / visibilityDepthM + 0.5
+          );`,
+        );
+      shader.fragmentShader = shader.fragmentShader
+        .replace(
+          "#include <common>",
+          `#include <common>
+          varying vec2 vGlobalVisibilityUv;
+          uniform sampler2D visibilityMap;
+          uniform float visibilityOpacity;`,
+        )
+        .replace(
+          "#include <map_fragment>",
+          `#include <map_fragment>
+          float visibilityShadow = texture2D(visibilityMap, vGlobalVisibilityUv).a * visibilityOpacity;
+          diffuseColor.rgb *= 1.0 - visibilityShadow;`,
+        );
+    };
+    material.customProgramCacheKey = () => "terrain-visibility-mask-v1";
+    material.needsUpdate = true;
+  }
+
   createDetailImageryMesh({
     texture,
     heightTexture,
@@ -1253,6 +1302,7 @@ class PointingTerrain3D {
       transparent: featherEdges,
       depthWrite: !featherEdges,
     });
+    this.configureVisibilityMask(material);
     const mesh = new THREE.Mesh(geometry, material);
     mesh.name = name;
     mesh.position.set(centerEastM, y, -centerNorthM);
@@ -1266,17 +1316,33 @@ class PointingTerrain3D {
   applyLayers(layers = {}) {
     if (!this.material) return;
     this.satelliteEnabled = layers.satellite !== false;
+    this.modelPointsEnabled = layers.modelPoints !== false;
+    this.favoritePointsEnabled = layers.favoritePoints !== false;
+    this.directionOverlayEnabled = layers.directionOverlay !== false;
+    this.visibilityOpacity = layers.visibility === false ? 0 : 0.96;
     const preferred = layers.satellite && this.maps.satellite ? this.maps.satellite : this.maps.terrain;
-    this.material.map = layers.terrain === false && layers.satellite === false ? null : preferred;
+    this.material.map = preferred;
     this.material.color.set(this.material.map ? 0xffffff : 0x315348);
     this.material.needsUpdate = true;
     if (this.satelliteDetail) this.satelliteDetail.visible = layers.satellite !== false;
     if (this.satellitePrecision) this.satellitePrecision.visible = layers.satellite !== false;
     if (this.satelliteFocus) this.satelliteFocus.visible = layers.satellite !== false;
-    if (this.visibilityMaterial?.uniforms?.layerOpacity) {
-      this.visibilityMaterial.uniforms.layerOpacity.value = layers.visibility === false ? 0 : 1;
-    }
+    this.scene?.traverse((object) => {
+      const state = object.material?.userData?.visibilityMask;
+      if (!state) return;
+      state.opacity = this.visibilityOpacity;
+      if (state.shader?.uniforms?.visibilityOpacity) {
+        state.shader.uniforms.visibilityOpacity.value = this.visibilityOpacity;
+      }
+    });
     if (this.gridMaterial) this.gridMaterial.opacity = layers.grid === false ? 0 : 0.08;
+    if (this.alignmentMarkers) this.alignmentMarkers.visible = this.modelPointsEnabled;
+    if (this.favoriteMarkers) this.favoriteMarkers.visible = this.favoritePointsEnabled;
+    if (this.scanCoverage) this.scanCoverage.visible = this.directionOverlayEnabled;
+    if (this.northIndicator) this.northIndicator.visible = this.directionOverlayEnabled;
+    if (this.mountDirectionIndicator) {
+      this.mountDirectionIndicator.visible = this.directionOverlayEnabled && this.mountAzimuthDeg !== null;
+    }
     if (this.satelliteEnabled) this.scheduleFocusImagery();
   }
 
@@ -1289,6 +1355,73 @@ class PointingTerrain3D {
     const point = this.intersectTerrainHeightField(this.raycaster.ray);
     if (!point) return null;
     return this.offsetLatLon(point.x, -point.z);
+  }
+
+  pickFavorite(event) {
+    if (!this.favoritePointsEnabled || !this.favoriteMarkers || !this.camera || !this.canvas) return null;
+    const rect = this.canvas.getBoundingClientRect();
+    this.pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    this.pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+    this.raycaster.setFromCamera(this.pointer, this.camera);
+    const hit = this.raycaster.intersectObjects(this.favoriteMarkers.children, true)[0];
+    const favorite = hit?.object?.userData?.favorite;
+    return favorite ? { latitude: favorite.latitude, longitude: favorite.longitude } : null;
+  }
+
+  setFavoritePoints(favorites = []) {
+    if (!this.scene) return;
+    if (this.favoriteMarkers) {
+      this.scene.remove(this.favoriteMarkers);
+      this.favoriteMarkers.traverse((object) => {
+        object.geometry?.dispose?.();
+        object.material?.dispose?.();
+      });
+    }
+    this.favoriteMarkers = new THREE.Group();
+    this.favoriteMarkers.name = "favorite-points";
+    favorites.forEach((favorite, index) => {
+      const position = this.localPositionForSample(favorite);
+      if (!position) return;
+      const marker = new THREE.Group();
+      marker.name = `pointing-favorite-marker-${index + 1}`;
+      marker.userData.favorite = favorite;
+      const cyan = 0x38bdf8;
+      const darkCyan = 0x0369a1;
+      const cone = new THREE.Mesh(
+        new THREE.ConeGeometry(1.18, 3.6, 24),
+        new THREE.MeshBasicMaterial({ color: darkCyan, depthTest: true }),
+      );
+      cone.rotation.z = Math.PI;
+      cone.position.y = 1.8;
+      const head = new THREE.Mesh(
+        new THREE.SphereGeometry(1.48, 24, 16),
+        new THREE.MeshBasicMaterial({ color: cyan, depthTest: true }),
+      );
+      head.position.y = 4.45;
+      const halo = new THREE.Mesh(
+        new THREE.RingGeometry(2.0, 2.85, 32),
+        new THREE.MeshBasicMaterial({ color: cyan, side: THREE.DoubleSide, transparent: true, opacity: .76 }),
+      );
+      halo.rotation.x = -Math.PI / 2;
+      halo.position.y = .35;
+      [cone, head, halo].forEach((part) => {
+        part.userData.favorite = favorite;
+        marker.add(part);
+      });
+      marker.position.copy(position);
+      this.favoriteMarkers.add(marker);
+    });
+    this.favoriteMarkers.visible = this.favoritePointsEnabled;
+    this.scene.add(this.favoriteMarkers);
+    this.updateFavoriteMarkerPresentation();
+  }
+
+  updateFavoriteMarkerPresentation() {
+    if (!this.favoriteMarkers || !this.camera) return;
+    this.favoriteMarkers.children.forEach((marker) => {
+      const distance = this.camera.position.distanceTo(marker.position);
+      marker.scale.setScalar(THREE.MathUtils.clamp(distance * .004, 4, 76));
+    });
   }
 
   intersectTerrainHeightField(ray) {
@@ -1418,8 +1551,16 @@ class PointingTerrain3D {
         : Number(altitudeSource);
       if (this.selectionLabelAzimuth) this.selectionLabelAzimuth.textContent = Number.isFinite(azimuth) ? `${azimuth.toFixed(3)}°` : "--";
       if (this.selectionLabelAltitude) this.selectionLabelAltitude.textContent = Number.isFinite(altitude) ? `${altitude.toFixed(3)}°` : "--";
+      if (this.selectionLabelElevation) {
+        const elevation = Number(sample.elevation_m);
+        this.selectionLabelElevation.textContent = Number.isFinite(elevation) ? `${elevation.toFixed(1)} m` : "--";
+      }
       if (this.selectionLabelGoto) this.selectionLabelGoto.disabled = !Number.isFinite(azimuth) || !Number.isFinite(altitude);
       if (this.selectionLabelAddModel) this.selectionLabelAddModel.disabled = !Number.isFinite(azimuth) || !Number.isFinite(altitude);
+      if (this.selectionLabelSaveFavorite) {
+        this.selectionLabelSaveFavorite.hidden = false;
+        this.selectionLabelSaveFavorite.textContent = "ADD FAVORITE POINT";
+      }
       this.selectionLabel.hidden = false;
     }
   }
@@ -1537,6 +1678,149 @@ class PointingTerrain3D {
     this.camera.updateProjectionMatrix();
   }
 
+  paintScreenshotButton(context, button, stageRect, scaleX, scaleY) {
+    const rect = button.getBoundingClientRect();
+    const style = window.getComputedStyle(button);
+    const x = (rect.left - stageRect.left) * scaleX;
+    const y = (rect.top - stageRect.top) * scaleY;
+    const width = rect.width * scaleX;
+    const height = rect.height * scaleY;
+    const scale = Math.min(scaleX, scaleY);
+    context.save();
+    context.fillStyle = style.backgroundColor;
+    context.strokeStyle = style.borderColor;
+    context.lineWidth = Math.max(1, scale);
+    context.beginPath();
+    context.roundRect(x, y, width, height, 4 * scale);
+    context.fill();
+    context.stroke();
+    context.fillStyle = style.color;
+    context.font = `800 ${9 * scale}px "IBM Plex Mono", "Cascadia Mono", monospace`;
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+    context.fillText(button.textContent?.trim() || "", x + width / 2, y + height / 2, width - 10 * scale);
+    context.restore();
+  }
+
+  paintPointingSelectionOverlay(context, element, stageRect, scaleX, scaleY) {
+    const rect = element.getBoundingClientRect();
+    const scale = Math.min(scaleX, scaleY);
+    const x = (rect.left - stageRect.left) * scaleX;
+    const y = (rect.top - stageRect.top) * scaleY;
+    const width = rect.width * scaleX;
+    const height = rect.height * scaleY;
+    const rootStyle = window.getComputedStyle(element);
+    context.save();
+    context.shadowColor = "rgba(0, 0, 0, 0.38)";
+    context.shadowBlur = 18 * scale;
+    context.shadowOffsetY = 8 * scale;
+    context.fillStyle = rootStyle.backgroundColor || "rgba(5, 15, 22, 0.94)";
+    context.strokeStyle = rootStyle.borderColor || "rgba(255, 168, 77, 0.78)";
+    context.lineWidth = Math.max(1, scale);
+    context.beginPath();
+    context.roundRect(x, y, width, height, 6 * scale);
+    context.fill();
+    context.stroke();
+    context.shadowColor = "transparent";
+    context.beginPath();
+    context.moveTo(x + width / 2 - 7 * scale, y + height);
+    context.lineTo(x + width / 2 + 7 * scale, y + height);
+    context.lineTo(x + width / 2, y + height + 8 * scale);
+    context.closePath();
+    context.fill();
+    context.stroke();
+
+    const drawPair = (row, keyColor, addDivider = false) => {
+      if (!row) return;
+      const rowRect = row.getBoundingClientRect();
+      const key = row.querySelector("span, b")?.textContent?.trim() || "";
+      const value = row.querySelector("b:last-child, em")?.textContent?.trim() || "";
+      const textY = (rowRect.top - stageRect.top + rowRect.height / 2) * scaleY;
+      context.font = `700 ${9 * scale}px "IBM Plex Mono", "Cascadia Mono", monospace`;
+      context.textBaseline = "middle";
+      context.textAlign = "left";
+      context.fillStyle = keyColor;
+      context.fillText(key, x + 10 * scale, textY);
+      context.fillStyle = "#f4fbff";
+      context.fillText(value, x + 52 * scale, textY, width - 66 * scale);
+      if (addDivider) {
+        context.strokeStyle = "rgba(255, 168, 77, 0.24)";
+        context.beginPath();
+        context.moveTo(x + 10 * scale, (rowRect.bottom - stageRect.top + 2) * scaleY);
+        context.lineTo(x + width - 10 * scale, (rowRect.bottom - stageRect.top + 2) * scaleY);
+        context.stroke();
+      }
+    };
+    drawPair(element.querySelector(":scope > strong"), "#ffb567", true);
+    element.querySelectorAll(":scope > span").forEach((row) => drawPair(row, "#82a7bb"));
+    element.querySelectorAll(".pointing-hover-actions > button").forEach((button) => {
+      this.paintScreenshotButton(context, button, stageRect, scaleX, scaleY);
+    });
+
+    const close = element.querySelector(".pointing-hover-close");
+    if (close) this.paintScreenshotButton(context, close, stageRect, scaleX, scaleY);
+    context.restore();
+  }
+
+  async captureJpeg({ quality = 0.96, overlays = [] } = {}) {
+    if (!this.renderer || !this.scene || !this.camera || !this.canvas) {
+      throw new Error("3D map is not ready");
+    }
+    const renderer = this.renderer;
+    const camera = this.camera;
+    const originalPixelRatio = renderer.getPixelRatio();
+    const originalSize = renderer.getSize(new THREE.Vector2());
+    const originalAspect = camera.aspect;
+    const stageRect = this.canvas.parentElement?.getBoundingClientRect() || this.canvas.getBoundingClientRect();
+    const baseWidth = Math.max(1, Math.floor(stageRect.width));
+    const baseHeight = Math.max(1, Math.floor(stageRect.height));
+    const maximumSize = Number(renderer.capabilities.maxTextureSize) || 4096;
+    const desiredScale = Math.max(2, 3840 / baseWidth, 2160 / baseHeight);
+    const exportScale = Math.min(desiredScale, maximumSize / baseWidth, maximumSize / baseHeight);
+    const exportWidth = Math.max(1, Math.floor(baseWidth * exportScale));
+    const exportHeight = Math.max(1, Math.floor(baseHeight * exportScale));
+    const wasAnimating = Boolean(this.animationFrame);
+    if (this.animationFrame) cancelAnimationFrame(this.animationFrame);
+    this.animationFrame = 0;
+
+    try {
+      renderer.setPixelRatio(1);
+      renderer.setSize(exportWidth, exportHeight, false);
+      camera.aspect = exportWidth / exportHeight;
+      camera.updateProjectionMatrix();
+      renderer.render(this.scene, camera);
+      const outputCanvas = document.createElement("canvas");
+      outputCanvas.width = exportWidth;
+      outputCanvas.height = exportHeight;
+      const outputContext = outputCanvas.getContext("2d");
+      if (!outputContext) throw new Error("Browser could not prepare the screenshot canvas");
+      outputContext.drawImage(this.canvas, 0, 0, exportWidth, exportHeight);
+      const scaleX = exportWidth / stageRect.width;
+      const scaleY = exportHeight / stageRect.height;
+      for (const overlay of overlays) {
+        if (!(overlay instanceof Element) || overlay.hidden) continue;
+        if (overlay.classList.contains("pointing-hover-label")) {
+          this.paintPointingSelectionOverlay(outputContext, overlay, stageRect, scaleX, scaleY);
+        }
+      }
+      const blob = await new Promise((resolve, reject) => {
+        outputCanvas.toBlob(
+          (result) => result ? resolve(result) : reject(new Error("Browser could not encode the JPEG")),
+          "image/jpeg",
+          THREE.MathUtils.clamp(Number(quality) || 0.96, 0.1, 1),
+        );
+      });
+      return { blob, width: exportWidth, height: exportHeight };
+    } finally {
+      renderer.setPixelRatio(originalPixelRatio);
+      renderer.setSize(originalSize.x, originalSize.y, false);
+      camera.aspect = originalAspect;
+      camera.updateProjectionMatrix();
+      renderer.render(this.scene, camera);
+      if (wasAnimating) this.animate();
+    }
+  }
+
   animate() {
     if (!this.renderer) return;
     this.animationFrame = requestAnimationFrame(() => this.animate());
@@ -1557,11 +1841,13 @@ class PointingTerrain3D {
         new THREE.Vector3(0, this.stationDeviceY || 0, 0),
       );
       const stationMarkerScale = THREE.MathUtils.clamp(stationDistance / 18000, 0.12, 1);
-      this.scanCoverage && (this.scanCoverage.visible = !closeDetailView);
-      this.northIndicator && (this.northIndicator.visible = !closeDetailView);
+      this.scanCoverage && (this.scanCoverage.visible = this.directionOverlayEnabled && !closeDetailView);
+      this.northIndicator && (this.northIndicator.visible = this.directionOverlayEnabled && !closeDetailView);
       this.stationBeacon && (this.stationBeacon.visible = !closeDetailView);
       this.mountDirectionIndicator && (
-        this.mountDirectionIndicator.visible = !closeDetailView && this.mountAzimuthDeg !== null
+        this.mountDirectionIndicator.visible = this.directionOverlayEnabled
+          && !closeDetailView
+          && this.mountAzimuthDeg !== null
       );
       // Keep the cylinder footprint inside the existing yellow station ring
       // while retaining the physical installation height on the Y axis.
@@ -1574,6 +1860,7 @@ class PointingTerrain3D {
     }
     this.updateSelectionPresentation();
     this.updateAlignmentMarkerPresentation();
+    this.updateFavoriteMarkerPresentation();
     if (this.northLabel && this.camera) {
       const labelHeight = THREE.MathUtils.clamp(
         this.camera.position.distanceTo(this.northLabel.position) * 0.035,
@@ -1604,6 +1891,14 @@ class PointingTerrain3D {
     if (this.selectionLabel) this.selectionLabel.hidden = true;
     this.clearLineOfSight();
     this.clearAlignmentMarkers();
+    if (this.favoriteMarkers) {
+      this.scene?.remove(this.favoriteMarkers);
+      this.favoriteMarkers.traverse((object) => {
+        object.geometry?.dispose?.();
+        object.material?.dispose?.();
+      });
+      this.favoriteMarkers = null;
+    }
     this.terrainHeightSampler = null;
     this.terrainCollisionLiftM = 0;
     this.controls?.stopListenToKeyEvents?.();

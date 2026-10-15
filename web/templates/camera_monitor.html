@@ -6,7 +6,8 @@
     <title>NARIT Camera Monitor</title>
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/narit-smart-wildfire-favicon.png') }}?v=2">
     <meta name="theme-color" content="#071014">
-    <link rel="stylesheet" href="{{ url_for('static', filename='desktop/css/camera_monitor.css') }}?v=1">
+    <link rel="stylesheet" href="{{ url_for('static', filename='desktop/css/camera_monitor.css') }}?v=4">
+    <link rel="stylesheet" href="{{ url_for('static', filename='shared/camera_pair_control.css') }}?v=4">
   </head>
   <body>
     <main class="camera-monitor-shell">
@@ -24,7 +25,7 @@
       </header>
 
       <section class="camera-monitor-workspace">
-        <div class="camera-monitor-feeds">
+        <div class="camera-monitor-feeds" data-camera-layout="horizontal" data-camera-reference="visible">
           <article class="camera-monitor-feed is-thermal">
             <header><span><i></i>THERMAL <b id="thermalZoom">ZOOM --.-%</b></span><em id="thermalResolution">640 × 512</em></header>
             <div class="camera-monitor-viewport">
@@ -35,7 +36,7 @@
           </article>
 
           <article class="camera-monitor-feed is-visible">
-            <header><span><i></i>VISIBLE <b id="visibleZoom">ZOOM --.-%</b></span><em id="visibleResolution">1920 × 1080</em></header>
+            <header><span><i></i>VISIBLE <b id="visibleZoom">ZOOM --.-%</b></span><em id="visibleResolution">1280 × 720</em></header>
             <div class="camera-monitor-viewport">
               <img id="visibleImage" alt="Visible camera live view">
               <span class="camera-reticle" aria-hidden="true"></span>
@@ -61,9 +62,14 @@
           </div>
           <p class="direction-message" id="directionMessage" aria-live="polite">Press and hold to move • Release to stop</p>
           <small class="direction-safety">Diagonal commands are normalized. Server motion and runtime limits remain enforced.</small>
+          <section class="linked-zoom-panel" aria-label="Linked camera zoom">
+            <label for="linkedZoomPct"><span>LINKED CAMERA ZOOM</span><div><input id="linkedZoomPct" type="number" min="0" max="100" step="0.1" inputmode="decimal" value="0.0"><em>%</em></div></label>
+            <small id="linkedZoomMessage" role="status" aria-live="polite">Thermal and Visible use the same percentage.</small>
+          </section>
         </aside>
       </section>
     </main>
-    <script src="{{ url_for('static', filename='desktop/js/camera_monitor.js') }}?v=4"></script>
+    <script src="{{ url_for('static', filename='shared/camera_pair_control.js') }}?v=2"></script>
+    <script src="{{ url_for('static', filename='desktop/js/camera_monitor.js') }}?v=8"></script>
   </body>
 </html>

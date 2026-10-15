@@ -15,8 +15,22 @@ class CameraViewLifecycleTests(unittest.TestCase):
         cls.template = DESKTOP_TEMPLATE.read_text(encoding="utf-8")
         cls.web_server = WEB_SERVER.read_text(encoding="utf-8")
 
-    def test_viewer_uses_one_mjpeg_transport_per_camera(self):
-        self.assertIn("/api/camera-mjpeg/${cameraSourceMode}/${camera}", self.script)
+    def test_viewer_uses_finite_latest_pair_requests_instead_of_ordered_mjpeg(self):
+        self.assertIn("/api/camera-frame/latest-pair/${cameraSourceMode}", self.script)
+        self.assertIn("CAMERA_PAIR_MAX_AGE_MS = 2500", self.script)
+        self.assertIn("CAMERA_PAIR_DISCONNECT_GRACE_MS = 6000", self.script)
+        self.assertIn("CAMERA_PAIR_MAX_FPS = 12", self.script)
+        self.assertIn('query.set("after_thermal"', self.script)
+        self.assertIn('query.set("after_visible"', self.script)
+        self.assertIn("CAMERA_PAIR_SOURCE_WAIT_MS", self.script)
+        self.assertIn('profile: "monitor"', self.script)
+        self.assertIn('nonnegative_query_integer("wait_ms", 1000)', self.web_server)
+        self.assertIn("camera_stream_updated.wait(timeout=remaining)", self.web_server)
+        self.assertIn("status=204", self.web_server)
+        self.assertIn("hideStaleCameraPair", self.script)
+        start = self.script.index("async function displayLatestCameraFrame(")
+        end = self.script.index("function setCameraConnectionStatus(", start)
+        self.assertNotIn("/api/camera-mjpeg/", self.script[start:end])
         self.assertNotIn("new WebSocket(cameraStreamWebSocketUrl())", self.script)
 
     def test_releasing_camera_view_removes_every_image_source(self):
@@ -51,6 +65,21 @@ class CameraViewLifecycleTests(unittest.TestCase):
         self.assertIn('@app.get("/api/camera-stream/metadata/<source>/<camera>")', self.web_server)
         self.assertIn('@app.get("/api/camera-stream/metadata-stream/<source>/<camera>")', self.web_server)
         self.assertIn('b"\\r\\nX-Camera-Metadata: "', self.web_server)
+        self.assertIn('"X-Camera-Visible-Age-Ms"', self.web_server)
+
+    def test_delayed_nonzero_jog_commands_are_rejected(self):
+        self.assertIn('"X-Motion-Issued-At-Ms": String(Date.now())', self.script)
+        self.assertIn('request.headers.get("X-Motion-Issued-At-Ms"', self.web_server)
+        self.assertIn("Motion command expired in transit", self.web_server)
+
+    def test_live_thermal_view_renders_detection_metadata_as_overlay(self):
+        self.assertIn('id="thermalDetectionOverlay"', self.template)
+        self.assertIn("function subscribeCameraLiveMetadata(camera)", self.script)
+        self.assertIn("function renderThermalDetectionOverlay(metadata = {})", self.script)
+        self.assertIn("Array.isArray(metadata.detections)", self.script)
+        self.assertIn("detection?.box", self.script)
+        self.assertIn('camera === "thermal"', self.script)
+        self.assertIn("cameraLiveMetadataStreams.forEach((stream) => stream.close())", self.script)
 
     def test_ffmpeg_preview_pipe_does_not_batch_small_thermal_frames(self):
         self.assertIn("stdout=subprocess.PIPE", self.web_server)

@@ -61,7 +61,7 @@ def simulated_zoom_frame(frame_path: Path, camera: str, phase_seconds: float, zo
             frame,
             captured_at=datetime.now(timezone.utc),
             elapsed_sec=time.monotonic() - STREAM_STARTED_MONOTONIC,
-            zoom_x=zoom,
+            zoom_pct=max(0.0, min(100.0, (zoom - 1.0) * 25.0)),
         )
     output = BytesIO()
     frame.save(output, format="JPEG", quality=82, optimize=True)
@@ -140,6 +140,7 @@ def upload_once(camera: str, frame_path: Path, sequence: int) -> dict[str, str]:
         "height": height,
         "simulated": True,
         "zoom_x": round(zoom, 3),
+        "zoom_pct": round(max(0.0, min(100.0, (zoom - 1.0) * 25.0)), 1),
     }
     if camera == "thermal":
         metadata.update({
@@ -191,6 +192,9 @@ def main() -> int:
     parser.add_argument("--loop", action="store_true", help="Upload continuously using latest-file storage mode.")
     parser.add_argument("--interval", type=float, default=1.0, help="Seconds between frames in --loop mode.")
     args = parser.parse_args()
+    settings = json.loads(SETTINGS_PATH.read_text(encoding="utf-8"))
+    if settings.get("simulation_mode", {}).get("enabled") is not True:
+        raise RuntimeError("SIMULATION_BLOCKED_IN_PRODUCTION: simulation_mode.enabled is false")
     if args.interval < 0.2:
         parser.error("--interval must be at least 0.2 seconds.")
     frame_path = args.frame or DEFAULT_FRAMES[args.camera]
