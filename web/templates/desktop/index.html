@@ -4,18 +4,20 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>Narit Fire Detector Mount</title>
-    <link rel="icon" type="image/png" sizes="64x64" href="{{ url_for('static', filename='img/narit-smart-wildfire-favicon.png') }}?v=2">
-    <link rel="shortcut icon" type="image/png" href="{{ url_for('static', filename='img/narit-smart-wildfire-favicon.png') }}?v=2">
+    <link rel="icon" type="image/svg+xml" sizes="64x64" href="{{ url_for('static', filename='img/narit-fire-emblem.svg') }}?v=3">
+    <link rel="shortcut icon" type="image/svg+xml" href="{{ url_for('static', filename='img/narit-fire-emblem.svg') }}?v=3">
     <meta name="theme-color" content="#071014">
     <link rel="stylesheet" href="{{ url_for('static', filename='desktop/css/dashboard.css') }}?v=29">
     <link rel="stylesheet" href="{{ url_for('static', filename='desktop/css/mission_control.css') }}?v=20">
     <link rel="stylesheet" href="{{ url_for('static', filename='desktop/css/tabs.css') }}?v=1">
     <link rel="stylesheet" href="{{ url_for('static', filename='shared/camera_pair_control.css') }}?v=1">
-  </head>
+    <link rel="stylesheet" href="/static/shared/refined-ui.css?v=1">
+  <script defer src="/static/shared/refined-ui.js?v=1"></script>
+</head>
   <body>
     <aside class="mission-sidebar" aria-label="Primary navigation">
       <div class="mission-sidebar-brand">
-        <img src="{{ url_for('static', filename='img/narit-smart-wildfire-mark.png') }}" alt="NARIT Fire Detector">
+        <img src="{{ url_for('static', filename='img/narit-fire-emblem.svg') }}?v=3" alt="NARIT Fire Detector">
       </div>
       <nav class="mission-sidebar-nav">
         <button class="active" type="button" data-mission-nav="dashboard" aria-current="page"><i aria-hidden="true"><svg><use href="{{ url_for('static', filename='img/mission-nav-icons.svg') }}#dashboard"></use></svg></i><span>Dashboard</span></button>
@@ -38,7 +40,7 @@
         <div class="header-copy">
           <div class="header-brand">
             <span class="brand-mark" aria-hidden="true">
-              <img src="{{ url_for('static', filename='img/narit-smart-wildfire-mark.png') }}" alt="">
+              <img src="{{ url_for('static', filename='img/narit-fire-emblem.svg') }}?v=3" alt="">
             </span>
             <span class="brand-divider" aria-hidden="true"></span>
             <span class="brand-text">

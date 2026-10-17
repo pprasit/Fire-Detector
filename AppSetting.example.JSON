@@ -1,0 +1,29 @@
+{
+  "simulation_mode": {
+    "enabled": true
+  },
+  "drive_serials": {
+    "azimuth_serial": null,
+    "altitude_serial": null
+  },
+  "station": {
+    "name": "",
+    "latitude": null,
+    "longitude": null
+  },
+  "mount_agent": {
+    "local": {
+      "enabled": true,
+      "socket_path": "/run/fire-detector/mount-agent.sock",
+      "mode": "660"
+    },
+    "remote": {
+      "enabled": false
+    }
+  },
+  "updater": {
+    "enabled": false,
+    "channel": "main",
+    "check_interval_minutes": 15
+  }
+}

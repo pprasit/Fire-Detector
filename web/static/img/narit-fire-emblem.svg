@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" fill="none">
+  <title>NARIT Fire Detector</title>
+  <desc>A geometric N monogram within a precision optical ring.</desc>
+  <circle cx="40" cy="40" r="35" fill="#102131"/>
+  <path d="M32 6.9a34 34 0 0 0-25.1 25M6.9 48A34 34 0 0 0 32 73.1M48 73.1A34 34 0 0 0 73.1 48" stroke="#a6b9c9" stroke-width="2"/>
+  <path d="M48 6.9A34 34 0 0 1 73.1 32" stroke="#c9a569" stroke-width="2"/>
+  <path d="M40 3v9M3 40h9M68 40h9M40 68v9" stroke="#647e93" stroke-width="1.5"/>
+  <path d="M24 55V25h8l16 19V25h8v30h-8L32 36v19h-8Z" fill="#e5edf3"/>
+  <path d="m48 25 8 9v-9h-8Z" fill="#c9a569"/>
+</svg>

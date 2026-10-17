@@ -1,0 +1,20 @@
+[Unit]
+Description=Fire Detector dual camera and wildfire detection runtime
+Wants=network-online.target
+After=network-online.target fire-detector.service
+Requires=fire-detector.service
+Conflicts=wildlife-detection-runtime.service
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/Public/Fire-Detector/camera_runtime
+UMask=0077
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/home/pi/Public/Fire-Detector/.venv/bin/python /home/pi/Public/Fire-Detector/camera_runtime/app.py
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#0b0f19">
+    <title>Integrated Fire Surveillance & Autonomous PTZ Sentry System</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap"
+        rel="stylesheet">
+</head>
+
+<body class="theme-dark">
+    <div class="app-wrapper">
+        <!-- Top App Bar -->
+        <header class="app-header">
+            <div class="header-left">
+                <div class="logo-badge">
+                    <span class="fire-icon"></span>
+                    <div class="logo-text">
+                        <span class="logo-main">FIRE SENTINEL 360</span>
+                        <span class="logo-sub font-mono">AUTONOMOUS PTZ & THERMAL AI</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Global Alarm / Sentry Status Banner -->
+            <div class="header-center">
+                <div id="status-banner" class="status-banner banner-normal">
+                    <span id="banner-icon" class="banner-icon"></span>
+                    <span id="banner-text" class="banner-text">AUTONOMOUS SENTRY ACTIVE — SCANNING 360°</span>
+                </div>
+            </div>
+
+            <div class="header-right">
+                <div class="header-actions">
+                    <!-- Stream Bandwidth Mode Selector (Tailscale / 4G VPN Optimization) -->
+                    <div class="bandwidth-selector-group">
+                        <select id="bandwidth-mode-select">
+                            <option value="4g" selected>4G Saver (6 FPS)</option>
+                            <option value="extreme">4G Ultra Low (4 FPS)</option>
+                            <option value="balanced">Balanced (10 FPS)</option>
+                            <option value="lan">LAN High (15 FPS)</option>
+                        </select>
+                    </div>
+                    <a href="/panorama" class="btn btn-secondary btn-header-nav" style="border-color: #f97316; color: #fb923c; background: rgba(249, 115, 22, 0.15); font-weight: 600;">📷 360 PANORAMA</a>
+                    <a href="/incidents" class="btn btn-secondary btn-header-nav">INCIDENTS</a>
+                    <a href="/ptz_test" class="btn btn-secondary btn-header-nav">PTZ TEST</a>
+                    <a href="/settings" class="btn btn-secondary btn-header-nav">SETTINGS</a>
+                </div>
+                <div class="telemetry-pill">
+                    <span class="dot dot-green"></span>
+                    <span id="system-time" class="font-mono">--:--:--</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Workspace Layout -->
+        <main class="dashboard-grid">
+            <!-- Left & Center: Streams & Radar Panel -->
+            <section class="streams-section">
+                <!-- Mount Polar Plot & Waypoint Trajectory Card (Top Section) -->
+                <div class="card polar-plot-card">
+                    <div class="polar-header">
+                        <div class="polar-title-group">
+                            <h3 class="polar-title">MOUNT POLAR PLOT & WAYPOINT TRAJECTORY</h3>
+                            <p class="polar-subtitle">Real-time 360° Radar View, Current Heading & Sentry Scan Path</p>
+                        </div>
+                        <div class="polar-legend-group">
+                            <span class="polar-legend-item"><span class="polar-legend-dot" style="background: #00f2fe; box-shadow: 0 0 8px #00f2fe;"></span> Live Mount</span>
+                            <span class="polar-legend-item"><span class="polar-legend-line" style="background: #7f00ff;"></span> Sentry Sweep Path</span>
+                            <span class="polar-legend-item"><span class="polar-legend-dot" style="background: #f59e0b;"></span> AI Waypoints</span>
+                            <span class="polar-legend-item"><span class="polar-legend-dot" style="background: #ef4444; box-shadow: 0 0 6px #ef4444;"></span> Locked Target</span>
+                        </div>
+                    </div>
+
+                    <div class="polar-body-wrap">
+                        <!-- Polar Radar Canvas -->
+                        <div class="polar-canvas-box">
+                            <canvas id="polar-canvas" width="460" height="460"></canvas>
+                        </div>
+
+                        <!-- Real-time Trajectory Telemetry Summary Panel -->
+                        <div class="polar-telemetry-box">
+                            <div class="polar-metrics-grid">
+                                <div class="polar-metric-item">
+                                    <div class="polar-metric-label">LIVE AZIMUTH (PAN)</div>
+                                    <div class="font-mono text-cyan polar-metric-val" id="polar-disp-az">--.-°</div>
+                                </div>
+                                <div class="polar-metric-item">
+                                    <div class="polar-metric-label">LIVE ALTITUDE (TILT)</div>
+                                    <div class="font-mono text-orange polar-metric-val" id="polar-disp-alt">--.-°</div>
+                                </div>
+                                <div class="polar-metric-item">
+                                    <div class="polar-metric-label">SCAN TRAJECTORY</div>
+                                    <div class="font-mono polar-metric-subval" style="color: #c084fc;" id="polar-disp-scan-range">--° to --°</div>
+                                </div>
+                                <div class="polar-metric-item">
+                                    <div class="polar-metric-label">AI TRIGGER STEP</div>
+                                    <div class="font-mono text-emerald polar-metric-subval" id="polar-disp-ai-step">--.-°</div>
+                                </div>
+                            </div>
+
+                            <div class="polar-info-box">
+                                <div style="font-weight: 700; color: #cbd5e1; margin-bottom: 2px;">RADAR RANGE OVERVIEW:</div>
+                                • <strong>Altitude Scale:</strong> -20° (Outer Ground Ring) -> 0° (Cyan Horizon) -> +90° (Zenith Center)<br>
+                                • <strong>Azimuth Limit:</strong> Continuous -300° to +300° pan orientation
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Dual Stream Grid -->
+                <div class="dual-streams-container">
+                    <!-- Thermal Camera Stream -->
+                    <div class="card stream-box stream-thermal">
+                        <div class="stream-box-header">
+                            <div class="title-group">
+                                <span class="live-dot dot-orange"></span>
+                                <span class="stream-label">THERMAL AI VISION (640x512 | 31-155mm)</span>
+                            </div>
+                            <div class="header-ptz-badge font-mono">
+                                AZ: <span id="th-az-badge" class="text-orange">0.0°</span> | ALT: <span
+                                    id="th-alt-badge" class="text-orange">5.0°</span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <a href="/api/snapshot?cam=thermal" download class="chip-btn" title="Capture Thermal Snapshot"
+                                    style="text-decoration: none; color: #fdba74; border: 1px solid rgba(249, 115, 22, 0.5); background: rgba(249, 115, 22, 0.15); padding: 2px 8px; font-size: 10px; font-weight: 700; border-radius: 4px;">
+                                    SNAPSHOT
+                                </a>
+                            </div>
+                        </div>
+                        <div class="video-frame">
+                            <img src="/thermal_feed" alt="Thermal Stream" id="thermal-img"
+                                data-camera-id="thermal" title="Right-click to view frame metadata" />
+                            <div class="hud-overlay hud-bottom-right">
+                                <span class="hud-chip font-mono badge-ptz-pos">AZ: <strong
+                                        id="hud-azm-val">0.0°</strong> | ALT: <strong
+                                        id="hud-alt-val">5.0°</strong></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Visible / Optical Camera Stream -->
+                    <div class="card stream-box stream-visible">
+                        <div class="stream-box-header">
+                            <div class="title-group">
+                                <span class="live-dot dot-cyan"></span>
+                                <span class="stream-label">OPTICAL CONTEXT CAMERA (16:9 HD)</span>
+                            </div>
+                            <div class="header-ptz-badge font-mono">
+                                AZ: <span id="vis-az-badge" class="text-cyan">0.0°</span> | ALT: <span
+                                    id="vis-alt-badge" class="text-cyan">5.0°</span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <a href="/api/snapshot?cam=visible" download class="chip-btn" title="Capture Visible Snapshot"
+                                    style="text-decoration: none; color: #67e8f9; border: 1px solid rgba(6, 182, 212, 0.5); background: rgba(6, 182, 212, 0.15); padding: 2px 8px; font-size: 10px; font-weight: 700; border-radius: 4px;">
+                                    SNAPSHOT
+                                </a>
+                            </div>
+                        </div>
+                        <div class="video-frame">
+                            <img src="/visible_feed" alt="Visible Stream" id="visible-img"
+                                data-camera-id="visible" title="Right-click to view frame metadata" />
+                            <div class="hud-overlay hud-bottom-right">
+                                <span class="hud-chip font-mono badge-ptz-pos">AZ: <strong
+                                        id="hud-vis-azm">0.0°</strong> | ALT: <strong
+                                        id="hud-vis-alt">5.0°</strong></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Mission State Telemetry Bar -->
+                <div class="card mission-bar">
+                    <div class="mission-item">
+                        <span class="m-label">MISSION STATE:</span>
+                        <span class="m-val font-mono" id="val-mission-state">IDLE</span>
+                    </div>
+                    <div class="mission-item">
+                        <span class="m-label">SCAN MODE:</span>
+                        <span class="m-val font-mono text-cyan" id="val-scan-mode">CONTINUOUS</span>
+                    </div>
+                    <div class="mission-item" id="item-waypoint-progress" style="display: none;">
+                        <span class="m-label">WAYPOINT:</span>
+                        <span class="m-val font-mono text-orange" id="val-waypoint-progress">1/1</span>
+                    </div>
+                    <div class="mission-item">
+                        <span class="m-label">CURRENT AZ / ALT:</span>
+                        <span class="m-val font-mono"><span id="val-az">0.0°</span> / <span
+                                id="val-alt">5.0°</span></span>
+                    </div>
+                    <div class="mission-item">
+                        <span class="m-label">LOCKED TARGET:</span>
+                        <span class="m-val font-mono text-red" id="val-locked-pos">NONE</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Right Sidebar: Sentry & Manual PTZ Controls -->
+            <aside class="sidebar-section">
+                <!-- PTZ Manual & Direct Positioning Card -->
+                <div class="card ptz-manual-card">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <h3 class="card-title" style="margin-bottom: 0;">PTZ MANUAL & DIRECT CONTROL</h3>
+                        <span id="ptz-active-badge" class="badge font-mono" style="font-size: 10px; padding: 2px 6px; background: rgba(56,189,248,0.15); color: #38bdf8; border: 1px solid rgba(56,189,248,0.3); border-radius: 4px;">READY</span>
+                    </div>
+
+                    <!-- 1. Absolute GOTO Positioning Section -->
+                    <div style="background: rgba(0, 0, 0, 0.35); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px; margin-bottom: 10px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                            <span class="sub-label" style="font-size: 10.5px; font-weight: 700; color: #38bdf8;">GOTO ABSOLUTE POSITION:</span>
+                            <button type="button" id="btn-copy-cur-pos" class="chip-btn" style="padding: 1px 6px; font-size: 9.5px;" title="Copy current PTZ position">Copy Live</button>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-bottom: 8px;">
+                            <div class="param-input-group">
+                                <label>Target Az (°):</label>
+                                <input type="number" id="manual-goto-az" class="param-input font-mono" placeholder="0.0" step="1.0" min="-300" max="300" value="0.0" />
+                            </div>
+                            <div class="param-input-group">
+                                <label>Target Alt (°):</label>
+                                <input type="number" id="manual-goto-alt" class="param-input font-mono" placeholder="0.0" step="0.5" min="-20" max="60" value="0.0" />
+                            </div>
+                            <div class="param-input-group">
+                                <label>Speed (°/s):</label>
+                                <input type="number" id="manual-goto-speed" class="param-input font-mono" step="1.0" min="0.5" max="25.0" value="10.0" />
+                            </div>
+                        </div>
+
+                        <!-- Quick Presets -->
+                        <div style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px;">
+                            <button type="button" class="chip-btn btn-ptz-preset" data-az="0" data-alt="0" style="flex:1; padding: 4px 2px; font-size: 9.5px;">Home</button>
+                            <button type="button" class="chip-btn btn-ptz-preset" data-az="0" data-alt="5" style="flex:1; padding: 4px 2px; font-size: 9.5px;">N (0°)</button>
+                            <button type="button" class="chip-btn btn-ptz-preset" data-az="90" data-alt="5" style="flex:1; padding: 4px 2px; font-size: 9.5px;">E (90°)</button>
+                            <button type="button" class="chip-btn btn-ptz-preset" data-az="180" data-alt="5" style="flex:1; padding: 4px 2px; font-size: 9.5px;">S (180°)</button>
+                            <button type="button" class="chip-btn btn-ptz-preset" data-az="-90" data-alt="5" style="flex:1; padding: 4px 2px; font-size: 9.5px;">W (-90°)</button>
+                        </div>
+
+                        <button type="button" id="btn-manual-goto-exec" class="btn btn-primary btn-block" style="padding: 9px 10px; font-size: 11.5px; font-weight: 700; width: 100%;">
+                            GOTO TARGET POSITION
+                        </button>
+                    </div>
+
+                    <!-- 2. Incremental Step & D-Pad Controls -->
+                    <div style="background: rgba(0, 0, 0, 0.35); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <span class="sub-label" style="font-size: 10.5px; font-weight: 700; color: #34d399;">INCREMENTAL STEP MOVE:</span>
+                            <div style="display: flex; align-items: center; gap: 4px;">
+                                <label style="font-size: 10px; color: #94a3b8;">Step (°):</label>
+                                <input type="number" id="manual-step-size" class="param-input font-mono"
+                                    style="width: 72px; padding: 2px 6px; font-size: 11px; text-align: center; color: #34d399; background: rgba(0,0,0,0.6); border: 1px solid rgba(52,211,153,0.4); border-radius: 4px;"
+                                    value="5.0" min="0.1" max="10.0" step="0.5" />
+                            </div>
+                        </div>
+
+                        <!-- Virtual D-Pad / Directional Step Grid (8-Way) -->
+                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; max-width: 220px; margin: 0 auto;">
+                            <!-- Top-Left (NW) -->
+                            <button type="button" class="btn btn-secondary btn-step-dir" data-daz="-1" data-dalt="1" style="height: 40px; font-size: 14px; font-weight: 800;" title="Up-Left (NW)">
+                                <span style="display:inline-block; transform: rotate(-45deg); line-height: 1;">&#9650;</span>
+                            </button>
+                            <!-- Top (Up) -->
+                            <button type="button" class="btn btn-secondary btn-step-dir" data-daz="0" data-dalt="1" style="height: 40px; font-size: 15px; font-weight: 800;" title="Tilt Up">
+                                &#9650;
+                            </button>
+                            <!-- Top-Right (NE) -->
+                            <button type="button" class="btn btn-secondary btn-step-dir" data-daz="1" data-dalt="1" style="height: 40px; font-size: 14px; font-weight: 800;" title="Up-Right (NE)">
+                                <span style="display:inline-block; transform: rotate(45deg); line-height: 1;">&#9650;</span>
+                            </button>
+
+                            <!-- Left -->
+                            <button type="button" class="btn btn-secondary btn-step-dir" data-daz="-1" data-dalt="0" style="height: 40px; font-size: 15px; font-weight: 800;" title="Pan Left">
+                                &#9664;
+                            </button>
+                            <!-- Center STOP -->
+                            <button type="button" id="btn-manual-stop" class="btn btn-danger" style="height: 40px; font-size: 10.5px; font-weight: 800; padding: 0;" title="Emergency Stop">
+                                STOP
+                            </button>
+                            <!-- Right -->
+                            <button type="button" class="btn btn-secondary btn-step-dir" data-daz="1" data-dalt="0" style="height: 40px; font-size: 15px; font-weight: 800;" title="Pan Right">
+                                &#9654;
+                            </button>
+
+                            <!-- Bottom-Left (SW) -->
+                            <button type="button" class="btn btn-secondary btn-step-dir" data-daz="-1" data-dalt="-1" style="height: 40px; font-size: 14px; font-weight: 800;" title="Down-Left (SW)">
+                                <span style="display:inline-block; transform: rotate(45deg); line-height: 1;">&#9660;</span>
+                            </button>
+                            <!-- Bottom (Down) -->
+                            <button type="button" class="btn btn-secondary btn-step-dir" data-daz="0" data-dalt="-1" style="height: 40px; font-size: 15px; font-weight: 800;" title="Tilt Down">
+                                &#9660;
+                            </button>
+                            <!-- Bottom-Right (SE) -->
+                            <button type="button" class="btn btn-secondary btn-step-dir" data-daz="1" data-dalt="-1" style="height: 40px; font-size: 14px; font-weight: 800;" title="Down-Right (SE)">
+                                <span style="display:inline-block; transform: rotate(-45deg); line-height: 1;">&#9660;</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Mission & Sentry Controls -->
+                <div class="card sentry-card">
+                    <h3 class="card-title">SENTRY MISSION & AUTO-SCAN</h3>
+
+                    <!-- Scan Mode Selector -->
+                    <div class="segmented-control" id="scan-mode-selector">
+                        <button type="button" class="segment-btn active" data-mode="CONTINUOUS"
+                            id="btn-mode-continuous">CONTINUOUS</button>
+                        <button type="button" class="segment-btn" data-mode="STEP_SWEEP" id="btn-mode-step">STEP SWEEP</button>
+                    </div>
+
+                    <!-- Scan Parameter Controls -->
+                    <div class="scan-params-grid" style="grid-template-columns: 1fr 1fr; gap: 8px;">
+                        <div class="param-input-group">
+                            <label>Az Start (°):</label>
+                            <input type="number" id="input-az-start" class="param-input font-mono"
+                                value="{{ config.mission.scan_az_start }}" step="1.0" min="-300.0" max="300.0" />
+                        </div>
+                        <div class="param-input-group">
+                            <label>Az End (°):</label>
+                            <input type="number" id="input-az-end" class="param-input font-mono"
+                                value="{{ config.mission.scan_az_end }}" step="1.0" min="-300.0" max="300.0" />
+                        </div>
+                        <div class="param-input-group">
+                            <label>Alt Start (°):</label>
+                            <input type="number" id="input-alt-start" class="param-input font-mono"
+                                value="{{ config.mission.scan_alt_start if config.mission.scan_alt_start is defined else -15.0 }}"
+                                step="0.5" min="-20.0" max="45.0" />
+                        </div>
+                        <div class="param-input-group">
+                            <label>Alt End (°):</label>
+                            <input type="number" id="input-alt-end" class="param-input font-mono"
+                                value="{{ config.mission.scan_alt_end if config.mission.scan_alt_end is defined else 5.0 }}"
+                                step="0.5" min="-20.0" max="45.0" />
+                        </div>
+
+                        <!-- Continuous Sweep Parameters (Focal Length & Overlap Based) -->
+                        <div id="continuous-params-block" style="grid-column: span 2; display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                            <div class="param-input-group">
+                                <label>Sweep Speed (°/s):</label>
+                                <input type="number" id="input-scan-speed" class="param-input font-mono"
+                                    value="{{ config.mission.sweep_speed_deg_s }}" step="0.1" min="0.1" max="10.0" />
+                            </div>
+                            <div class="param-input-group">
+                                <label>Focal Length (mm):</label>
+                                <input type="number" id="input-focal-length" class="param-input font-mono"
+                                    value="{{ config.mission.scan_focal_length_mm if config.mission.scan_focal_length_mm is defined else 31.0 }}" step="1.0" min="31.0" max="155.0" />
+                            </div>
+                            <div class="param-input-group">
+                                <label>FOV Overlap (%):</label>
+                                <input type="number" id="input-fov-overlap" class="param-input font-mono"
+                                    value="{{ config.mission.scan_fov_overlap_pct if config.mission.scan_fov_overlap_pct is defined else 20.0 }}" step="5.0" min="0.0" max="80.0" />
+                            </div>
+                            <div class="param-input-group">
+                                <label>Max Goto (°/s):</label>
+                                <input type="number" id="input-max-goto-speed" class="param-input font-mono"
+                                    value="{{ config.mission.max_goto_speed if config.mission.max_goto_speed is defined else 10.0 }}" step="1.0" min="1.0" max="25.0" />
+                            </div>
+                            <div class="param-input-group" style="grid-column: span 2;">
+                                <label>Settle Time (s):</label>
+                                <input type="number" id="input-settle-sec" class="param-input font-mono"
+                                    value="{{ config.mission.settle_sec if config.mission.settle_sec is defined else 0.5 }}" step="0.1" min="0.1" max="5.0" />
+                            </div>
+                        </div>
+
+                        <!-- Step Sweep Parameters -->
+                        <div id="step-params-block"
+                            style="grid-column: span 2; display: none; flex-direction: column; gap: 8px;">
+                            <div
+                                style="display: flex; justify-content: space-between; align-items: center; margin-top: 2px;">
+                                <span class="sub-label">STEP METHOD:</span>
+                                <div class="segmented-control" style="margin-bottom: 0; padding: 2px;"
+                                    id="step-calc-selector">
+                                    <button type="button" class="segment-btn segment-btn-sm active" data-calc="FOV_AUTO"
+                                        id="btn-calc-fov">AUTO FOV</button>
+                                    <button type="button" class="segment-btn segment-btn-sm" data-calc="DEGREE"
+                                        id="btn-calc-deg">DEGREE</button>
+                                </div>
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                                <div class="param-input-group" id="group-step-az" style="display: none;">
+                                    <label>Step Azimuth (°):</label>
+                                    <input type="number" id="input-step-az" class="param-input font-mono"
+                                        value="{{ config.mission.step_az_deg if config.mission.step_az_deg is defined else 12.0 }}"
+                                        step="1.0" min="1.0" max="60.0" />
+                                </div>
+                                <div class="param-input-group" id="group-step-dwell" style="grid-column: span 2;">
+                                    <label>Dwell Time (s):</label>
+                                    <input type="number" id="input-step-dwell" class="param-input font-mono"
+                                        value="{{ config.mission.step_dwell_sec if config.mission.step_dwell_sec is defined else 1.5 }}"
+                                        step="0.5" min="0.5" max="10.0" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Real-time Trajectory Info Ribbon on Dashboard -->
+                        <div id="dashboard-trajectory-ribbon" style="grid-column: span 2; background: rgba(0,0,0,0.35); border: 1px solid rgba(6,182,212,0.3); border-radius: 6px; padding: 6px 10px; font-size: 11px; display: flex; justify-content: space-between; align-items: center;">
+                            <span style="color: var(--cyan-primary); font-weight: 700;">TRAJECTORY:</span>
+                            <span class="font-mono text-emerald" id="dash-disp-layers">3 Layers (FOV: 14.2°×11.4°)</span>
+                            <span class="font-mono text-orange" id="dash-disp-time">~9.0m/pass</span>
+                        </div>
+                    </div>
+
+                    <!-- Motor Arm / Disarm Bar -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 6px 10px; margin-bottom: 8px;">
+                        <span style="font-size: 11px; font-weight: 700; color: #94a3b8;">PTZ DRIVERS:</span>
+                        <span id="motor-armed-badge" style="font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 4px; background: rgba(239,68,68,0.2); color: #f87171; border: 1px solid rgba(239,68,68,0.4);">
+                            DISARMED
+                        </span>
+                        <div style="display: flex; gap: 4px;">
+                            <button id="btn-arm-motors-main" class="chip-btn" style="padding: 2px 8px; font-size: 10px; background: rgba(16,185,129,0.2); border-color: #10b981; color: #34d399;">ARM</button>
+                            <button id="btn-disarm-motors-main" class="chip-btn" style="padding: 2px 8px; font-size: 10px; background: rgba(239,68,68,0.2); border-color: #ef4444; color: #f87171;">DISARM</button>
+                        </div>
+                    </div>
+
+                    <div class="btn-grid" style="grid-template-columns: 1.2fr 1fr 1fr; gap: 6px;">
+                        <button id="btn-start-sentry" class="btn btn-emerald" style="padding: 10px 4px; font-size: 11px; font-weight: 700;">
+                            <span>START</span>
+                        </button>
+                        <button id="btn-pause-sentry" class="btn" style="background: linear-gradient(135deg, #d97706, #b45309); border: 1px solid #f59e0b; color: #fff; padding: 10px 4px; font-size: 11px; font-weight: 700;">
+                            <span>PAUSE</span>
+                        </button>
+                        <button id="btn-stop-sentry" class="btn btn-danger" style="padding: 10px 4px; font-size: 11px; font-weight: 700;">
+                            <span>STOP</span>
+                        </button>
+                    </div>
+
+                    <div class="zoom-controls">
+                        <!-- Thermal Zoom Section -->
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 5px;">
+                            <span class="sub-label">THERMAL (31–155mm):</span>
+                            <span id="th-zoom-badge" class="font-mono text-orange"
+                                style="font-size: 11px; font-weight: 700;">31.0mm (1.0x | 14.2°)</span>
+                        </div>
+
+                        <!-- Thermal mm Preset Buttons (5 Columns) -->
+                        <div class="preset-btn-grid" id="th-presets">
+                            <button class="btn-preset active" data-cam="thermal" data-mm="31.0">31mm</button>
+                            <button class="btn-preset" data-cam="thermal" data-mm="60.0">60mm</button>
+                            <button class="btn-preset" data-cam="thermal" data-mm="90.0">90mm</button>
+                            <button class="btn-preset" data-cam="thermal" data-mm="120.0">120mm</button>
+                            <button class="btn-preset" data-cam="thermal" data-mm="155.0">155mm</button>
+                        </div>
+
+                        <!-- Thermal Slider & Manual Controls -->
+                        <div class="slider-row">
+                            <input type="range" id="th-zoom-slider" min="31" max="155" step="1" value="31" class="zoom-range-slider range-orange">
+                            <div class="slider-val-box font-mono"><span id="th-slider-val">31</span> mm</div>
+                            <button id="btn-th-apply-slider" class="btn-mini btn-orange" title="Go to mm">GO</button>
+                        </div>
+
+                        <div class="btn-grid-zoom">
+                            <button id="btn-th-zoom-in" class="btn btn-secondary">ZOOM IN (+)</button>
+                            <button id="btn-th-zoom-out" class="btn btn-secondary">ZOOM OUT (-)</button>
+                        </div>
+                        <div class="btn-grid-zoom" style="margin-top: 4px;">
+                            <button id="btn-th-focus-near" class="btn btn-secondary btn-sm">FOCUS NEAR</button>
+                            <button id="btn-th-focus-far" class="btn btn-secondary btn-sm">FOCUS FAR</button>
+                        </div>
+
+                        <!-- Visible Zoom Section -->
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-top: 10px; margin-bottom: 5px;">
+                            <span class="sub-label">VISIBLE (5.1–102mm):</span>
+                            <span id="vis-zoom-badge" class="font-mono text-cyan"
+                                style="font-size: 11px; font-weight: 700;">5.1mm (1.0x | 51.7°)</span>
+                        </div>
+
+                        <!-- Visible mm Preset Buttons (5 Columns) -->
+                        <div class="preset-btn-grid" id="vis-presets">
+                            <button class="btn-preset active" data-cam="visible" data-mm="5.1">5.1mm</button>
+                            <button class="btn-preset" data-cam="visible" data-mm="25.0">25mm</button>
+                            <button class="btn-preset" data-cam="visible" data-mm="50.0">50mm</button>
+                            <button class="btn-preset" data-cam="visible" data-mm="75.0">75mm</button>
+                            <button class="btn-preset" data-cam="visible" data-mm="102.0">102mm</button>
+                        </div>
+
+                        <!-- Visible Slider & Manual Controls -->
+                        <div class="slider-row">
+                            <input type="range" id="vis-zoom-slider" min="5.1" max="102" step="0.5" value="5.1" class="zoom-range-slider range-cyan">
+                            <div class="slider-val-box font-mono"><span id="vis-slider-val">5.1</span> mm</div>
+                            <button id="btn-vis-apply-slider" class="btn-mini btn-cyan" title="Go to mm">GO</button>
+                        </div>
+
+                        <div class="btn-grid-zoom">
+                            <button id="btn-vis-zoom-in" class="btn btn-secondary">ZOOM IN (+)</button>
+                            <button id="btn-vis-zoom-out" class="btn btn-secondary">ZOOM OUT (-)</button>
+                        </div>
+                        <div class="btn-grid-zoom" style="margin-top: 4px;">
+                            <button id="btn-vis-focus-near" class="btn btn-secondary btn-sm">FOCUS NEAR</button>
+                            <button id="btn-vis-focus-far" class="btn btn-secondary btn-sm">FOCUS FAR</button>
+                        </div>
+                    </div>
+
+                    <div class="snapshot-block" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                        <a href="/api/snapshot?cam=thermal" download class="btn btn-block" id="btn-snap-thermal"
+                            style="background: rgba(249, 115, 22, 0.18); border: 1px solid #f97316; color: #fdba74; text-decoration: none; font-size: 11px; font-weight: 700; padding: 10px 4px; text-align: center; border-radius: 6px; display: flex; align-items: center; justify-content: center;">
+                            THERMAL SNAPSHOT
+                        </a>
+                        <a href="/api/snapshot?cam=visible" download class="btn btn-block" id="btn-snap-visible"
+                            style="background: rgba(6, 182, 212, 0.18); border: 1px solid #06b6d4; color: #67e8f9; text-decoration: none; font-size: 11px; font-weight: 700; padding: 10px 4px; text-align: center; border-radius: 6px; display: flex; align-items: center; justify-content: center;">
+                            VISIBLE SNAPSHOT
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Hotspot Incident & Growth Timeline Monitor Card -->
+                <div class="card incident-card" id="incident-monitor-card" style="display: none;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <h3 class="card-title" style="margin-bottom: 0;">HOTSPOT GROWTH TIMELINE</h3>
+                        <span id="inc-trend-badge" class="badge-trend badge-trend-expanding">EXPANDING</span>
+                    </div>
+
+                    <!-- Horizontal Multi-Round Timeline Carousel -->
+                    <div class="incident-timeline-container">
+                        <button type="button" class="timeline-nav-btn timeline-nav-left" id="btn-timeline-left" title="Scroll Left">&#x276E;</button>
+                        <div class="incident-timeline-track" id="incident-timeline-track">
+                            <!-- Dynamic Round Snapshot Cards Generated Here -->
+                        </div>
+                        <button type="button" class="timeline-nav-btn timeline-nav-right" id="btn-timeline-right" title="Scroll Right">&#x276F;</button>
+                    </div>
+
+                    <!-- Metrics Table -->
+                    <div class="stat-row" style="margin-top: 8px;">
+                        <span class="stat-label">Incident ID:</span>
+                        <span class="stat-val font-mono text-cyan" id="inc-val-id">-</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Locked Position:</span>
+                        <span class="stat-val font-mono" id="inc-val-pos">Az: -° / Alt: -°</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Total Growth (All Rnds):</span>
+                        <span class="stat-val font-mono" id="inc-val-growth">+0.0%</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Linear Regression Trend:</span>
+                        <span class="stat-val font-mono text-cyan" id="inc-val-slope">Slope: 0.0%/rnd</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Total Rounds Tracked:</span>
+                        <span class="stat-val font-mono text-orange" id="inc-val-rounds">1 Round</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Last Updated:</span>
+                        <span class="stat-val font-mono text-muted" id="inc-val-time">-</span>
+                    </div>
+                </div>
+            </aside>
+        </main>
+    </div>
+
+    <!-- Camera frame metadata floating panel (opened by right-clicking either live view) -->
+    <section id="camera-metadata-panel" class="camera-metadata-panel" role="dialog"
+        aria-modal="false" aria-labelledby="camera-metadata-title" hidden>
+        <header class="camera-metadata-header">
+            <div>
+                <div class="camera-metadata-eyebrow">LIVE FRAME INFORMATION</div>
+                <div id="camera-metadata-title" class="camera-metadata-title font-mono">CAMERA METADATA</div>
+            </div>
+            <button type="button" id="camera-metadata-close" class="camera-metadata-close"
+                aria-label="Close camera metadata">&times;</button>
+        </header>
+        <div id="camera-metadata-body" class="camera-metadata-body font-mono">
+            <div class="camera-metadata-loading">Loading frame metadata...</div>
+        </div>
+    </section>
+
+    <!-- Image Lightbox Popup Modal with Multi-Image Slider Navigation -->
+    <div id="image-modal" class="image-modal-overlay" style="display: none;">
+        <div class="image-modal-backdrop" id="image-modal-backdrop"></div>
+        <div class="image-modal-container">
+            <div class="image-modal-header">
+                <div class="image-modal-title" id="image-modal-title">HOTSPOT SNAPSHOT VIEW</div>
+                <button class="image-modal-close" id="image-modal-close" aria-label="Close modal">&times;</button>
+            </div>
+            <div class="image-modal-body">
+                <button type="button" class="modal-nav-btn modal-nav-prev" id="modal-btn-prev" title="Previous Image (Left Arrow)">&#x276E;</button>
+                <img id="image-modal-img" src="" alt="Snapshot Full View" />
+                <button type="button" class="modal-nav-btn modal-nav-next" id="modal-btn-next" title="Next Image (Right Arrow)">&#x276F;</button>
+            </div>
+            <div class="image-modal-footer">
+                <span id="image-modal-info" class="font-mono text-cyan"></span>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <span id="image-modal-counter" class="font-mono text-orange" style="font-size: 11px; font-weight: 700;">1 / 1</span>
+                    <a id="image-modal-download" href="#" target="_blank" download class="btn btn-secondary font-mono" style="padding: 4px 12px; font-size: 11px;">
+                        ⬇ DOWNLOAD FULL RES
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+
+</html>

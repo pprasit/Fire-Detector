@@ -1,0 +1,91 @@
+/* Mission Design: controls and angular labels stay at CSS-pixel sizes. */
+body{font-family:Inter,"Segoe UI",Arial,sans-serif}
+main{padding:16px;gap:14px}header{gap:16px}h1{font-size:23px;letter-spacing:-.5px}
+.eyebrow{font-size:10px;letter-spacing:1.5px}
+.summary{gap:12px;grid-template-columns:1.1fr .65fr 1fr}
+.compact-summary .metric{min-height:52px;padding:12px 16px;border-radius:9px}
+.compact-summary .metric strong small{font-size:12px;margin-left:6px}
+.range-value{font-size:13px}.range-editor label{font-size:11px}
+.workspace{gap:14px;grid-template-columns:minmax(0,1fr) clamp(280px,23vw,360px)}
+.panel{border-radius:11px;background:#101d25}
+.path-panel{grid-template-rows:auto minmax(0,1fr) auto}
+.path-panel>.ph{height:auto;min-height:130px;padding:15px 18px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px 16px;background:linear-gradient(110deg,#162833,#10202a)}
+.path-panel h2{font-size:17px;letter-spacing:-.3px}
+.path-panel h2 small{display:block;font-size:12px;font-weight:400;margin-top:5px;letter-spacing:0}
+.terrain-state{font-size:11px;color:#8ce5c1;display:flex;align-items:center;gap:7px}
+.terrain-state::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.terrain-state[data-error="true"]{color:#ffb957}
+.panel-actions{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px 12px}
+.panel-actions button,.panel-actions .panorama-inline,.panel-actions .capture-toggle,.dem-panorama-create{height:34px;min-width:70px;padding:0 12px;font-size:12px;white-space:nowrap;border-radius:6px;line-height:1}
+.scan-zoom{font-size:11px;gap:7px;text-transform:none}
+.scan-zoom input{height:34px!important;width:62px!important;font-size:13px}
+.panel-actions .badge{font-size:11px;line-height:1.4;padding:7px 9px}
+.mount-telemetry{grid-column:1/-1;grid-row:3;margin:0;padding:10px 0 0;background:none;border:0;border-top:1px solid #2c424e;border-radius:0;gap:14px;flex-wrap:wrap;font-size:10px;color:#93aab7}
+.mount-telemetry b{font-size:12px;color:#dfedf3}
+.mount-telemetry .telemetry-target{display:flex;border-color:#344d59}
+.terrain-chart{display:grid;grid-template-rows:auto minmax(0,1fr) auto;min-height:0;position:relative;background:#0c1820}
+.terrain-toolbar{display:flex;min-height:44px;align-items:center;flex-wrap:wrap;gap:8px;padding:8px 14px;border-bottom:1px solid #223743;font-size:11px;color:#96adbb}
+.terrain-toolbar label{display:flex;align-items:center;gap:7px}
+.terrain-toolbar select{width:auto;height:29px;padding:0 9px;font-size:11px}
+.terrain-toolbar button{height:29px;padding:0 10px;font-size:11px}
+.terrain-toolbar .terrain-mode{display:flex;border:1px solid #365361;border-radius:6px;overflow:hidden}
+.terrain-mode button{border:0;border-radius:0;background:transparent}
+.terrain-mode button[aria-pressed="true"]{background:#244657;color:#b8eeff}
+.terrain-toolbar .terrain-frame{margin-left:auto;font-size:10px;letter-spacing:.5px}
+.terrain-stage{position:relative;min-height:0;margin:12px 16px 42px 70px;border:1px solid #3a5665;border-radius:6px;background:#18313f}
+.terrain-canvas{display:block;width:100%;height:100%;touch-action:none;cursor:grab}
+.terrain-canvas:active{cursor:grabbing}
+.terrain-overlay{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+.terrain-grid{stroke:#e3f4ff;stroke-opacity:.18;stroke-width:1;vector-effect:non-scaling-stroke}
+.terrain-zero{stroke:#b4eaff;stroke-opacity:.75;stroke-dasharray:6 5}
+.terrain-axis-text{fill:#c4d8e4;font:11px "Segoe UI",sans-serif;paint-order:stroke;stroke:#0b1822;stroke-width:3px;stroke-linejoin:round}
+.terrain-axis-name{fill:#8cabbc;font:10px "Segoe UI",sans-serif;letter-spacing:1px}
+.terrain-fov{fill:#5de3aa08;stroke:#8bffca;stroke-width:1.3;stroke-dasharray:5 4;pointer-events:none}
+.thermal-live-fov{fill:#ffb9571c;stroke:#ffc56c;stroke-width:2;vector-effect:non-scaling-stroke;pointer-events:none;filter:drop-shadow(0 0 2px #071017)}
+#thermalLiveFov{color:#ffcd83;font-weight:600}
+#thermalChartScale{color:#a9bfcc;font-size:11px;line-height:1.6}
+.camera-marker-halo{fill:#5fcfff16;stroke:#8be7ff66;stroke-width:1}
+.terrain-camera-label{fill:#d9f7ff;font:700 11px "Segoe UI",sans-serif;paint-order:stroke;stroke:#0a1924;stroke-width:3px;stroke-linejoin:round}
+.camera-edge-indicator{pointer-events:all;cursor:pointer}
+.camera-edge-indicator:focus{outline:none;filter:drop-shadow(0 0 4px #a5edff)}
+.terrain-camera-hint{fill:#c9efff;font:10px "Segoe UI",sans-serif}
+.legend{height:auto;min-height:42px;padding:10px 16px;gap:12px;flex-wrap:wrap;font-size:11px}
+.status{white-space:normal;font-size:11px;line-height:1.45}
+.dem-key{color:#8bd9ff}
+.camera-panel{grid-template-rows:48px minmax(0,1fr)}
+.camera-panel>.ph{height:48px;padding:12px 14px}.camera-panel h2{font-size:15px}
+.cameras{padding:12px;gap:12px}.cam-head{font-size:11px;letter-spacing:.6px}
+.scene span{font-size:9px}.footer{font-size:11px;line-height:1.5;gap:16px}
+.floating{border-radius:10px}.floating-head{height:48px;padding:12px 16px}.floating-body{padding:16px}.field label,.hint{font-size:12px}.field{margin-bottom:16px}.panorama-summary{font-size:12px;padding:12px;line-height:1.6}
+.terrain-message{position:absolute;inset:0;display:grid;place-content:center;gap:10px;text-align:center;padding:24px;background:#0e2029e8;color:#c3dbe8;font-size:13px;line-height:1.7;pointer-events:none}
+.terrain-message[hidden]{display:none}
+.terrain-stage.is-orbit{margin-left:16px}.terrain-stage.is-orbit .terrain-overlay{display:none}
+@media(max-width:1250px){.path-panel>.ph{padding:12px;gap:10px}.panel-actions{gap:8px}.panel-actions .badge{order:5;width:100%}.terrain-frame{display:none}.mount-telemetry{gap:8px}.workspace{grid-template-columns:minmax(0,1fr) 280px}.terrain-toolbar{padding-inline:10px;gap:6px}}
+@media(max-width:900px){main{padding:12px}.workspace{grid-template-columns:1fr}.path-panel{height:690px}.summary{grid-template-columns:1fr}.panel-actions .badge{width:auto}.mount-telemetry .telemetry-target{display:flex}}
+@media(max-width:600px){.path-panel>.ph{grid-template-columns:1fr}.terrain-state{grid-row:2}.mount-telemetry{grid-row:auto}.terrain-chart{grid-template-rows:auto minmax(0,1fr) auto}.terrain-stage{margin-left:60px;margin-right:10px}.terrain-toolbar{min-height:80px}.path-panel{height:790px}}
+
+/* Compact panorama workspace: keep the header on one line and give the
+   recovered toolbar space to the terrain. Legacy planner fields stay hidden
+   so its capture state and draft values remain available to existing code. */
+.path-panel>.ph{min-height:54px;height:auto;padding:12px 16px;grid-template-columns:auto minmax(0,1fr) auto;gap:14px}
+.path-panel h2{font-size:15px;white-space:nowrap}
+.path-panel h2 small,.path-panel .panel-actions,.terrain-toolbar{display:none!important}
+.path-panel .mount-telemetry{grid-row:auto;grid-column:auto;justify-content:flex-end;flex-wrap:nowrap;gap:12px;padding:0;margin:0;border:0;white-space:nowrap;font-size:9px}
+.path-panel .mount-telemetry span{gap:4px}
+.path-panel .mount-telemetry b{font-size:12px}
+.path-panel .mount-telemetry .telemetry-target{display:flex;padding-left:12px;border-left:1px solid #344d59}
+.terrain-state{font-size:10px;white-space:nowrap}
+.terrain-chart{grid-template-rows:minmax(0,1fr);overflow:hidden}
+.terrain-plot{display:grid;grid-template-columns:66px minmax(0,1fr);min-height:0;min-width:0;padding:12px 14px 0 0}
+.terrain-y-axis{width:66px;height:100%;display:block;pointer-events:none}
+.terrain-scroll{min-width:0;min-height:0;height:100%;overflow-x:scroll;overflow-y:hidden;scrollbar-width:auto;scrollbar-color:#607d8e #0b1720;overscroll-behavior-x:contain;border-radius:6px;outline-offset:-2px}
+.terrain-scroll::-webkit-scrollbar{height:12px}
+.terrain-scroll::-webkit-scrollbar-track{background:#0b1720;border-radius:8px}
+.terrain-scroll::-webkit-scrollbar-thumb{background:linear-gradient(90deg,#456577,#7193a5);border:3px solid #0b1720;border-radius:8px;min-width:48px}
+.terrain-scroll::-webkit-scrollbar-thumb:hover{background:#86afc2}
+.terrain-track{position:relative;min-height:0}
+.terrain-stage,.terrain-stage.is-orbit{position:sticky;left:0;margin:0;border-radius:5px;min-height:0;max-width:none}
+.terrain-overlay{overflow:visible}
+.terrain-stage.is-orbit .terrain-overlay,.terrain-y-axis:has(+.terrain-scroll .is-orbit){visibility:hidden}
+@media(max-width:1250px){.path-panel>.ph{padding:12px;gap:10px}.path-panel .mount-telemetry{gap:8px}.path-panel .mount-telemetry b{font-size:11px}.terrain-state{font-size:0}.terrain-state::before{width:7px;height:7px}}
+@media(max-width:720px){.path-panel>.ph{grid-template-columns:minmax(0,1fr) auto;gap:10px}.path-panel .mount-telemetry{grid-column:1/-1;grid-row:2;justify-content:flex-start;overflow-x:auto;padding-bottom:3px}.terrain-state{grid-row:1;grid-column:2}.terrain-plot{padding-right:10px}.terrain-readout{padding:8px 12px}}

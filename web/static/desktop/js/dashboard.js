@@ -1,3 +1,15 @@
+// Load the shared visual layer for cached dashboard documents as well.
+(() => {
+  if (!document.querySelector('link[href*="shared/refined-ui.css"]')) {
+    const style = document.createElement('link'); style.rel = 'stylesheet';
+    style.href = '/static/shared/refined-ui.css?v=1'; document.head.append(style);
+  }
+  if (!document.querySelector('script[src*="shared/refined-ui.js"]')) {
+    const script = document.createElement('script'); script.src = '/static/shared/refined-ui.js?v=1';
+    document.head.append(script);
+  }
+})();
+
 function installMissionControlSelects(root = document) {
   root.querySelectorAll("select").forEach((select) => select.classList.add("mc-select"));
 }
@@ -3621,7 +3633,7 @@ function setViewMode(mode, { persist = true } = {}) {
   if (missionPanel) missionPanel.hidden = activeViewMode !== "mission";
   if (missionFrame) {
     if (activeViewMode === "mission" && !missionFrame.hasAttribute("src")) {
-      missionFrame.src = "/static/desktop/mission-design.html?v=27";
+      missionFrame.src = "/static/desktop/mission-design.html?v=34";
     }
     missionFrame.contentWindow?.postMessage({ type: "mission-visibility", visible: activeViewMode === "mission" }, window.location.origin);
   }

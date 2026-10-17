@@ -1,0 +1,6 @@
+-r ../requirements.txt
+av==12.3.0
+opencv-python>=4.6,<5
+ncnn==1.0.20260526
+onvif-zeep==0.2.12
+requests>=2.28,<3

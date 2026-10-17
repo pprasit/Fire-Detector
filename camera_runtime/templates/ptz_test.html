@@ -1,0 +1,1030 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#0b0f19">
+    <title> PTZ Mount Test Lab — Fire Sentinel 360</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        .test-wrapper {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 16px;
+            padding-bottom: 60px;
+        }
+
+        .test-grid {
+            display: grid;
+            grid-template-columns: 1.1fr 1fr;
+            gap: 16px;
+            margin-top: 14px;
+        }
+
+        @media (max-width: 1024px) {
+            .test-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Feeds Panel */
+        .feed-card-compact {
+            background: rgba(19, 27, 46, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 12px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .feed-container-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        @media (max-width: 640px) {
+            .feed-container-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .feed-box {
+            position: relative;
+            background: #000;
+            border-radius: 8px;
+            aspect-ratio: 4/3;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .feed-box img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: block;
+        }
+
+        .feed-crosshair {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .feed-crosshair::before {
+            content: '';
+            position: absolute;
+            width: 30px;
+            height: 1px;
+            background: rgba(255, 255, 255, 0.4);
+        }
+
+        .feed-crosshair::after {
+            content: '';
+            position: absolute;
+            height: 30px;
+            width: 1px;
+            background: rgba(255, 255, 255, 0.4);
+        }
+
+        .feed-badge {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            background: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(4px);
+        }
+
+        .feed-hud-coords {
+            position: absolute;
+            bottom: 8px;
+            right: 8px;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            background: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(4px);
+            color: #06b6d4;
+        }
+
+        /* Compass & Telemetry Widget */
+        .telemetry-hero {
+            display: grid;
+            grid-template-columns: 180px 1fr;
+            gap: 16px;
+            align-items: center;
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 14px;
+        }
+
+        @media (max-width: 600px) {
+            .telemetry-hero {
+                grid-template-columns: 1fr;
+                justify-items: center;
+                text-align: center;
+            }
+        }
+
+        .compass-canvas-box {
+            width: 170px;
+            height: 170px;
+            position: relative;
+        }
+
+        .telemetry-data-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            width: 100%;
+        }
+
+        .metric-cell {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 8px;
+            padding: 10px 12px;
+        }
+
+        .metric-title {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-muted, #94a3b8);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        .metric-value {
+            font-size: 22px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+        }
+
+        /* GOTO & Control Cards */
+        .control-card {
+            background: rgba(19, 27, 46, 0.75);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 14px;
+        }
+
+        .card-header-flex {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .card-header-flex h3 {
+            font-size: 14px;
+            font-weight: 700;
+            color: #fff;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .input-row-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        @media (max-width: 600px) {
+            .input-row-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .ctrl-input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .ctrl-input-group label {
+            font-size: 11px;
+            font-weight: 600;
+            color: #94a3b8;
+        }
+
+        .ctrl-input {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 6px;
+            padding: 8px 10px;
+            color: #fff;
+            font-size: 14px;
+            font-weight: 700;
+            width: 100%;
+            transition: all 0.2s;
+        }
+
+        .ctrl-input:focus {
+            outline: none;
+            border-color: #38bdf8;
+            box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.25);
+        }
+
+        /* Preset Chips */
+        .preset-chips-wrap {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-bottom: 12px;
+        }
+
+        .chip-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: #e2e8f0;
+            border-radius: 6px;
+            padding: 5px 10px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .chip-btn:hover {
+            background: rgba(56, 189, 248, 0.2);
+            border-color: #38bdf8;
+            color: #fff;
+            transform: translateY(-1px);
+        }
+
+        /* Virtual D-Pad / Joystick */
+        .dpad-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            max-width: 280px;
+            margin: 0 auto 14px auto;
+        }
+
+        .dpad-btn {
+            background: rgba(30, 41, 59, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #fff;
+            border-radius: 8px;
+            height: 52px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            font-weight: 700;
+            cursor: pointer;
+            user-select: none;
+            transition: all 0.1s;
+        }
+
+        .dpad-btn span.lbl {
+            font-size: 9px;
+            font-weight: 600;
+            color: #94a3b8;
+            margin-top: -2px;
+        }
+
+        .dpad-btn:hover {
+            background: rgba(56, 189, 248, 0.25);
+            border-color: #38bdf8;
+        }
+
+        .dpad-btn:active, .dpad-btn.active {
+            background: #0284c7;
+            border-color: #38bdf8;
+            transform: scale(0.95);
+            box-shadow: 0 0 12px rgba(2, 132, 199, 0.6);
+        }
+
+        .dpad-btn-center {
+            background: rgba(239, 68, 68, 0.2);
+            border-color: rgba(239, 68, 68, 0.4);
+            color: #f87171;
+        }
+
+        .dpad-btn-center:hover {
+            background: rgba(239, 68, 68, 0.4);
+            border-color: #ef4444;
+            color: #fff;
+        }
+
+        .dpad-btn-center:active {
+            background: #ef4444;
+            color: #fff;
+        }
+
+        /* Action Buttons */
+        .btn-goto-hero {
+            background: linear-gradient(135deg, #0284c7, #2563eb);
+            color: #fff;
+            font-weight: 800;
+            font-size: 14px;
+            padding: 12px 18px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            box-shadow: 0 4px 14px rgba(2, 132, 199, 0.4);
+            transition: all 0.2s;
+            width: 100%;
+        }
+
+        .btn-goto-hero:hover {
+            background: linear-gradient(135deg, #0369a1, #1d4ed8);
+            box-shadow: 0 6px 20px rgba(2, 132, 199, 0.6);
+            transform: translateY(-1px);
+        }
+
+        .btn-emergency-stop {
+            background: linear-gradient(135deg, #dc2626, #991b1b);
+            color: #fff;
+            font-weight: 800;
+            font-size: 13px;
+            padding: 10px 16px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            box-shadow: 0 4px 14px rgba(220, 38, 38, 0.4);
+            transition: all 0.2s;
+            width: 100%;
+        }
+
+        .btn-emergency-stop:hover {
+            background: linear-gradient(135deg, #b91c1c, #7f1d1d);
+            transform: translateY(-1px);
+        }
+
+        /* Log console */
+        .test-log-box {
+            background: #050811;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 10px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            height: 140px;
+            overflow-y: auto;
+            color: #94a3b8;
+        }
+
+        .log-entry {
+            margin-bottom: 4px;
+            line-height: 1.4;
+        }
+
+        .log-time {
+            color: #64748b;
+        }
+
+        .log-action {
+            color: #38bdf8;
+            font-weight: 700;
+        }
+
+        .log-ok {
+            color: #10b981;
+        }
+
+        .log-err {
+            color: #ef4444;
+        }
+    </style>
+</head>
+
+<body class="theme-dark">
+    <div class="test-wrapper">
+        <!-- Top Navigation Header -->
+        <header class="app-header" style="margin-bottom: 0;">
+            <div class="header-left">
+                <div class="logo-badge">
+                    <span class="fire-icon"></span>
+                    <div class="logo-text">
+                        <span class="logo-main">PTZ MOUNT TEST LAB</span>
+                        <span class="logo-sub font-mono">DIRECT POSITIONING & VELOCITY VERIFIER</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="header-center">
+                <div class="status-banner banner-normal">
+                    <span class="banner-icon"></span>
+                    <span class="banner-text">INTERACTIVE PTZ DIAGNOSTICS & SLEW LAB</span>
+                </div>
+            </div>
+
+            <div class="header-right">
+                <a href="/incidents" class="btn btn-secondary" style="font-size: 11px; padding: 6px 12px; text-decoration: none; margin-right: 8px;">
+                    INCIDENTS
+                </a>
+                <a href="/" class="btn btn-secondary" style="font-size: 11px; padding: 6px 12px; text-decoration: none; margin-right: 8px;">
+                    DASHBOARD
+                </a>
+                <a href="/settings" class="btn btn-secondary" style="font-size: 11px; padding: 6px 12px; text-decoration: none;">
+                    SETTINGS
+                </a>
+            </div>
+        </header>
+
+        <!-- Main Test Layout Grid -->
+        <div class="test-grid">
+            <!-- Left Column: Video Feeds & Telemetry Radar -->
+            <div>
+                <!-- Real-time Telemetry Card -->
+                <div class="telemetry-hero">
+                    <div class="compass-canvas-box">
+                        <canvas id="compass-canvas" width="170" height="170"></canvas>
+                    </div>
+
+                    <div class="telemetry-data-grid">
+                        <div class="metric-cell">
+                            <div class="metric-title"> Azimuth (Pan)</div>
+                            <div class="metric-value font-mono text-cyan" id="disp-cur-az">--.-°</div>
+                        </div>
+                        <div class="metric-cell">
+                            <div class="metric-title"> Altitude (Tilt)</div>
+                            <div class="metric-value font-mono text-orange" id="disp-cur-alt">--.-°</div>
+                        </div>
+                        <div class="metric-cell">
+                            <div class="metric-title"> Target Az / Alt</div>
+                            <div class="metric-value font-mono" style="font-size: 16px; color: #cbd5e1;" id="disp-target-coords">--.-° / --.-°</div>
+                        </div>
+                        <div class="metric-cell">
+                            <div class="metric-title"> Motion Status</div>
+                            <div class="metric-value font-mono" style="font-size: 16px; color: #10b981;" id="disp-motion-status">CONNECTED</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Dual Video Feeds Preview -->
+                <div class="feed-card-compact">
+                    <div class="card-header-flex">
+                        <h3> DUAL CAMERA LIVE AIMING VIEW</h3>
+                        <span class="font-mono text-muted" style="font-size: 11px;">15 FPS Feed</span>
+                    </div>
+
+                    <div class="feed-container-grid">
+                        <!-- Thermal Feed -->
+                        <div class="feed-box">
+                            <img src="/thermal_feed" alt="Thermal View" />
+                            <div class="feed-crosshair"></div>
+                            <div class="feed-badge text-orange"> THERMAL</div>
+                            <div class="feed-hud-coords font-mono" id="hud-th-coords">Az: --° | Alt: --°</div>
+                        </div>
+
+                        <!-- Visible Feed -->
+                        <div class="feed-box">
+                            <img src="/visible_feed" alt="Visible View" />
+                            <div class="feed-crosshair"></div>
+                            <div class="feed-badge text-cyan"> VISIBLE</div>
+                            <div class="feed-hud-coords font-mono" id="hud-vis-coords">Az: --° | Alt: --°</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Test Command Log Box -->
+                <div class="control-card" style="margin-top: 14px;">
+                    <div class="card-header-flex">
+                        <h3> COMMAND ACTIVITY LOG</h3>
+                        <button id="btn-clear-log" class="chip-btn" style="padding: 2px 8px; font-size: 10px;">CLEAR LOG</button>
+                    </div>
+                    <div class="test-log-box" id="test-log-console">
+                        <div class="log-entry"><span class="log-time">[00:00:00]</span> <span class="log-ok">PTZ Test Lab initialized and ready.</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Interactive PTZ Movement Controls -->
+            <div>
+                <!-- Card 0: Motor Enable / Disable Power Control -->
+                <div class="control-card" style="border-color: rgba(56, 189, 248, 0.3); background: rgba(15, 23, 42, 0.85);">
+                    <div class="card-header-flex">
+                        <h3> PTZ MOTOR DRIVERS (ARM / DISARM)</h3>
+                        <span id="disp-motor-arm-badge" class="badge" style="background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4); padding: 3px 10px; border-radius: 6px; font-weight: 700; font-size: 11px;">
+                             DISARMED (IDLE)
+                        </span>
+                    </div>
+
+                    <p style="font-size: 12px; color: #94a3b8; margin: 0 0 10px 0; line-height: 1.4;">
+                        เมื่อเปิดระบบใหม่ มอเตอร์ ODrive อาจอยู่ในสถานะ Idle (Disarmed) ให้กด <strong>ENABLE MOTORS</strong> เพื่อเข้าสู่โหมด Closed-Loop Control ก่อนสั่งหมุน
+                    </p>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 8px;">
+                        <button id="btn-enable-motors" class="btn btn-emerald" style="font-size: 13px; font-weight: 800; padding: 10px; box-shadow: 0 0 12px rgba(16, 185, 129, 0.3);">
+                             ENABLE MOTORS (ARM)
+                        </button>
+                        <button id="btn-disable-motors" class="btn btn-danger" style="font-size: 13px; font-weight: 800; padding: 10px;">
+                             DISABLE MOTORS (IDLE)
+                        </button>
+                    </div>
+
+                    <div style="display: flex; justify-content: space-between; gap: 6px;">
+                        <button class="chip-btn" id="btn-arm-az" style="flex: 1; text-align: center;"> Arm Azimuth (Pan)</button>
+                        <button class="chip-btn" id="btn-disarm-az" style="flex: 1; text-align: center;"> Disarm Azimuth</button>
+                        <button class="chip-btn" id="btn-arm-alt" style="flex: 1; text-align: center;"> Arm Altitude (Tilt)</button>
+                        <button class="chip-btn" id="btn-disarm-alt" style="flex: 1; text-align: center;"> Disarm Altitude</button>
+                    </div>
+                </div>
+
+                <!-- Card 1: Absolute GOTO Positioning -->
+                <div class="control-card">
+                    <div class="card-header-flex">
+                        <h3> ABSOLUTE COORDINATES (GOTO TARGET)</h3>
+                        <span class="sub-label">PRECISION SLEW</span>
+                    </div>
+
+                    <div class="input-row-grid">
+                        <div class="ctrl-input-group">
+                            <label>Azimuth Target (°) [-300° to +300°]:</label>
+                            <input type="number" id="input-goto-az" class="ctrl-input font-mono" value="0.0" step="1.0" min="-300.0" max="300.0" />
+                        </div>
+                        <div class="ctrl-input-group">
+                            <label>Altitude Target (°) [-10° to +45°]:</label>
+                            <input type="number" id="input-goto-alt" class="ctrl-input font-mono" value="0.0" step="1.0" min="-10.0" max="45.0" />
+                        </div>
+                        <div class="ctrl-input-group">
+                            <label>Speed (°/s):</label>
+                            <input type="number" id="input-goto-speed" class="ctrl-input font-mono" value="10.0" step="1.0" min="1.0" max="10.0" />
+                        </div>
+                    </div>
+
+                    <!-- Quick Heading Presets -->
+                    <div style="font-size: 11px; font-weight: 600; color: #94a3b8; margin-bottom: 6px;">QUICK AZIMUTH PRESETS (PAN):</div>
+                    <div class="preset-chips-wrap">
+                        <button class="chip-btn" data-az="-300.0">◄◄ -300° (Limit)</button>
+                        <button class="chip-btn" data-az="-180.0">-180°</button>
+                        <button class="chip-btn" data-az="-90.0">-90°</button>
+                        <button class="chip-btn" data-az="0.0"> N (0°)</button>
+                        <button class="chip-btn" data-az="90.0">E (90°)</button>
+                        <button class="chip-btn" data-az="180.0">S (180°)</button>
+                        <button class="chip-btn" data-az="270.0">W (270°)</button>
+                        <button class="chip-btn" data-az="300.0">►► +300° (Limit)</button>
+                        <button class="chip-btn" data-az="0.0" data-alt="0.0" style="background: rgba(16, 185, 129, 0.2); border-color: #10b981; color: #10b981;"> HOME (0,0)</button>
+                    </div>
+
+                    <!-- Quick Pitch Presets -->
+                    <div style="font-size: 11px; font-weight: 600; color: #94a3b8; margin-bottom: 6px;">QUICK ALTITUDE PRESETS (TILT):</div>
+                    <div class="preset-chips-wrap">
+                        <button class="chip-btn" data-alt="-20.0">▼ -20° (Ground)</button>
+                        <button class="chip-btn" data-alt="-10.0">▼ -10° (Down)</button>
+                        <button class="chip-btn" data-alt="0.0">— 0° (Horizon)</button>
+                        <button class="chip-btn" data-alt="10.0">▲ +10° (Slope)</button>
+                        <button class="chip-btn" data-alt="25.0">▲ +25° (Hill)</button>
+                        <button class="chip-btn" data-alt="45.0">▲ +45° (Sky)</button>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 140px; gap: 10px; margin-top: 10px;">
+                        <button id="btn-exec-goto" class="btn-goto-hero">
+                            <span> SLEW TO TARGET POSITION</span>
+                        </button>
+                        <button id="btn-goto-stop" class="btn-emergency-stop">
+                            <span>STOP STOP</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Card 2: Interactive D-Pad & Manual Jogging -->
+                <div class="control-card">
+                    <div class="card-header-flex">
+                        <h3> D-PAD & STEP JOGGING</h3>
+                        <!-- Step Size Selector -->
+                        <div class="segmented-control" style="margin-bottom: 0; padding: 2px;">
+                            <button type="button" class="segment-btn segment-btn-sm" data-step="0.5">0.5°</button>
+                            <button type="button" class="segment-btn segment-btn-sm active" data-step="2.0">2.0°</button>
+                            <button type="button" class="segment-btn segment-btn-sm" data-step="5.0">5.0°</button>
+                            <button type="button" class="segment-btn segment-btn-sm" data-step="15.0">15.0°</button>
+                        </div>
+                    </div>
+
+                    <!-- 8-Way D-Pad Grid -->
+                    <div class="dpad-container">
+                        <button class="dpad-btn" id="dpad-ul" data-dir="ul">▲ NW<span class="lbl">NW</span></button>
+                        <button class="dpad-btn" id="dpad-u" data-dir="u">▲ UP<span class="lbl">UP (+ALT)</span></button>
+                        <button class="dpad-btn" id="dpad-ur" data-dir="ur">▲ NE<span class="lbl">NE</span></button>
+
+                        <button class="dpad-btn" id="dpad-l" data-dir="l">◀ LEFT<span class="lbl">LEFT (-AZ)</span></button>
+                        <button class="dpad-btn dpad-btn-center" id="dpad-center" data-dir="stop">STOP<span class="lbl" style="color:#f87171;">STOP</span></button>
+                        <button class="dpad-btn" id="dpad-r" data-dir="r"> RIGHT<span class="lbl">RIGHT (+AZ)</span></button>
+
+                        <button class="dpad-btn" id="dpad-dl" data-dir="dl">▼ SW<span class="lbl">SW</span></button>
+                        <button class="dpad-btn" id="dpad-d" data-dir="d">▼ DOWN<span class="lbl">DOWN (-ALT)</span></button>
+                        <button class="dpad-btn" id="dpad-dr" data-dir="dr">▼ SE<span class="lbl">SE</span></button>
+                    </div>
+
+                    <!-- Jog Speed Slider -->
+                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 10px;">
+                        <span style="font-size: 11px; font-weight: 600; color: #94a3b8; white-space: nowrap;">Jog Speed:</span>
+                        <input type="range" id="jog-speed-slider" min="0.5" max="20.0" step="0.5" value="5.0" class="zoom-range-slider range-cyan" style="flex: 1;" />
+                        <span id="disp-jog-speed-val" class="font-mono text-cyan" style="font-weight: 700; width: 45px; text-align: right;">5.0°/s</span>
+                    </div>
+                </div>
+
+                <!-- Card 3: Continuous Pan & Calibration Sweep -->
+                <div class="control-card">
+                    <div class="card-header-flex">
+                        <h3> CONTINUOUS SWEEP & PAN TEST</h3>
+                        <span class="sub-label">VELOCITY VECTOR</span>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 120px; gap: 8px;">
+                        <button id="btn-pan-left" class="btn btn-secondary" style="font-size: 12px; padding: 10px;">
+                             PAN LEFT (◄)
+                        </button>
+                        <button id="btn-pan-right" class="btn btn-secondary" style="font-size: 12px; padding: 10px;">
+                            PAN RIGHT (►)
+                        </button>
+                        <button id="btn-pan-stop" class="btn btn-danger" style="font-size: 12px; padding: 10px;">
+                             STOP
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Interactive Script for PTZ Test Lab -->
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            let curAz = 0.0;
+            let curAlt = 0.0;
+            let targetAz = 0.0;
+            let targetAlt = 0.0;
+            let currentStepSize = 2.0;
+
+            const dispCurAz = document.getElementById("disp-cur-az");
+            const dispCurAlt = document.getElementById("disp-cur-alt");
+            const dispTargetCoords = document.getElementById("disp-target-coords");
+            const dispMotionStatus = document.getElementById("disp-motion-status");
+            const hudThCoords = document.getElementById("hud-th-coords");
+            const hudVisCoords = document.getElementById("hud-vis-coords");
+            const logConsole = document.getElementById("test-log-console");
+
+            function addLog(action, msg, isOk = true) {
+                if (!logConsole) return;
+                const now = new Date().toTimeString().split(' ')[0];
+                const entry = document.createElement("div");
+                entry.className = "log-entry";
+                entry.innerHTML = `<span class="log-time">[${now}]</span> <span class="log-action">${action}:</span> <span class="${isOk ? 'log-ok' : 'log-err'}">${msg}</span>`;
+                logConsole.prepend(entry);
+            }
+
+            document.getElementById("btn-clear-log")?.addEventListener("click", () => {
+                if (logConsole) logConsole.innerHTML = "";
+            });
+
+            // -----------------------------------------------------------------
+            // Compass Canvas Drawing
+            // -----------------------------------------------------------------
+            const canvas = document.getElementById("compass-canvas");
+            const ctx = canvas ? canvas.getContext("2d") : null;
+
+            function drawCompass(azDeg) {
+                if (!ctx) return;
+                const w = canvas.width;
+                const h = canvas.height;
+                const cx = w / 2;
+                const cy = h / 2;
+                const r = cx - 12;
+
+                ctx.clearRect(0, 0, w, h);
+
+                // Outer Dial Ring
+                ctx.beginPath();
+                ctx.arc(cx, cy, r, 0, 2 * Math.PI);
+                ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Inner Glow Background
+                ctx.beginPath();
+                ctx.arc(cx, cy, r - 4, 0, 2 * Math.PI);
+                ctx.fillStyle = "rgba(15, 23, 42, 0.6)";
+                ctx.fill();
+
+                // Tick Marks
+                for (let a = 0; a < 360; a += 15) {
+                    const rad = (a - 90) * Math.PI / 180;
+                    const isMajor = a % 45 === 0;
+                    const tickLen = isMajor ? 8 : 4;
+
+                    const x1 = cx + (r - 2) * Math.cos(rad);
+                    const y1 = cy + (r - 2) * Math.sin(rad);
+                    const x2 = cx + (r - 2 - tickLen) * Math.cos(rad);
+                    const y2 = cy + (r - 2 - tickLen) * Math.sin(rad);
+
+                    ctx.beginPath();
+                    ctx.moveTo(x1, y1);
+                    ctx.lineTo(x2, y2);
+                    ctx.strokeStyle = isMajor ? "#38bdf8" : "rgba(255, 255, 255, 0.25)";
+                    ctx.lineWidth = isMajor ? 2 : 1;
+                    ctx.stroke();
+                }
+
+                // Cardinal Labels
+                const cardinals = [
+                    { label: "N", angle: 0, color: "#f87171" },
+                    { label: "E", angle: 90, color: "#94a3b8" },
+                    { label: "S", angle: 180, color: "#94a3b8" },
+                    { label: "W", angle: 270, color: "#94a3b8" }
+                ];
+                ctx.font = "bold 11px Inter, sans-serif";
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+
+                cardinals.forEach(c => {
+                    const rad = (c.angle - 90) * Math.PI / 180;
+                    const lx = cx + (r - 18) * Math.cos(rad);
+                    const ly = cy + (r - 18) * Math.sin(rad);
+                    ctx.fillStyle = c.color;
+                    ctx.fillText(c.label, lx, ly);
+                });
+
+                // Heading Needle (Current Azimuth)
+                const needleRad = (azDeg - 90) * Math.PI / 180;
+                const tipX = cx + (r - 12) * Math.cos(needleRad);
+                const tipY = cy + (r - 12) * Math.sin(needleRad);
+                const tailX = cx - (r - 35) * Math.cos(needleRad);
+                const tailY = cy - (r - 35) * Math.sin(needleRad);
+
+                // Needle Line
+                ctx.beginPath();
+                ctx.moveTo(tailX, tailY);
+                ctx.lineTo(tipX, tipY);
+                ctx.strokeStyle = "#38bdf8";
+                ctx.lineWidth = 3;
+                ctx.stroke();
+
+                // Arrow Head
+                ctx.beginPath();
+                ctx.arc(tipX, tipY, 4, 0, 2 * Math.PI);
+                ctx.fillStyle = "#38bdf8";
+                ctx.fill();
+
+                // Center Pin
+                ctx.beginPath();
+                ctx.arc(cx, cy, 5, 0, 2 * Math.PI);
+                ctx.fillStyle = "#fff";
+                ctx.fill();
+            }
+
+            const dispMotorArmBadge = document.getElementById("disp-motor-arm-badge");
+
+            // -----------------------------------------------------------------
+            // Telemetry Fetcher
+            // -----------------------------------------------------------------
+            async function updateTelemetry() {
+                try {
+                    const res = await fetch("/api/telemetry");
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data.ptz) {
+                            curAz = parseFloat(data.ptz.az || 0.0);
+                            curAlt = parseFloat(data.ptz.alt || 0.0);
+                            const isArmed = Boolean(data.ptz.is_armed);
+
+                            if (dispCurAz) dispCurAz.textContent = curAz.toFixed(1) + "°";
+                            if (dispCurAlt) dispCurAlt.textContent = curAlt.toFixed(1) + "°";
+
+                            const coordStr = `Az: ${curAz.toFixed(1)}° | Alt: ${curAlt.toFixed(1)}°`;
+                            if (hudThCoords) hudThCoords.textContent = coordStr;
+                            if (hudVisCoords) hudVisCoords.textContent = coordStr;
+
+                            if (dispMotorArmBadge) {
+                                if (isArmed) {
+                                    dispMotorArmBadge.textContent = " ARMED (ACTIVE)";
+                                    dispMotorArmBadge.style.background = "rgba(16, 185, 129, 0.25)";
+                                    dispMotorArmBadge.style.borderColor = "#10b981";
+                                    dispMotorArmBadge.style.color = "#34d399";
+                                } else {
+                                    dispMotorArmBadge.textContent = " DISARMED (IDLE)";
+                                    dispMotorArmBadge.style.background = "rgba(239, 68, 68, 0.2)";
+                                    dispMotorArmBadge.style.borderColor = "#ef4444";
+                                    dispMotorArmBadge.style.color = "#f87171";
+                                }
+                            }
+
+                            drawCompass(curAz);
+                        }
+                    }
+                } catch (e) {
+                    console.error("Telemetry fetch failed:", e);
+                }
+            }
+
+            setInterval(updateTelemetry, 150);
+            updateTelemetry();
+
+            // -----------------------------------------------------------------
+            // Control API Sender
+            // -----------------------------------------------------------------
+            async function sendPTZ(payload) {
+                try {
+                    addLog(payload.action.toUpperCase(), JSON.stringify(payload), true);
+                    const res = await fetch("/api/ptz/control", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(payload)
+                    });
+                    const data = await res.json();
+                    updateTelemetry();
+                    return data;
+                } catch (e) {
+                    addLog(payload.action.toUpperCase(), "Error: " + e.message, false);
+                    return null;
+                }
+            }
+
+            // -----------------------------------------------------------------
+            // Motor Arming / Disarming Actions
+            // -----------------------------------------------------------------
+            document.getElementById("btn-enable-motors")?.addEventListener("click", () => {
+                sendPTZ({ action: "enable" });
+            });
+
+            document.getElementById("btn-disable-motors")?.addEventListener("click", () => {
+                sendPTZ({ action: "disable" });
+            });
+
+            document.getElementById("btn-arm-az")?.addEventListener("click", () => {
+                sendPTZ({ action: "enable", axis: "Azimuth" });
+            });
+
+            document.getElementById("btn-disarm-az")?.addEventListener("click", () => {
+                sendPTZ({ action: "disable", axis: "Azimuth" });
+            });
+
+            document.getElementById("btn-arm-alt")?.addEventListener("click", () => {
+                sendPTZ({ action: "enable", axis: "Altitude" });
+            });
+
+            document.getElementById("btn-disarm-alt")?.addEventListener("click", () => {
+                sendPTZ({ action: "disable", axis: "Altitude" });
+            });
+
+            // -----------------------------------------------------------------
+            // GOTO Target Slew Action
+            // -----------------------------------------------------------------
+            const btnExecGoto = document.getElementById("btn-exec-goto");
+            const btnGotoStop = document.getElementById("btn-goto-stop");
+            const inputGotoAz = document.getElementById("input-goto-az");
+            const inputGotoAlt = document.getElementById("input-goto-alt");
+            const inputGotoSpeed = document.getElementById("input-goto-speed");
+
+            if (btnExecGoto) {
+                btnExecGoto.addEventListener("click", () => {
+                    const az = parseFloat(inputGotoAz?.value || 0.0);
+                    const alt = parseFloat(inputGotoAlt?.value || 0.0);
+                    const speed = parseFloat(inputGotoSpeed?.value || 15.0);
+
+                    if (dispTargetCoords) dispTargetCoords.textContent = `${az.toFixed(1)}° / ${alt.toFixed(1)}°`;
+                    sendPTZ({
+                        action: "goto",
+                        az: az,
+                        alt: alt,
+                        speed: speed
+                    });
+                });
+            }
+
+            if (btnGotoStop) {
+                btnGotoStop.addEventListener("click", () => {
+                    sendPTZ({ action: "stop" });
+                });
+            }
+
+            // Preset Chips
+            document.querySelectorAll(".preset-chips-wrap .chip-btn").forEach(chip => {
+                chip.addEventListener("click", () => {
+                    if (chip.dataset.az !== undefined && inputGotoAz) {
+                        inputGotoAz.value = parseFloat(chip.dataset.az).toFixed(1);
+                    }
+                    if (chip.dataset.alt !== undefined && inputGotoAlt) {
+                        inputGotoAlt.value = parseFloat(chip.dataset.alt).toFixed(1);
+                    }
+                    if (btnExecGoto) btnExecGoto.click();
+                });
+            });
+
+            // -----------------------------------------------------------------
+            // Step Size Selector
+            // -----------------------------------------------------------------
+            document.querySelectorAll(".segmented-control button[data-step]").forEach(btn => {
+                btn.addEventListener("click", () => {
+                    document.querySelectorAll(".segmented-control button[data-step]").forEach(b => b.classList.remove("active"));
+                    btn.classList.add("active");
+                    currentStepSize = parseFloat(btn.dataset.step);
+                });
+            });
+
+            // Jog Speed Slider
+            const jogSlider = document.getElementById("jog-speed-slider");
+            const dispJogVal = document.getElementById("disp-jog-speed-val");
+            if (jogSlider && dispJogVal) {
+                jogSlider.addEventListener("input", (e) => {
+                    dispJogVal.textContent = parseFloat(e.target.value).toFixed(1) + "°/s";
+                });
+            }
+
+            // -----------------------------------------------------------------
+            // D-Pad Directional Controls (Supports Click & Hold)
+            // -----------------------------------------------------------------
+            const dirVectors = {
+                "u": { d_az: 0, d_alt: 1, az_vel: 0, alt_vel: 1 },
+                "d": { d_az: 0, d_alt: -1, az_vel: 0, alt_vel: -1 },
+                "l": { d_az: -1, d_alt: 0, az_vel: -1, alt_vel: 0 },
+                "r": { d_az: 1, d_alt: 0, az_vel: 1, alt_vel: 0 },
+                "ul": { d_az: -1, d_alt: 1, az_vel: -1, alt_vel: 1 },
+                "ur": { d_az: 1, d_alt: 1, az_vel: 1, alt_vel: 1 },
+                "dl": { d_az: -1, d_alt: -1, az_vel: -1, alt_vel: -1 },
+                "dr": { d_az: 1, d_alt: -1, az_vel: 1, alt_vel: -1 },
+                "stop": { d_az: 0, d_alt: 0, az_vel: 0, alt_vel: 0 }
+            };
+
+            document.querySelectorAll(".dpad-btn").forEach(btn => {
+                const dir = btn.dataset.dir;
+                if (!dir) return;
+
+                btn.addEventListener("click", () => {
+                    if (dir === "stop") {
+                        sendPTZ({ action: "stop" });
+                        return;
+                    }
+                    const vec = dirVectors[dir];
+                    const speed = parseFloat(jogSlider?.value || 10.0);
+                    sendPTZ({
+                        action: "step_move",
+                        d_az: vec.d_az * currentStepSize,
+                        d_alt: vec.d_alt * currentStepSize,
+                        speed: speed
+                    });
+                });
+            });
+
+            // -----------------------------------------------------------------
+            // Continuous Pan Controls
+            // -----------------------------------------------------------------
+            document.getElementById("btn-pan-left")?.addEventListener("click", () => {
+                const speed = parseFloat(jogSlider?.value || 2.0);
+                sendPTZ({ action: "pan_continuous", direction: "left", speed: speed });
+            });
+
+            document.getElementById("btn-pan-right")?.addEventListener("click", () => {
+                const speed = parseFloat(jogSlider?.value || 2.0);
+                sendPTZ({ action: "pan_continuous", direction: "right", speed: speed });
+            });
+
+            document.getElementById("btn-pan-stop")?.addEventListener("click", () => {
+                sendPTZ({ action: "stop" });
+            });
+
+            // Keyboard Arrow Key Shortcuts for PTZ Testing
+            window.addEventListener("keydown", (e) => {
+                if (["INPUT", "TEXTAREA"].includes(document.activeElement.tagName)) return;
+
+                if (e.key === "ArrowUp") {
+                    e.preventDefault();
+                    document.getElementById("dpad-u")?.click();
+                } else if (e.key === "ArrowDown") {
+                    e.preventDefault();
+                    document.getElementById("dpad-d")?.click();
+                } else if (e.key === "ArrowLeft") {
+                    e.preventDefault();
+                    document.getElementById("dpad-l")?.click();
+                } else if (e.key === "ArrowRight") {
+                    e.preventDefault();
+                    document.getElementById("dpad-r")?.click();
+                } else if (e.key === " " || e.key === "Escape") {
+                    e.preventDefault();
+                    sendPTZ({ action: "stop" });
+                }
+            });
+        });
+    </script>
+</body>
+
+</html>

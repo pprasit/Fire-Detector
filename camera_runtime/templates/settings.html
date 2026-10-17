@@ -1,0 +1,1744 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#0b0f19">
+    <title> System Configuration - Fire Sentinel 360</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css" />
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        body {
+            overflow-x: hidden;
+            background-color: var(--bg-main, #0b0f19);
+            color: var(--text-main, #f3f4f6);
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+
+        .settings-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px 16px;
+            padding-bottom: 80px;
+        }
+
+        .nav-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 14px;
+            border-bottom: 1px solid var(--border-color);
+            gap: 12px;
+        }
+
+        .nav-header-left h1 {
+            font-size: 20px;
+            font-weight: 800;
+            color: #fff;
+            margin: 0 0 4px 0;
+        }
+
+        .nav-header-left p {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin: 0;
+        }
+
+        .config-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+            gap: 16px;
+            margin-bottom: 20px;
+            align-items: start;
+        }
+
+        .config-card {
+            background: rgba(18, 24, 38, 0.75);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 18px 16px;
+            min-width: 0;
+            overflow: hidden;
+        }
+
+        .config-section-title {
+            font-size: 14px;
+            font-weight: 700;
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #fff;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            padding-bottom: 8px;
+        }
+
+        .field-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-bottom: 12px;
+            min-width: 0;
+        }
+
+        .field-group label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+
+        .field-row {
+            display: flex;
+            gap: 8px;
+            width: 100%;
+            min-width: 0;
+        }
+
+        .field-group input, .field-group select {
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--border-color);
+            color: #fff;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 14px;
+            outline: none;
+            transition: all 0.2s;
+            width: 100%;
+            box-sizing: border-box;
+            min-width: 0;
+            min-height: 38px;
+        }
+
+        .field-group input:focus, .field-group select:focus {
+            border-color: var(--cyan-primary);
+            box-shadow: 0 0 8px rgba(6, 182, 212, 0.25);
+        }
+
+        .polar-content-row {
+            display: flex;
+            flex-direction: row;
+            gap: 20px;
+            align-items: flex-start;
+            justify-content: space-between;
+            flex-wrap: wrap;
+        }
+
+        .polar-canvas-box {
+            background: rgba(0, 0, 0, 0.45);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.7);
+            width: 320px;
+            max-width: 100%;
+            margin: 0 auto;
+            flex-shrink: 0;
+        }
+
+        #polar-canvas {
+            width: 100%;
+            max-width: 300px;
+            height: auto;
+            aspect-ratio: 1 / 1;
+            display: block;
+        }
+
+        .action-bar {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 12px;
+            position: sticky;
+            bottom: 12px;
+            background: rgba(11, 15, 25, 0.95);
+            padding: 10px 16px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(16px);
+            margin-top: 20px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+            z-index: 100;
+        }
+
+        .action-bar .btn {
+            min-height: 38px;
+            padding: 0 16px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12.5px;
+            font-weight: 700;
+            border-radius: 8px;
+            touch-action: manipulation;
+        }
+
+        /* Mobile Responsive Adjustments */
+        @media (max-width: 768px) {
+            .settings-container {
+                padding: 12px 8px;
+                padding-bottom: 90px;
+            }
+
+            .nav-header {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 10px;
+            }
+
+            .nav-header-left h1 {
+                font-size: 16px;
+            }
+
+            .nav-header-left p {
+                font-size: 12px;
+            }
+
+            .nav-header .btn {
+                width: 100%;
+                justify-content: center;
+                min-height: 40px;
+            }
+
+            .config-grid {
+                grid-template-columns: 1fr;
+                gap: 12px;
+            }
+
+            .config-card {
+                padding: 14px 12px;
+            }
+
+            .polar-content-row {
+                flex-direction: column;
+                gap: 14px;
+                align-items: center;
+            }
+
+            .polar-canvas-box {
+                width: 260px;
+                max-width: 100%;
+                padding: 8px;
+            }
+
+            #polar-canvas {
+                width: 100% !important;
+                max-width: 240px;
+                height: auto !important;
+            }
+
+            .action-bar {
+                flex-wrap: wrap;
+                gap: 8px;
+                padding: 8px 10px;
+                bottom: 8px;
+            }
+
+            #save-status {
+                width: 100%;
+                text-align: center;
+                font-size: 12px;
+            }
+
+            .action-bar .btn {
+                flex: 1;
+                min-height: 42px;
+                font-size: 12px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .field-row {
+                flex-direction: row;
+                gap: 6px;
+            }
+
+            #settings-continuous-fields {
+                grid-template-columns: 1fr !important;
+            }
+
+            .polar-canvas-box {
+                width: 220px;
+                padding: 6px;
+            }
+
+            #polar-canvas {
+                max-width: 200px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="settings-container">
+        <!-- Header -->
+        <header class="nav-header">
+            <div class="nav-header-left">
+                <h1> SYSTEM PARAMETER CONFIGURATION</h1>
+                <p>ปรับแต่งค่าการทำงานของกล้องทั้ง 2 ตัว, การสแกน PTZ, โมเดล NCNN AI และ Kalman Filter</p>
+            </div>
+            <div style="display: flex; gap: 8px;">
+                <a href="/incidents" class="btn btn-secondary"> Incident Archive</a>
+                <a href="/ptz_test" class="btn btn-secondary"> PTZ Test Lab</a>
+                <a href="/" class="btn btn-secondary"> Dashboard</a>
+            </div>
+        </header>
+
+        <form id="config-form">
+            <div class="config-grid">
+                <!-- 1. Thermal Camera Config -->
+                <div class="config-card">
+                    <h2 class="config-section-title"> 1. THERMAL CAMERA (31-155mm)</h2>
+                    <div class="field-group">
+                        <label>Camera IP Address:</label>
+                        <input type="text" id="th-ip" value="{{ config.cameras.thermal.ip }}" />
+                    </div>
+                    <div class="field-group">
+                        <label>ONVIF Port:</label>
+                        <input type="number" id="th-onvif-port" value="{{ config.cameras.thermal.onvif_port }}" />
+                    </div>
+                    <div class="field-group">
+                        <label>Username / Password:</label>
+                        <div class="field-row">
+                            <input type="text" id="th-user" value="{{ config.cameras.thermal.username }}" style="flex:1;" />
+                            <input type="password" id="th-pass" value="{{ config.cameras.thermal.password }}" style="flex:1;" />
+                        </div>
+                    </div>
+                    <div class="field-group">
+                        <label>RTSP Substream URL (AI & Feed):</label>
+                        <input type="text" id="th-rtsp" value="{{ config.cameras.thermal.rtsp_url }}" class="font-mono" />
+                    </div>
+                    <div class="field-group">
+                        <label>Focal Range (Min / Max mm):</label>
+                        <div class="field-row">
+                            <input type="number" id="th-focal-min" value="{{ config.cameras.thermal.min_focal_mm }}" step="1" style="flex:1;" />
+                            <input type="number" id="th-focal-max" value="{{ config.cameras.thermal.max_focal_mm }}" step="1" style="flex:1;" />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 1.1 Thermal Graphic & Auto-Brightness -->
+                <div class="config-card">
+                    <h2 class="config-section-title"> 1.1 THERMAL AUTO-BRIGHTNESS & GRAPHIC</h2>
+                    <p style="font-size: 11px; color: var(--text-muted); margin-top: -6px; margin-bottom: 12px;">
+                        ปรับระดับความสว่าง (Brightness) และคอนทราสต์อัตโนมัติ เพื่อตัดปัญหาหลังคาและยอดไม้ร้อนแดดในเวลากลางวัน
+                    </p>
+
+                    <div class="field-group">
+                        <label>โหมดควบคุมความสว่าง (Auto Mode):</label>
+                        <select id="th-auto-mode" onchange="onAutoModeChange()">
+                            <option value="SCHEDULE" {% if config.thermal_imaging and config.thermal_imaging.auto_mode == 'SCHEDULE' %}selected{% endif %}>⏰ ตามตารางเวลากลางวัน/กลางคืน (Schedule - แนะนำ)</option>
+                            <option value="DYNAMIC" {% if config.thermal_imaging and config.thermal_imaging.auto_mode == 'DYNAMIC' %}selected{% endif %}>☀️ ตามความสว่างภาพจริง (Dynamic Luma Feedback)</option>
+                            <option value="OFF" {% if config.thermal_imaging and config.thermal_imaging.auto_mode == 'OFF' %}selected{% endif %}>⚙️ ปรับด้วยตนเอง (Manual)</option>
+                        </select>
+                    </div>
+
+                    <!-- Live Brightness / Contrast Slider -->
+                    <div style="background: rgba(0, 0, 0, 0.35); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; margin-bottom: 12px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <span style="font-size: 12px; font-weight: 600; color: #fff;">ค่าปัจจุบันที่กล้อง (Live Hardware Values)</span>
+                            <button type="button" id="btn-apply-thermal-live" class="btn btn-secondary" style="padding: 4px 12px; font-size: 11px; min-height: 28px;" onclick="applyThermalGraphicLive()">
+                                ⚡ ส่งค่าทันที
+                            </button>
+                        </div>
+                        <div class="field-group" style="margin-bottom: 8px;">
+                            <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--text-muted); margin-bottom: 2px;">
+                                <span>Brightness (ความสว่าง):</span>
+                                <span id="val-th-current-b" style="color: var(--cyan-primary); font-weight: 700;">{{ config.thermal_imaging.current_brightness if config.thermal_imaging else 64 }}</span>
+                            </div>
+                            <input type="range" id="th-current-b" min="0" max="255" value="{{ config.thermal_imaging.current_brightness if config.thermal_imaging else 64 }}" oninput="document.getElementById('val-th-current-b').textContent = this.value" style="accent-color: var(--cyan-primary); cursor: pointer; width: 100%;" />
+                        </div>
+                        <div class="field-group" style="margin-bottom: 0;">
+                            <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--text-muted); margin-bottom: 2px;">
+                                <span>Contrast (คอนทราสต์):</span>
+                                <span id="val-th-current-c" style="color: var(--cyan-primary); font-weight: 700;">{{ config.thermal_imaging.current_contrast if config.thermal_imaging else 128 }}</span>
+                            </div>
+                            <input type="range" id="th-current-c" min="0" max="255" value="{{ config.thermal_imaging.current_contrast if config.thermal_imaging else 128 }}" oninput="document.getElementById('val-th-current-c').textContent = this.value" style="accent-color: var(--cyan-primary); cursor: pointer; width: 100%;" />
+                        </div>
+                    </div>
+
+                    <!-- Schedule Settings Box -->
+                    <div id="box-schedule-settings" style="background: rgba(249, 115, 22, 0.08); border: 1px solid rgba(249, 115, 22, 0.3); border-radius: 8px; padding: 12px; margin-bottom: 12px;">
+                        <span style="font-size: 12px; font-weight: 600; color: #f97316; display: block; margin-bottom: 8px;">☀️ กลางวัน (Daytime Profile):</span>
+                        <div class="field-row" style="margin-bottom: 8px;">
+                            <div class="field-group" style="flex:1;">
+                                <label style="font-size: 11px;">เวลาเริ่มกลางวัน:</label>
+                                <input type="time" id="th-sched-day-start" value="{{ config.thermal_imaging.schedule_day_start if config.thermal_imaging else '07:30' }}" />
+                            </div>
+                            <div class="field-group" style="flex:1;">
+                                <label style="font-size: 11px;">Day Brightness:</label>
+                                <input type="number" id="th-day-b" value="{{ config.thermal_imaging.day_brightness if config.thermal_imaging else 46 }}" min="0" max="255" />
+                            </div>
+                            <div class="field-group" style="flex:1;">
+                                <label style="font-size: 11px;">Day Contrast:</label>
+                                <input type="number" id="th-day-c" value="{{ config.thermal_imaging.day_contrast if config.thermal_imaging else 135 }}" min="0" max="255" />
+                            </div>
+                        </div>
+                        <span style="font-size: 12px; font-weight: 600; color: #38bdf8; display: block; margin-bottom: 8px;">🌙 กลางคืน (Nighttime Profile):</span>
+                        <div class="field-row">
+                            <div class="field-group" style="flex:1;">
+                                <label style="font-size: 11px;">เวลาเริ่มกลางคืน:</label>
+                                <input type="time" id="th-sched-night-start" value="{{ config.thermal_imaging.schedule_night_start if config.thermal_imaging else '17:30' }}" />
+                            </div>
+                            <div class="field-group" style="flex:1;">
+                                <label style="font-size: 11px;">Night Brightness:</label>
+                                <input type="number" id="th-night-b" value="{{ config.thermal_imaging.night_brightness if config.thermal_imaging else 64 }}" min="0" max="255" />
+                            </div>
+                            <div class="field-group" style="flex:1;">
+                                <label style="font-size: 11px;">Night Contrast:</label>
+                                <input type="number" id="th-night-c" value="{{ config.thermal_imaging.night_contrast if config.thermal_imaging else 128 }}" min="0" max="255" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Dynamic Settings Box -->
+                    <div id="box-dynamic-settings" style="background: rgba(6, 182, 212, 0.08); border: 1px solid rgba(6, 182, 212, 0.3); border-radius: 8px; padding: 12px; display: none;">
+                        <span style="font-size: 12px; font-weight: 600; color: #06b6d4; display: block; margin-bottom: 8px;">🔍 Dynamic Luminance Settings:</span>
+                        <div class="field-row">
+                            <div class="field-group" style="flex:1;">
+                                <label style="font-size: 11px;">Target Luma:</label>
+                                <input type="number" id="th-dyn-target-luma" value="{{ config.thermal_imaging.dynamic_target_luma if config.thermal_imaging else 35.0 }}" step="0.5" />
+                            </div>
+                            <div class="field-group" style="flex:1;">
+                                <label style="font-size: 11px;">Min Brightness:</label>
+                                <input type="number" id="th-dyn-min-b" value="{{ config.thermal_imaging.dynamic_min_brightness if config.thermal_imaging else 38 }}" min="10" max="100" />
+                            </div>
+                            <div class="field-group" style="flex:1;">
+                                <label style="font-size: 11px;">Max Brightness:</label>
+                                <input type="number" id="th-dyn-max-b" value="{{ config.thermal_imaging.dynamic_max_brightness if config.thermal_imaging else 64 }}" min="20" max="150" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. Visible Camera Config -->
+                <div class="config-card">
+                    <h2 class="config-section-title"> 2. VISIBLE CONTEXT CAMERA (5.1-102mm | 20x)</h2>
+                    <div class="field-group">
+                        <label>Camera IP Address:</label>
+                        <input type="text" id="vis-ip" value="{{ config.cameras.visible.ip }}" />
+                    </div>
+                    <div class="field-group">
+                        <label>ONVIF Port:</label>
+                        <input type="number" id="vis-onvif-port" value="{{ config.cameras.visible.onvif_port }}" />
+                    </div>
+                    <div class="field-group">
+                        <label>Username / Password:</label>
+                        <div class="field-row">
+                            <input type="text" id="vis-user" value="{{ config.cameras.visible.username }}" style="flex:1;" />
+                            <input type="password" id="vis-pass" value="{{ config.cameras.visible.password }}" style="flex:1;" />
+                        </div>
+                    </div>
+                    <div class="field-group">
+                        <label>RTSP Substream URL (Live View):</label>
+                        <input type="text" id="vis-rtsp" value="{{ config.cameras.visible.rtsp_url }}" class="font-mono" />
+                    </div>
+                    <div class="field-group">
+                        <label>Focal Range (Min / Max mm):</label>
+                        <div class="field-row">
+                            <input type="number" id="vis-focal-min" value="{{ config.cameras.visible.min_focal_mm }}" step="0.1" style="flex:1;" />
+                            <input type="number" id="vis-focal-max" value="{{ config.cameras.visible.max_focal_mm }}" step="0.1" style="flex:1;" />
+                        </div>
+                    </div>
+                    <div class="field-group">
+                        <label>Horizontal FOV (Wide / Tele °):</label>
+                        <div class="field-row">
+                            <input type="number" id="vis-fov-h-wide" value="{{ config.cameras.visible.wide_h_fov_deg }}" step="0.01" style="flex:1;" />
+                            <input type="number" id="vis-fov-h-tele" value="{{ config.cameras.visible.tele_h_fov_deg }}" step="0.01" style="flex:1;" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. Full-width Mount Polar Plot & Continuous Sweep Auto Scan Panel -->
+            <div class="config-card" style="margin-top: 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 14px; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
+                    <div>
+                        <h2 style="font-size: 16px; font-weight: 700; color: #fff; margin-bottom: 4px;">Mount Polar Plot & Waypoint Trajectory</h2>
+                        <p style="font-size: 12px; color: var(--text-muted); margin: 0;">Real-time Azimuth/Altitude radar view & planned Continuous Sweep path</p>
+                    </div>
+                    <div style="display: flex; gap: 14px; font-size: 12px; color: var(--text-muted); align-items: center; flex-wrap: wrap;">
+                        <span style="display: flex; align-items: center; gap: 6px;"><span style="width: 10px; height: 10px; border-radius: 50%; background: #00f2fe; box-shadow: 0 0 8px #00f2fe; display: inline-block;"></span> Live Mount</span>
+                        <span style="display: flex; align-items: center; gap: 6px;"><span style="width: 16px; height: 2px; background: #7f00ff; display: inline-block;"></span> Scan Sweep Path</span>
+                        <span style="display: flex; align-items: center; gap: 6px;"><span style="width: 10px; height: 10px; border-radius: 50%; background: #f59e0b; display: inline-block;"></span> Trigger Waypoints</span>
+                    </div>
+                </div>
+
+                <div class="polar-content-row">
+                    <!-- Polar Radar Canvas -->
+                    <div class="polar-canvas-box">
+                        <canvas id="polar-canvas" width="500" height="500"></canvas>
+                    </div>
+
+                    <!-- Auto Scan Parameters Panel -->
+                    <div style="flex: 1; min-width: min(100%, 320px); width: 100%; display: flex; flex-direction: column; gap: 12px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 8px;">
+                            <h3 style="font-size: 15px; font-weight: 700; color: var(--cyan-primary); margin: 0;">
+                                 Autonomous Sentry & Scan Configuration
+                            </h3>
+                        </div>
+
+                        <!-- Scan Mode -->
+                        <div class="field-group">
+                            <label style="color: var(--cyan-primary); font-weight: 700;">Default Scan Mode (โหมดการสแกนหลัก)</label>
+                            <select id="scan-mode" style="background: rgba(0, 0, 0, 0.6); border: 1px solid var(--cyan-primary); color: #fff; padding: 8px 12px; border-radius: 8px; font-weight: 700; width: 100%;">
+                                <option value="CONTINUOUS" {% if config.mission.scan_mode == "CONTINUOUS" or not config.mission.scan_mode %}selected{% endif %}> Continuous Sweep (กวาดต่อเนื่อง - คำนวณเส้นทางจาก FOV & Overlap)</option>
+                                <option value="STEP_SWEEP" {% if config.mission.scan_mode == "STEP_SWEEP" %}selected{% endif %}> Step Sweep (สแกนทีละจุดแบบ Step & Stare)</option>
+                            </select>
+                        </div>
+
+                        <!-- Continuous Parameters Grid (Primary Focus) -->
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                            <div class="field-group">
+                                <label>Az Start (°)</label>
+                                <input type="number" id="scan-az-start" step="1.0" min="-300.0" max="300.0" value="{{ config.mission.scan_az_start }}" />
+                            </div>
+                            <div class="field-group">
+                                <label>Az End (°)</label>
+                                <input type="number" id="scan-az-end" step="1.0" min="-300.0" max="300.0" value="{{ config.mission.scan_az_end }}" />
+                            </div>
+
+                            <div class="field-group">
+                                <label>Alt Start (°)</label>
+                                <input type="number" id="scan-alt-start" step="0.5" min="-20.0" max="45.0" value="{{ config.mission.scan_alt_start if config.mission.scan_alt_start is defined else -15.0 }}" />
+                            </div>
+                            <div class="field-group">
+                                <label>Alt End (°)</label>
+                                <input type="number" id="scan-alt-end" step="0.5" min="-20.0" max="45.0" value="{{ config.mission.scan_alt_end if config.mission.scan_alt_end is defined else 5.0 }}" />
+                            </div>
+
+                            <div class="field-group">
+                                <label>Sweep Speed (°/s)</label>
+                                <input type="number" id="scan-az-speed" step="0.1" min="0.1" max="10.0" value="{{ config.mission.sweep_speed_deg_s }}" />
+                            </div>
+                            <div class="field-group">
+                                <label>Thermal Focal Length (mm)</label>
+                                <input type="number" id="scan-focal-length" step="1.0" min="31.0" max="155.0" value="{{ config.mission.scan_focal_length_mm if config.mission.scan_focal_length_mm is defined else 31.0 }}" />
+                            </div>
+
+                            <div class="field-group">
+                                <label>Visible Zoom Sync</label>
+                                <select id="visible-sync-scan-zoom">
+                                    <option value="true" {% if config.mission.visible_sync_scan_zoom is not defined or config.mission.visible_sync_scan_zoom %}selected{% endif %}>Enabled (Sync FOV)</option>
+                                    <option value="false" {% if config.mission.visible_sync_scan_zoom is defined and not config.mission.visible_sync_scan_zoom %}selected{% endif %}>Disabled (Wide)</option>
+                                </select>
+                            </div>
+                            <div class="field-group">
+                                <label>Visible FOV Multiplier (x)</label>
+                                <input type="number" id="visible-fov-multiplier" step="0.1" min="1.0" max="4.0" value="{{ config.mission.visible_fov_multiplier if config.mission.visible_fov_multiplier is defined else 2.0 }}" />
+                            </div>
+
+                            <div class="field-group">
+                                <label>FOV Overlap (%)</label>
+                                <input type="number" id="scan-fov-overlap" step="5.0" min="0.0" max="80.0" value="{{ config.mission.scan_fov_overlap_pct if config.mission.scan_fov_overlap_pct is defined else 20.0 }}" />
+                            </div>
+                            <div class="field-group">
+                                <label>Max Goto / Slew Speed (°/s)</label>
+                                <input type="number" id="mount-max-speed" step="1.0" min="1.0" max="25.0" value="{{ config.mount.max_goto_speed if config.mount.max_goto_speed is defined else 10.0 }}" />
+                            </div>
+
+                            <div class="field-group" style="grid-column: span 2;">
+                                <label>Settle Time (s)</label>
+                                <input type="number" id="scan-settle-sec" step="0.1" min="0.1" max="5.0" value="{{ config.mission.settle_sec if config.mission.settle_sec is defined else 0.5 }}" />
+                            </div>
+                        </div>
+
+                        <!-- Real-time Scan Path & Trajectory Calculation Card -->
+                        <div style="background: rgba(0, 0, 0, 0.45); border: 1px solid rgba(6, 182, 212, 0.35); border-radius: 8px; padding: 10px 12px; font-size: 11.5px; line-height: 1.5;">
+                            <div style="font-weight: 800; color: var(--cyan-primary); margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center;">
+                                <span>CALCULATED SCAN TRAJECTORY:</span>
+                                <span class="badge font-mono text-emerald" id="calc-disp-status" style="font-size: 10px; padding: 2px 6px; background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.3); border-radius: 4px;">AUTO-OPTIMIZED</span>
+                            </div>
+                            • <strong>Calculated FOV:</strong> <span class="font-mono text-orange" id="calc-disp-fov">14.2° H × 11.4° V</span><br>
+                            • <strong>Altitude Layers (Tiers):</strong> <span class="font-mono text-cyan" id="calc-disp-layers">3 Layers (-15.0°, -5.0°, +5.0°)</span><br>
+                            • <strong>AI Sweep Trigger Step:</strong> <span class="font-mono text-emerald" id="calc-disp-step">11.4° (Horizontal)</span><br>
+                            • <strong>Est. Cycle Time:</strong> <span class="font-mono" style="color: #c084fc;" id="calc-disp-time">~540s (9.0 min per pass)</span>
+                        </div>
+
+                        <!-- Step Sweep Optional Fields -->
+                        <div id="settings-step-fields" style="display: none; flex-direction: column; gap: 10px; background: rgba(0, 0, 0, 0.35); padding: 12px; border-radius: 8px; border: 1px solid rgba(6, 182, 212, 0.3);">
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                                <div class="field-group">
+                                    <label>Step Calculation Method</label>
+                                    <select id="scan-step-calc" style="background: rgba(0, 0, 0, 0.6); border: 1px solid var(--border-color); color: #fff; padding: 7px 10px; border-radius: 6px; font-weight: 700; width: 100%;">
+                                        <option value="FOV_AUTO" {% if config.mission.step_calc_mode == "FOV_AUTO" or not config.mission.step_calc_mode %}selected{% endif %}> Auto FOV (คำนวณจากระยะเลนส์)</option>
+                                        <option value="DEGREE" {% if config.mission.step_calc_mode == "DEGREE" %}selected{% endif %}> Degree (กำหนดองศาตรงๆ)</option>
+                                    </select>
+                                </div>
+                                <div class="field-group" id="settings-group-step-az" style="display: none;">
+                                    <label>Step Azimuth (°)</label>
+                                    <input type="number" id="scan-step-az" step="1.0" min="1.0" max="60.0" value="{{ config.mission.step_az_deg if config.mission.step_az_deg is defined else 12.0 }}" />
+                                </div>
+                                <div class="field-group" id="settings-group-step-dwell">
+                                    <label>Dwell Time ต่อจุด (s)</label>
+                                    <input type="number" id="scan-step-dwell" step="0.5" min="0.5" max="10.0" value="{{ config.mission.step_dwell_sec if config.mission.step_dwell_sec is defined else 1.5 }}" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style="margin-top: 2px; display: flex; flex-direction: column; gap: 6px;">
+                            <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #fff; cursor: pointer; user-select: none;">
+                                <input type="checkbox" id="scan-auto-sentry" {% if config.mission.auto_sentry_enabled %}checked{% endif %} style="accent-color: var(--cyan-primary); width: 16px; height: 16px;">
+                                <span>Auto Start Sentry on Boot (เริ่มสแกนอัตโนมัติเมื่อเปิดระบบ)</span>
+                            </label>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 10px; margin-top: 4px;">
+                            <button type="button" id="btn-start-scan" class="btn btn-emerald" style="padding: 12px 6px; font-size: 13px; font-weight: 700;">
+                                 Start Scan
+                            </button>
+                            <button type="button" id="btn-pause-scan" class="btn" style="background: linear-gradient(135deg, #d97706, #b45309); border: 1px solid #f59e0b; color: #fff; padding: 12px 6px; font-size: 13px; font-weight: 700;">
+                                 Pause Scan
+                            </button>
+                            <button type="button" id="btn-stop-scan" class="btn btn-danger" style="padding: 12px 6px; font-size: 13px; font-weight: 700;">
+                                 Stop Scan
+                            </button>
+                        </div>
+
+                        <!-- Progress Track -->
+                        <div style="background: rgba(0, 0, 0, 0.4); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px 14px; margin-top: 4px;">
+                            <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 6px;">
+                                <span id="scan-progress-msg">Ready to scan</span>
+                                <span id="scan-progress-pct" class="text-cyan font-mono">0%</span>
+                            </div>
+                            <div style="width: 100%; height: 6px; background: rgba(255, 255, 255, 0.08); border-radius: 999px; overflow: hidden;">
+                                <div id="progress-fill" style="width: 0%; height: 100%; background: linear-gradient(90deg, var(--cyan-primary), #10b981); transition: width 0.3s ease;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="config-grid" style="margin-top: 16px;">
+                <!-- Column 1: Mount Connection & Remote Frame Publisher Stack -->
+                <div style="display: flex; flex-direction: column; gap: 16px;">
+                    <!-- 3. Mount Connection Config -->
+                    <div class="config-card">
+                        <h2 class="config-section-title"> 3. MOUNT AGENT CONNECTION</h2>
+                        <div class="field-group">
+                            <label>Mount Agent Host & Port:</label>
+                            <div class="field-row">
+                                <input type="text" id="mount-host" value="{{ config.mount.tcp_host }}" style="flex:2;" />
+                                <input type="number" id="mount-port" value="{{ config.mount.tcp_port }}" style="flex:1;" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 4. Remote Frame Ingest Publisher Config -->
+                    <div class="config-card">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <h2 class="config-section-title" style="margin-bottom: 0;"> 4. REMOTE FRAME INGEST PUBLISHER</h2>
+                            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; font-weight: 700; color: var(--cyan-primary);">
+                                <input type="checkbox" id="pub-enabled" {% if config.frame_publisher and config.frame_publisher.enabled %}checked{% endif %} style="width: 16px; height: 16px;" />
+                                <span>เปิดส่งภาพ (Enable)</span>
+                            </label>
+                        </div>
+                        <div class="field-group" style="margin-top: 14px;">
+                            <label>Server Base URL (เช่น http://192.168.1.105:8000):</label>
+                            <input type="text" id="pub-server-url" value="{{ config.frame_publisher.server_url if config.frame_publisher and config.frame_publisher.server_url else 'http://192.168.1.105:8000' }}" />
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                            <div class="field-group">
+                                <label>Target Frame Rate (FPS ต่อกล้อง):</label>
+                                <input type="number" id="pub-target-fps" value="{{ config.frame_publisher.target_fps if config.frame_publisher and config.frame_publisher.target_fps is defined else 15.0 }}" step="1" min="1" max="60" />
+                            </div>
+                            <div class="field-group">
+                                <label>Stream Source Tag:</label>
+                                <input type="text" id="pub-source" value="{{ config.frame_publisher.source if config.frame_publisher and config.frame_publisher.source else 'live' }}" />
+                            </div>
+                        </div>
+                        <label style="display: flex; align-items: center; gap: 7px; margin: 8px 0; cursor: pointer; font-size: 12px; color: var(--cyan-primary);">
+                            <input type="checkbox" id="pub-adaptive" {% if config.frame_publisher and config.frame_publisher.adaptive %}checked{% endif %} />
+                            <span>Adaptive FPS ตาม RTSP queue ของสถานี (3–15 FPS)</span>
+                        </label>
+                        <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px; background: rgba(0, 0, 0, 0.4); border-radius: 6px; padding: 8px 10px; border: 1px solid var(--border-color);">
+                            <div>สถานะการส่งภาพ: <span id="pub-status-txt" style="color: var(--cyan-primary); font-weight: 600;">-</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 5. Thermal & AI Fire Detection Config -->
+                <div class="config-card">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <h2 class="config-section-title" style="margin-bottom: 0;"> 5. DETECTION ENGINE & SENSITIVITY</h2>
+                        <button type="button" id="btn-toggle-ai" class="btn btn-emerald" style="padding: 6px 14px; font-size: 12px; font-weight: 700;">
+                            <span id="ai-toggle-txt"> DETECTION ACTIVE</span>
+                        </button>
+                    </div>
+
+                    <!-- Detector Engine Selector -->
+                    <div class="field-group" style="margin-top: 14px;">
+                        <label style="color: var(--orange-primary); font-weight: 700;">Detection Engine (ระบบหลักในการตรวจจับ):</label>
+                        <select id="detector-engine" style="background: rgba(0, 0, 0, 0.6); border: 1px solid var(--orange-primary); color: #fff; padding: 8px 12px; border-radius: 8px; font-weight: 700; width: 100%;">
+                            <option value="CLASSIC_THERMAL" {% if config.ai.detector_engine == "CLASSIC_THERMAL" or not config.ai.detector_engine %}selected{% endif %}> Classic Thermal Hotspot (ตรวจจับจุดความร้อนโดยตรง - แนะนำ เสถียร & แม่นยำ)</option>
+                            <option value="AI_NCNN" {% if config.ai.detector_engine == "AI_NCNN" %}selected{% endif %}> Deep Learning AI (NCNN YOLO Neural Network)</option>
+                            <option value="HYBRID" {% if config.ai.detector_engine == "HYBRID" %}selected{% endif %}> Hybrid Mode (ผสานทั้ง Classic Hotspot และ AI)</option>
+                        </select>
+                    </div>
+
+                    <!-- Classic Hotspot & Morphological Parameters (Shown for CLASSIC_THERMAL and HYBRID) -->
+                    <div id="classic-params-block" style="display: flex; flex-direction: column; gap: 8px; background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.25); border-radius: 8px; padding: 10px; margin-top: 4px;">
+                        <div style="font-weight: 700; color: var(--orange-primary); font-size: 12.5px;"> Classic Thermal Hotspot & Morphological Parameters:</div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
+                            <div class="field-group" style="margin-bottom: 0;">
+                                <label>Hotspot Thresh:</label>
+                                <input type="number" id="hotspot-threshold" value="{{ config.ai.hotspot_threshold if config.ai.hotspot_threshold is defined else 190 }}" min="50" max="255" step="1" />
+                            </div>
+                            <div class="field-group" style="margin-bottom: 0;">
+                                <label>Min Area (px²):</label>
+                                <input type="number" id="min-hotspot-area" value="{{ config.ai.min_hotspot_area if config.ai.min_hotspot_area is defined else 15 }}" min="1" max="10000" step="1" />
+                            </div>
+                            <div class="field-group" style="margin-bottom: 0;">
+                                <label>Max Area (px²):</label>
+                                <input type="number" id="max-hotspot-area" value="{{ config.ai.max_hotspot_area if config.ai.max_hotspot_area is defined else 40000 }}" min="1" max="500000" step="any" />
+                            </div>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; border-top: 1px dashed rgba(245, 158, 11, 0.2); padding-top: 6px;">
+                            <div class="field-group" style="margin-bottom: 0;">
+                                <label>Morph Kernel:</label>
+                                <input type="number" id="morph-kernel-size" value="{{ config.ai.morph_kernel_size if config.ai.morph_kernel_size is defined else 5 }}" min="1" max="31" step="2" />
+                            </div>
+                            <div class="field-group" style="margin-bottom: 0;">
+                                <label>Dilation Iters:</label>
+                                <input type="number" id="dilate-iterations" value="{{ config.ai.dilate_iterations if config.ai.dilate_iterations is defined else 2 }}" min="0" max="10" step="1" />
+                            </div>
+                            <div class="field-group" style="margin-bottom: 0;">
+                                <label>Gaussian Blur:</label>
+                                <input type="number" id="blur-ksize" value="{{ config.ai.blur_ksize if config.ai.blur_ksize is defined else 3 }}" min="1" max="15" step="2" />
+                            </div>
+                        </div>
+
+                        <!-- Method 1: Top-Hat Filter -->
+                        <div style="border-top: 1px dashed rgba(245, 158, 11, 0.2); padding-top: 6px;">
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                                <input type="checkbox" id="use-tophat" {% if config.ai.use_tophat is not defined or config.ai.use_tophat %}checked{% endif %} style="accent-color: var(--orange-primary); width: 15px; height: 15px;" />
+                                <label for="use-tophat" style="font-weight: 700; color: #fbbf24; cursor: pointer; margin: 0; font-size: 11.5px;">วิธีที่ 1: White Top-Hat Filter (ตัดแสงพื้นหลัง / AGC Invariance)</label>
+                            </div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                                <div class="field-group" style="margin-bottom: 0;">
+                                    <label>Top-Hat Kernel (px):</label>
+                                    <input type="number" id="tophat-ksize" value="{{ config.ai.tophat_ksize if config.ai.tophat_ksize is defined else 15 }}" min="3" max="31" step="2" />
+                                </div>
+                                <div class="field-group" style="margin-bottom: 0;">
+                                    <label>Contrast Threshold:</label>
+                                    <input type="number" id="tophat-threshold" value="{{ config.ai.tophat_threshold if config.ai.tophat_threshold is defined else 35 }}" min="5" max="255" step="1" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Method 2: Adaptive Saliency Thresholding -->
+                        <div style="border-top: 1px dashed rgba(245, 158, 11, 0.2); padding-top: 6px;">
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                                <input type="checkbox" id="use-adaptive" {% if config.ai.use_adaptive is not defined or config.ai.use_adaptive %}checked{% endif %} style="accent-color: var(--orange-primary); width: 15px; height: 15px;" />
+                                <label for="use-adaptive" style="font-weight: 700; color: #fbbf24; cursor: pointer; margin: 0; font-size: 11.5px;">วิธีที่ 2: Dynamic / Adaptive Saliency (Mean + k*Std)</label>
+                            </div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                                <div class="field-group" style="margin-bottom: 0;">
+                                    <label>Multiplier k (Std):</label>
+                                    <input type="number" id="adaptive-k" value="{{ config.ai.adaptive_k if config.ai.adaptive_k is defined else 3.0 }}" min="1.0" max="6.0" step="0.1" />
+                                </div>
+                                <div class="field-group" style="margin-bottom: 0;">
+                                    <label>Min Floor (เกณฑ์ต่ำสุด):</label>
+                                    <input type="number" id="adaptive-min-threshold" value="{{ config.ai.adaptive_min_threshold if config.ai.adaptive_min_threshold is defined else 170 }}" min="50" max="250" step="1" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Method 4: Zoom-Aware Scaling -->
+                        <div style="border-top: 1px dashed rgba(245, 158, 11, 0.2); padding-top: 6px;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <input type="checkbox" id="zoom-aware" {% if config.ai.zoom_aware is not defined or config.ai.zoom_aware %}checked{% endif %} style="accent-color: var(--orange-primary); width: 15px; height: 15px;" />
+                                <label for="zoom-aware" style="font-weight: 700; color: #fbbf24; cursor: pointer; margin: 0; font-size: 11.5px;">วิธีที่ 4: Zoom-Aware Area Scaling (ขยายขนาด Blob อัตโนมัติ 31-155mm)</label>
+                            </div>
+                        </div>
+
+                        <!-- Method 3: Canopy Clutter Storm Suppression -->
+                        <div style="border-top: 1px dashed rgba(245, 158, 11, 0.2); padding-top: 6px;">
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                                <input type="checkbox" id="use-clutter-suppression" {% if config.ai.use_clutter_suppression is not defined or config.ai.use_clutter_suppression %}checked{% endif %} style="accent-color: var(--orange-primary); width: 15px; height: 15px;" />
+                                <label for="use-clutter-suppression" style="font-weight: 700; color: #fbbf24; cursor: pointer; margin: 0; font-size: 11.5px;">วิธีที่ 3: Canopy Clutter Suppression (ตัดแสงแดดสะท้อนยอดไม้/พุ่มไม้)</label>
+                            </div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                                <div class="field-group" style="margin-bottom: 0;">
+                                    <label>Clutter Thresh (จุด/เฟรม):</label>
+                                    <input type="number" id="clutter-threshold" value="{{ config.ai.clutter_threshold if config.ai.clutter_threshold is defined else 8 }}" min="3" max="30" step="1" />
+                                </div>
+                                <div class="field-group" style="margin-bottom: 0;">
+                                    <label>Min Core Ratio:</label>
+                                    <input type="number" id="clutter-min-core-ratio" value="{{ config.ai.clutter_min_core_ratio if config.ai.clutter_min_core_ratio is defined else 0.035 }}" min="0.01" max="0.20" step="0.005" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Deep Learning AI Parameters (Shown for AI_NCNN and HYBRID) -->
+                    <div id="ai-params-block" style="display: none; flex-direction: column; gap: 10px; background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.25); border-radius: 8px; padding: 12px; margin-top: 4px;">
+                        <div style="font-weight: 700; color: #60a5fa; font-size: 13px;"> Deep Learning AI (NCNN) Parameters:</div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                            <div class="field-group">
+                                <label>AI Confidence Threshold (0.0 - 1.0):</label>
+                                <input type="number" id="ai-conf" value="{{ config.ai.conf_threshold }}" step="0.05" min="0.05" max="1.0" />
+                            </div>
+                            <div class="field-group">
+                                <label>NMS IoU Threshold (0.0 - 1.0):</label>
+                                <input type="number" id="ai-nms" value="{{ config.ai.nms_threshold }}" step="0.05" min="0.1" max="1.0" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Trigger & Interval Mode (Compact 2-col Grid) -->
+                    <div style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 10px; margin-top: 8px;">
+                        <div class="field-group">
+                            <label style="color: var(--emerald-primary); font-weight: 700;">Trigger Mode (รอบตรวจจับ):</label>
+                            <select id="ai-trigger-mode" style="background: rgba(0, 0, 0, 0.6); border: 1px solid var(--emerald-primary); color: #fff; padding: 7px 10px; border-radius: 6px; font-weight: 700; width: 100%;">
+                                <option value="FIXED_INTERVAL" {% if config.ai.trigger_mode == "FIXED_INTERVAL" or not config.ai.trigger_mode %}selected{% endif %}> Fixed Interval (ต่อเนื่อง)</option>
+                                <option value="AZ_STEP" {% if config.ai.trigger_mode == "AZ_STEP" %}selected{% endif %}> Azimuth Step (ตามองศาหมุน)</option>
+                            </select>
+                        </div>
+                        <div id="ai-interval-group" class="field-group">
+                            <label>Interval (ms) [ความถี่]:</label>
+                            <input type="number" id="ai-infer-interval-ms" value="{{ (config.ai.infer_interval_sec * 1000)|int if config.ai.infer_interval_sec is defined else 200 }}" step="50" min="50" max="2000" />
+                        </div>
+                        <div id="ai-step-group" class="field-group" style="display: none;">
+                            <label>Capture Step (°):</label>
+                            <input type="number" id="ai-capture-step" value="{{ config.ai.capture_az_step if config.ai.capture_az_step is defined else 5.0 }}" step="0.5" min="0.5" max="30.0" />
+                        </div>
+                    </div>
+
+                    <!-- Common Multi-frame Verification & Alarm Persistence Parameters -->
+                    <div style="display: flex; flex-direction: column; gap: 8px; background: rgba(0, 0, 0, 0.25); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px; margin-top: 6px;">
+                        <div style="font-weight: 700; color: #94a3b8; font-size: 11.5px;"> Multi-Frame Temporal Verification & Alarm Persistence:</div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
+                            <div class="field-group" style="margin-bottom: 0;">
+                                <label>Kalman Hits:</label>
+                                <input type="number" id="kalman-hits" value="{{ config.ai.min_verification_hits }}" step="1" min="1" max="50" />
+                            </div>
+                            <div class="field-group" style="margin-bottom: 0;">
+                                <label>Alarm Hold:</label>
+                                <input type="number" id="alarm-hold" value="{{ config.ai.alarm_hold_cycles }}" step="1" min="1" max="200" />
+                            </div>
+                            <div class="field-group" style="margin-bottom: 0;">
+                                <label>Core Min (0-255):</label>
+                                <input type="number" id="core-val" value="{{ config.ai.thermal_core_min_val }}" step="1" min="50" max="255" />
+                            </div>
+                        </div>
+
+                        <div style="border-top: 1px dashed rgba(255, 255, 255, 0.1); padding-top: 6px; margin-top: 2px;">
+                            <div style="font-weight: 700; color: var(--cyan-primary); font-size: 11px; margin-bottom: 4px;"> Target Zoom & Auto-Focus Settle Delays:</div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                                <div class="field-group" style="margin-bottom: 0;">
+                                    <label>Zoom Settle (sec):</label>
+                                    <input type="number" id="zoom-settle-sec" value="{{ config.mission.zoom_settle_wait_sec if config.mission.zoom_settle_wait_sec is defined else 2.0 }}" step="0.5" min="0.5" max="10.0" />
+                                </div>
+                                <div class="field-group" style="margin-bottom: 0;">
+                                    <label>Focus Settle (sec):</label>
+                                    <input type="number" id="focus-settle-sec" value="{{ config.mission.focus_settle_sec if config.mission.focus_settle_sec is defined else 3.5 }}" step="0.5" min="0.5" max="15.0" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Column 3: Web Streaming & Incident Management Stack -->
+                <div style="display: flex; flex-direction: column; gap: 16px;">
+                    <!-- 6. Web Video Streaming & Bandwidth Config -->
+                    <div class="config-card">
+                        <h2 class="config-section-title"> 6. WEB VIDEO STREAMING & BANDWIDTH (Tailscale / 4G VPN)</h2>
+                        <div class="field-group">
+                            <label style="color: var(--cyan-primary); font-weight: 700;">Default Bandwidth Mode (โหมดความเร็วสตรีม):</label>
+                            <select id="stream-bandwidth-mode" style="background: rgba(0, 0, 0, 0.6); border: 1px solid var(--cyan-primary); color: #fff; padding: 8px 12px; border-radius: 8px; font-weight: 700; width: 100%;">
+                                <option value="4G_SAVER" {% if config.streaming and (config.streaming.bandwidth_mode == "4G_SAVER" or not config.streaming.bandwidth_mode) %}selected{% endif %}> 4G Saver Mode (6 FPS | ลื่นไหล ประหยัดเน็ต - แนะนำสำหรับ Tailscale 4G)</option>
+                                <option value="EXTREME_SAVER" {% if config.streaming and config.streaming.bandwidth_mode == "EXTREME_SAVER" %}selected{% endif %}> 4G Ultra Low Bandwidth (4 FPS | ความละเอียดต่ำ สำหรับพื้นที่เน็ตซิมอ่อนมาก)</option>
+                                <option value="BALANCED" {% if config.streaming and config.streaming.bandwidth_mode == "BALANCED" %}selected{% endif %}> Balanced Mode (10 FPS | ภาพคมชัดปานกลาง)</option>
+                                <option value="LAN_HIGH" {% if config.streaming and config.streaming.bandwidth_mode == "LAN_HIGH" %}selected{% endif %}> LAN High Quality (15 FPS | Full Res คุณภาพสูงสุดเมื่อต่อ WiFi/LAN เดียวกัน)</option>
+                                <option value="CUSTOM" {% if config.streaming and config.streaming.bandwidth_mode == "CUSTOM" %}selected{% endif %}> Custom (กำหนดค่า FPS, Quality, Width เอง)</option>
+                            </select>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px;">
+                            <div class="field-group">
+                                <label>Custom Stream FPS (เฟรมต่อวินาที):</label>
+                                <input type="number" id="stream-fps" value="{{ config.streaming.stream_fps if config.streaming and config.streaming.stream_fps is defined else 6.0 }}" step="1" min="1" max="30" />
+                            </div>
+                            <div class="field-group">
+                                <label>JPEG Quality (20 - 95):</label>
+                                <input type="number" id="stream-jpeg-quality" value="{{ config.streaming.jpeg_quality if config.streaming and config.streaming.jpeg_quality is defined else 50 }}" step="5" min="20" max="95" />
+                            </div>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                            <div class="field-group">
+                                <label>Visible Max Width (px, 0=Full):</label>
+                                <input type="number" id="stream-vis-width" value="{{ config.streaming.visible_max_width if config.streaming and config.streaming.visible_max_width is defined else 640 }}" step="80" min="0" max="1920" />
+                            </div>
+                            <div class="field-group">
+                                <label>Thermal Max Width (px, 0=Full):</label>
+                                <input type="number" id="stream-th-width" value="{{ config.streaming.thermal_max_width if config.streaming and config.streaming.thermal_max_width is defined else 640 }}" step="80" min="0" max="1280" />
+                            </div>
+                        </div>
+                        <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px; background: rgba(0, 0, 0, 0.4); border-radius: 6px; padding: 8px 10px; border: 1px solid var(--border-color); line-height: 1.4;">
+                             <strong>คำแนะนำ:</strong> เมื่อต่อผ่าน Tailscale 4G แนะนำใช้โหมด <strong>4G Saver</strong> ซึ่งส่งภาพที่ 6 FPS พร้อมบีบอัดภาพให้เหลือเพียง ~300-500 Kbps ทำให้ภาพลื่นไหลและไม่เกิดบัฟเฟอร์ค้าง
+                        </div>
+                    </div>
+
+                    <!-- 7. Incident Archive & Matching Config -->
+                    <div class="config-card">
+                        <h2 class="config-section-title"> 7. INCIDENT ARCHIVE & MATCHING TOLERANCE</h2>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                            <div class="field-group">
+                                <label style="color: var(--amber-primary); font-weight: 700;">Spatial Match Tolerance (° องศา):</label>
+                                <input type="number" id="incident-match-tol" value="{{ config.incident.match_tolerance_deg if config.incident and config.incident.match_tolerance_deg is defined else 1.0 }}" step="0.1" min="0.2" max="5.0" />
+                                <span style="font-size: 11px; color: var(--text-muted);">รัศมีเชิงมุมเปรียบเทียบว่าเป็นไฟจุดเดียวกัน (แนะนำ 0.8° - 1.2°)</span>
+                            </div>
+                            <div class="field-group">
+                                <label style="color: var(--amber-primary); font-weight: 700;">Max Inactivity Timeout (ชั่วโมง):</label>
+                                <input type="number" id="incident-max-gap" value="{{ config.incident.max_inactive_gap_hours if config.incident and config.incident.max_inactive_gap_hours is defined else 2.0 }}" step="0.5" min="0.5" max="24.0" />
+                                <span style="font-size: 11px; color: var(--text-muted);">หากไม่พบความร้อนซ้ำเกินเวลานี้ ให้สร้างเหตุการณ์ใหม่ (แนะนำ 1 - 2 ชม.)</span>
+                            </div>
+                        </div>
+                        <div style="font-size: 11px; color: var(--text-muted); margin-top: 8px; background: rgba(0, 0, 0, 0.4); border-radius: 6px; padding: 8px 10px; border: 1px solid var(--border-color); line-height: 1.4;">
+                             <strong>ระบบจับคู่เหตุการณ์:</strong> เมื่อกล้องตรวจพบไฟซ้ำที่พิกัด Az/Alt เดิมภายในรัศมีที่กำหนดและยังไม่หมดเวลา Timeout ระบบจะบันทึกเป็น Scan Round ถัดไปของ Incident เดิมเพื่อวิเคราะห์อัตราการลุกลาม (Growth Trend) หากอยู่นอกพิกัดหรือหมดเวลาจะเปิด Incident ใหม่
+                        </div>
+                    </div>
+
+                    <!-- 8. LLM Multimodal Wildfire Verification Config -->
+                    <div class="config-card">
+                        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 8px; margin-bottom: 14px;">
+                            <h2 class="config-section-title" style="margin-bottom: 0; border-bottom: none; padding-bottom: 0;">🤖 8. LLM WILDFIRE VERIFICATION (AI คัดกรองไฟป่าผ่าน LLM)</h2>
+                            <label class="switch" style="margin-left: auto;">
+                                <input type="checkbox" id="llm-enabled" {% if config.llm and config.llm.enabled %}checked{% endif %}>
+                                <span class="slider round"></span>
+                            </label>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                            <div class="field-group">
+                                <label style="color: var(--cyan-primary); font-weight: 700;">API Base URL:</label>
+                                <input type="text" id="llm-base-url" value="{{ config.llm.base_url if config.llm and config.llm.base_url is defined else 'https://lllm.narit.or.th/v1' }}" placeholder="https://lllm.narit.or.th/v1" />
+                            </div>
+                            <div class="field-group">
+                                <label style="color: var(--cyan-primary); font-weight: 700;">Vision Model:</label>
+                                <select id="llm-model">
+                                    <option value="OpenAI-NARIT-Local-AI-01" {% if config.llm and config.llm.model == 'OpenAI-NARIT-Local-AI-01' %}selected{% endif %}>OpenAI-NARIT-Local-AI-01 (แนะนำ)</option>
+                                    <option value="Anthropic-NARIT-Local-AI-01" {% if config.llm and config.llm.model == 'Anthropic-NARIT-Local-AI-01' %}selected{% endif %}>Anthropic-NARIT-Local-AI-01</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="field-group">
+                            <label style="color: var(--cyan-primary); font-weight: 700;">API Token / Key:</label>
+                            <div class="field-row">
+                                <input type="password" id="llm-api-key" value="{{ config.llm.api_key if config.llm and config.llm.api_key is defined else '' }}" placeholder="sk-..." />
+                                <button type="button" class="btn btn-secondary" id="btn-toggle-llm-key" style="padding: 0 12px; font-size: 11px;" title="แสดง/ซ่อนคีย์">👁️</button>
+                                <button type="button" class="btn btn-secondary font-mono" id="btn-test-llm" style="padding: 0 14px; font-size: 11px; white-space: nowrap;">⚡ TEST CONNECTION</button>
+                            </div>
+                            <span id="llm-test-status" style="font-size: 11.5px; font-weight: 600; margin-top: 4px;"></span>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                            <div class="field-group">
+                                <label>Max Generation Tokens:</label>
+                                <input type="number" id="llm-max-tokens" value="{{ config.llm.max_tokens if config.llm and config.llm.max_tokens is defined else 2048 }}" step="256" min="512" max="4096" />
+                                <span style="font-size: 11px; color: var(--text-muted);">แนะนำ 2048 เพื่อให้โมเดลมีพื้นที่สำหรับขั้นตอนคิด (Reasoning)</span>
+                            </div>
+                            <div class="field-group">
+                                <label>Temperature (ความสุ่ม):</label>
+                                <input type="number" id="llm-temperature" value="{{ config.llm.temperature if config.llm and config.llm.temperature is defined else 0.1 }}" step="0.05" min="0.0" max="1.0" />
+                                <span style="font-size: 11px; color: var(--text-muted);">ค่าต่ำ (0.0-0.2) เพื่อความแม่นยำและตอบตามข้อเท็จจริง</span>
+                            </div>
+                        </div>
+                        <div style="font-size: 11px; color: var(--text-muted); margin-top: 6px; background: rgba(0, 0, 0, 0.4); border-radius: 6px; padding: 8px 10px; border: 1px solid var(--border-color); line-height: 1.4;">
+                            💡 <strong>ฟังก์ชันการทำงาน:</strong> เมื่อตรวจพบจุดความร้อนใหม่ (Hotspot) และบันทึกภาพคู่ Thermal + Visible แล้ว หากเปิดใช้งานตัวเลือกนี้ ระบบจะส่งภาพทั้งสองไปให้ Vision LLM วิเคราะห์เพื่อระบุว่ามีโอกาสเป็นไฟป่าจริง หรือเป็นสัญญาณลวง (False Alarm เช่น แดดสะท้อนหินหรือผิวดิน) พร้อมสรุปผลลง Telegram และแสดงในการ์ดของเหตุการณ์นั้นๆ
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Save Action Bar -->
+            <div class="action-bar" style="margin-top: 24px;">
+                <span id="save-status" style="margin-right: auto; align-self: center; font-size: 13px; font-weight: 600;"></span>
+                <button type="button" class="btn btn-secondary" onclick="location.reload()">↺ รีเซ็ตค่าเดิม</button>
+                <button type="submit" class="btn btn-emerald"> บันทึกการตั้งค่า (SAVE CONFIG)</button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        const btnToggleAI = document.getElementById("btn-toggle-ai");
+        const aiToggleTxt = document.getElementById("ai-toggle-txt");
+
+        // Polar Canvas Elements
+        const polarCanvas = document.getElementById("polar-canvas");
+        const ctx = polarCanvas.getContext("2d");
+
+        let liveAz = 0.0;
+        let liveAlt = 0.0;
+        let currentPlan = null;
+
+        // Draw Polar Radar View & Trajectory (Supports negative altitudes e.g. -20° to 90°)
+        function drawPolarPlot() {
+            const width = polarCanvas.width;
+            const height = polarCanvas.height;
+            const cx = width / 2;
+            const cy = height / 2;
+            const maxR = cx - 35;
+
+            ctx.clearRect(0, 0, width, height);
+
+            // Alt range mapping: Min Alt = -20°, Max Alt = 90° (Total 110° range)
+            const minAltScale = -20.0;
+            const maxAltScale = 90.0;
+
+            function altToRadius(alt) {
+                const clamped = Math.max(minAltScale, Math.min(maxAltScale, alt));
+                const norm = (maxAltScale - clamped) / (maxAltScale - minAltScale); // 90° -> 0 (center), -20° -> maxR (outermost)
+                return maxR * norm;
+            }
+
+            // 1. Draw Altitude Rings (-20°, 0°, 30°, 60°, 90°)
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
+            ctx.lineWidth = 1;
+            ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
+            ctx.font = "11px monospace";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+
+            const altRings = [-20, 0, 30, 60, 90];
+            altRings.forEach(alt => {
+                const r = altToRadius(alt);
+                ctx.beginPath();
+                if (alt === 0) {
+                    ctx.strokeStyle = "rgba(6, 182, 212, 0.35)"; // Cyan ring for Horizon 0°
+                    ctx.lineWidth = 1.5;
+                } else if (alt < 0) {
+                    ctx.strokeStyle = "rgba(239, 68, 68, 0.25)"; // Subtle red for negative alt ring (-20°)
+                    ctx.lineWidth = 1;
+                } else {
+                    ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
+                    ctx.lineWidth = 1;
+                }
+                ctx.arc(cx, cy, r, 0, 2 * Math.PI);
+                ctx.stroke();
+
+                if (alt < 90) {
+                    ctx.fillStyle = alt === 0 ? "rgba(6, 182, 212, 0.85)" : (alt < 0 ? "rgba(239, 68, 68, 0.8)" : "rgba(255, 255, 255, 0.4)");
+                    ctx.fillText(`${alt}°`, cx + 4, cy - r - 6);
+                }
+            });
+
+            // 2. Draw Radial Azimuth Lines (Every 45°)
+            const azAngles = [0, 45, 90, 135, 180, 225, 270, 315];
+            const azLabels = ['N 0°', 'NE 45°', 'E 90°', 'SE 135°', 'S 180°', 'SW 225°', 'W 270°', 'NW 315°'];
+
+            azAngles.forEach((deg, idx) => {
+                const rad = (deg - 90) * (Math.PI / 180.0);
+                const x = cx + maxR * Math.cos(rad);
+                const y = cy + maxR * Math.sin(rad);
+
+                ctx.beginPath();
+                ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
+                ctx.moveTo(cx, cy);
+                ctx.lineTo(x, y);
+                ctx.stroke();
+
+                const lx = cx + (maxR + 20) * Math.cos(rad);
+                const ly = cy + (maxR + 20) * Math.sin(rad);
+                ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
+                ctx.fillText(azLabels[idx], lx, ly);
+            });
+
+            function altAzToCanvas(az, alt) {
+                const r = altToRadius(alt);
+                const rad = (az - 90) * (Math.PI / 180.0);
+                return {
+                    x: cx + r * Math.cos(rad),
+                    y: cy + r * Math.sin(rad)
+                };
+            }
+
+            // 3. Draw Scan Trajectory Lines & Waypoints
+            if (currentPlan && currentPlan.rows) {
+                ctx.beginPath();
+                ctx.strokeStyle = "#7f00ff";
+                ctx.lineWidth = 2;
+                ctx.setLineDash([4, 4]);
+
+                let first = true;
+                currentPlan.rows.forEach(row => {
+                    row.points.forEach(pt => {
+                        const p = altAzToCanvas(pt.az, pt.alt);
+                        if (first) {
+                            ctx.moveTo(p.x, p.y);
+                            first = false;
+                        } else {
+                            ctx.lineTo(p.x, p.y);
+                        }
+                    });
+                });
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                // Trigger Waypoints
+                ctx.fillStyle = "#f59e0b";
+                currentPlan.rows.forEach(row => {
+                    row.points.forEach(pt => {
+                        const p = altAzToCanvas(pt.az, pt.alt);
+                        ctx.beginPath();
+                        ctx.arc(p.x, p.y, 3, 0, 2 * Math.PI);
+                        ctx.fill();
+                    });
+                });
+            }
+
+            // 4. Live Mount Position Indicator
+            const liveP = altAzToCanvas(liveAz, liveAlt);
+
+            ctx.beginPath();
+            ctx.arc(liveP.x, liveP.y, 10, 0, 2 * Math.PI);
+            ctx.fillStyle = "rgba(0, 242, 254, 0.25)";
+            ctx.fill();
+
+            ctx.beginPath();
+            ctx.arc(liveP.x, liveP.y, 5, 0, 2 * Math.PI);
+            ctx.fillStyle = "#00f2fe";
+            ctx.shadowColor = "#00f2fe";
+            ctx.shadowBlur = 12;
+            ctx.fill();
+            ctx.shadowBlur = 0;
+
+            ctx.beginPath();
+            ctx.arc(liveP.x, liveP.y, 14, 0, 2 * Math.PI);
+            ctx.strokeStyle = "#00f2fe";
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+        }
+
+        function buildAxisValues(start, end, desiredStep) {
+            const rng = Math.abs(end - start);
+            if (rng === 0 || desiredStep <= 0) return [start];
+            const intervals = rng / desiredStep;
+            const pointCount = Math.max(2, Math.round(intervals) + 1);
+            const adjustedStep = (end - start) / (pointCount - 1);
+            const values = [];
+            for (let i = 0; i < pointCount; i++) {
+                values.push(Math.round((start + i * adjustedStep) * 100) / 100);
+            }
+            values[values.length - 1] = Math.round(end * 100) / 100;
+            return values;
+        }
+
+        function calculateThermalFOV(focalMm) {
+            const focal = Math.max(10.0, parseFloat(focalMm) || 31.0);
+            const sensorW = 2.0 * 31.0 * Math.tan((14.2 * Math.PI) / 360.0);
+            const sensorH = 2.0 * 31.0 * Math.tan((11.4 * Math.PI) / 360.0);
+            const hFov = (2.0 * Math.atan(sensorW / (2.0 * focal)) * 180.0) / Math.PI;
+            const vFov = (2.0 * Math.atan(sensorH / (2.0 * focal)) * 180.0) / Math.PI;
+            return { hFov: Math.round(hFov * 100) / 100, vFov: Math.round(vFov * 100) / 100 };
+        }
+
+        // Calculate Plan
+        function calculateScanPlan() {
+            const mode = document.getElementById("scan-mode")?.value || "CONTINUOUS";
+            const az_start = parseFloat(document.getElementById("scan-az-start")?.value || -90);
+            const az_end = parseFloat(document.getElementById("scan-az-end")?.value || 90);
+            const alt_start = parseFloat(document.getElementById("scan-alt-start")?.value || -15);
+            const alt_end = parseFloat(document.getElementById("scan-alt-end")?.value || 5);
+            const sweep_speed = Math.max(0.1, parseFloat(document.getElementById("scan-az-speed")?.value || 1.0));
+            const focal_len = parseFloat(document.getElementById("scan-focal-length")?.value || 31.0);
+            const overlap_pct = parseFloat(document.getElementById("scan-fov-overlap")?.value || 20.0);
+            const goto_speed = Math.max(1.0, parseFloat(document.getElementById("mount-max-speed")?.value || 10.0));
+            const settle_sec = Math.max(0.1, parseFloat(document.getElementById("scan-settle-sec")?.value || 0.5));
+
+            const fov = calculateThermalFOV(focal_len);
+            const overlapRatio = Math.max(0.0, Math.min(0.85, overlap_pct / 100.0));
+
+            let az_step = Math.max(0.5, Math.round(fov.hFov * (1.0 - overlapRatio) * 100) / 100);
+            let alt_step = Math.max(0.5, Math.round(fov.vFov * (1.0 - overlapRatio) * 100) / 100);
+
+            if (mode === "STEP_SWEEP") {
+                const calcMethod = document.getElementById("scan-step-calc")?.value || "FOV_AUTO";
+                if (calcMethod === "DEGREE") {
+                    az_step = Math.max(1.0, parseFloat(document.getElementById("scan-step-az")?.value) || 12.0);
+                }
+            }
+
+            // Generate altitude layers
+            const altValues = [];
+            const rng_alt = Math.abs(alt_end - alt_start);
+            if (rng_alt < 0.1) {
+                altValues.push(Math.round(alt_start * 100) / 100);
+            } else {
+                const layersCount = Math.max(2, Math.round(rng_alt / alt_step) + 1);
+                const actualAltStep = (alt_end - alt_start) / (layersCount - 1);
+                for (let i = 0; i < layersCount; i++) {
+                    altValues.push(Math.round((alt_start + i * actualAltStep) * 100) / 100);
+                }
+                altValues[altValues.length - 1] = Math.round(alt_end * 100) / 100;
+            }
+
+            const azValues = buildAxisValues(az_start, az_end, az_step);
+            const rows = [];
+            altValues.forEach((alt, idx) => {
+                const forward = (idx % 2 === 0);
+                const rowAz = forward ? azValues : [...azValues].reverse();
+                const pts = rowAz.map(az => ({ az, alt }));
+                rows.push({ points: pts });
+            });
+
+            currentPlan = { rows };
+            drawPolarPlot();
+
+            // Update calculation display box
+            const dispFov = document.getElementById("calc-disp-fov");
+            const dispLayers = document.getElementById("calc-disp-layers");
+            const dispStep = document.getElementById("calc-disp-step");
+            const dispTime = document.getElementById("calc-disp-time");
+
+            const visSync = document.getElementById("visible-sync-scan-zoom")?.value !== "false";
+            const visMultiplier = Math.max(1.0, parseFloat(document.getElementById("visible-fov-multiplier")?.value || 2.0));
+            const visTargetFov = fov.hFov * visMultiplier;
+            const visSensorW = 2.0 * 5.1 * Math.tan((51.69 * Math.PI) / 360.0);
+            const visFocal = (visSensorW / (2.0 * Math.tan((visTargetFov * Math.PI) / 360.0)));
+            const visFocalClamped = Math.max(5.1, Math.min(102.0, Math.round(visFocal * 10) / 10));
+
+            if (dispFov) {
+                if (visSync) {
+                    dispFov.textContent = `${fov.hFov}° H × ${fov.vFov}° V (Thermal @ ${focal_len}mm) | ${Math.round(visTargetFov * 10) / 10}° H (Visible @ ${visFocalClamped}mm [${visMultiplier}x FOV])`;
+                } else {
+                    dispFov.textContent = `${fov.hFov}° H × ${fov.vFov}° V (Thermal @ ${focal_len}mm)`;
+                }
+            }
+            if (dispLayers) dispLayers.textContent = `${altValues.length} Layers (${altValues.join("°, ")}°)`;
+            if (dispStep) dispStep.textContent = `${az_step}° (Horizontal Trigger Interval)`;
+
+            if (dispTime) {
+                const azRange = Math.abs(az_end - az_start);
+                const totalPanTime = altValues.length * (azRange / sweep_speed);
+                const transitionTime = (altValues.length - 1) * ((alt_step / goto_speed) + settle_sec);
+                const estTotalSec = Math.round(totalPanTime + transitionTime);
+                const min = (estTotalSec / 60).toFixed(1);
+                dispTime.textContent = `~${estTotalSec}s (${min} min per pass)`;
+            }
+        }
+
+        // Mode Switching UI Handlers
+        const scanModeSelect = document.getElementById("scan-mode");
+        const stepFields = document.getElementById("settings-step-fields");
+        const btnStartScan = document.getElementById("btn-start-scan");
+
+        function updateScanModeUI() {
+            const mode = scanModeSelect.value;
+            if (mode === "STEP_SWEEP") {
+                if (stepFields) stepFields.style.display = "flex";
+                if (btnStartScan) btnStartScan.textContent = " Start Step Sweep Scan";
+            } else {
+                if (stepFields) stepFields.style.display = "none";
+                if (btnStartScan) btnStartScan.textContent = " Start Continuous Scan";
+            }
+            calculateScanPlan();
+        }
+        if (scanModeSelect) {
+            scanModeSelect.addEventListener("change", updateScanModeUI);
+            updateScanModeUI();
+        }
+
+        const stepCalcSelect = document.getElementById("scan-step-calc");
+        const groupStepAz = document.getElementById("settings-group-step-az");
+
+        function updateStepCalcUI() {
+            if (!stepCalcSelect) return;
+            if (stepCalcSelect.value === "FOV_AUTO") {
+                if (groupStepAz) groupStepAz.style.display = "none";
+            } else {
+                if (groupStepAz) groupStepAz.style.display = "flex";
+            }
+            calculateScanPlan();
+        }
+        if (stepCalcSelect) {
+            stepCalcSelect.addEventListener("change", updateStepCalcUI);
+            updateStepCalcUI();
+        }
+
+        // Detector Engine Toggle UI (Show/Hide Classic vs AI settings based on Engine)
+        const detectorEngineSelect = document.getElementById("detector-engine");
+        const classicParamsBlock = document.getElementById("classic-params-block");
+        const aiParamsBlock = document.getElementById("ai-params-block");
+
+        function updateDetectorEngineUI() {
+            if (!detectorEngineSelect) return;
+            const engine = detectorEngineSelect.value;
+            if (engine === "CLASSIC_THERMAL") {
+                if (classicParamsBlock) classicParamsBlock.style.display = "flex";
+                if (aiParamsBlock) aiParamsBlock.style.display = "none";
+            } else if (engine === "AI_NCNN") {
+                if (classicParamsBlock) classicParamsBlock.style.display = "none";
+                if (aiParamsBlock) aiParamsBlock.style.display = "flex";
+            } else { // HYBRID
+                if (classicParamsBlock) classicParamsBlock.style.display = "flex";
+                if (aiParamsBlock) aiParamsBlock.style.display = "flex";
+            }
+        }
+
+        if (detectorEngineSelect) {
+            detectorEngineSelect.addEventListener("change", updateDetectorEngineUI);
+            updateDetectorEngineUI();
+        }
+
+        // AI Trigger Mode Toggle UI
+        const aiTriggerModeSelect = document.getElementById("ai-trigger-mode");
+        const aiIntervalGroup = document.getElementById("ai-interval-group");
+        const aiStepGroup = document.getElementById("ai-step-group");
+
+        function updateAITriggerUI() {
+            if (!aiTriggerModeSelect) return;
+            const mode = aiTriggerModeSelect.value;
+            if (mode === "AZ_STEP") {
+                if (aiIntervalGroup) aiIntervalGroup.style.display = "none";
+                if (aiStepGroup) aiStepGroup.style.display = "flex";
+            } else {
+                if (aiIntervalGroup) aiIntervalGroup.style.display = "flex";
+                if (aiStepGroup) aiStepGroup.style.display = "none";
+            }
+        }
+
+        if (aiTriggerModeSelect) {
+            aiTriggerModeSelect.addEventListener("change", updateAITriggerUI);
+            updateAITriggerUI();
+        }
+
+        ["scan-az-start", "scan-az-end", "scan-alt-start", "scan-alt-end", "scan-az-speed", "scan-focal-length", "visible-sync-scan-zoom", "visible-fov-multiplier", "scan-fov-overlap", "mount-max-speed", "scan-settle-sec", "scan-step-az", "scan-step-dwell"].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.addEventListener("input", calculateScanPlan);
+                el.addEventListener("change", calculateScanPlan);
+            }
+        });
+
+        calculateScanPlan();
+
+        async function fetchAIState() {
+            try {
+                const res = await fetch("/api/telemetry");
+                if (!res.ok) return;
+                const data = await res.json();
+                updateAIButton(data.ai_enabled);
+
+                liveAz = data.ptz.az;
+                liveAlt = data.ptz.alt;
+                drawPolarPlot();
+
+                // Progress
+                const msgEl = document.getElementById("scan-progress-msg");
+                const pctEl = document.getElementById("scan-progress-pct");
+                const fillEl = document.getElementById("progress-fill");
+                const mState = data.mission.mission_state;
+
+                if (mState === "PREPARING_OPTICS") {
+                    msgEl.textContent = `🔭 Preparing Optics: Adjusting Zoom & Auto-Focus before scan...`;
+                    pctEl.textContent = "OPTICS";
+                    fillEl.style.width = "50%";
+                } else if (mState === "STEP_MOVING") {
+                    msgEl.textContent = ` Moving to WP ${data.mission.current_waypoint}/${data.mission.total_waypoints} (Az=${data.ptz.az.toFixed(1)}°, Alt=${data.ptz.alt.toFixed(1)}°)`;
+                    const pct = Math.round((data.mission.current_waypoint / Math.max(1, data.mission.total_waypoints)) * 100);
+                    pctEl.textContent = `${pct}%`;
+                    fillEl.style.width = `${pct}%`;
+                } else if (mState === "STEP_DWELLING") {
+                    msgEl.textContent = ` Stare & Analyzing WP ${data.mission.current_waypoint}/${data.mission.total_waypoints}`;
+                    pctEl.textContent = "STARE";
+                    fillEl.style.width = "100%";
+                } else if (mState === "SEARCH_SWEEP") {
+                    msgEl.textContent = ` Continuous Sweep: Layer ${data.mission.current_layer || 1}/${data.mission.total_layers || 1} | Az=${data.ptz.az.toFixed(1)}°, Alt=${data.ptz.alt.toFixed(1)}°`;
+                    pctEl.textContent = "ACTIVE";
+                    fillEl.style.width = "100%";
+                } else {
+                    msgEl.textContent = `Status: ${mState}`;
+                    pctEl.textContent = "0%";
+                    fillEl.style.width = "0%";
+                }
+
+                // Publisher Status Display
+                const pubStatusEl = document.getElementById("pub-status-txt");
+                if (pubStatusEl && data.frame_publisher) {
+                    const pub = data.frame_publisher;
+                    if (!pub.enabled) {
+                        pubStatusEl.textContent = " ปิดใช้งาน (Disabled)";
+                        pubStatusEl.style.color = "var(--text-muted)";
+                    } else {
+                        const thStat = pub.stats?.thermal?.last_status || "IDLE";
+                        const visStat = pub.stats?.visible?.last_status || "IDLE";
+                        const thSent = pub.stats?.thermal?.sent || 0;
+                        const visSent = pub.stats?.visible?.sent || 0;
+                        const adaptiveStatus = pub.adaptive ? `Adaptive ${pub.policy_status || "WAITING"}` : "Fixed";
+                        pubStatusEl.textContent = ` ${adaptiveStatus} (${Number(pub.target_fps || 0).toFixed(1)} FPS) | Th: ${thStat} (${thSent} เฟรม) | Vis: ${visStat} (${visSent} เฟรม)`;
+                        pubStatusEl.style.color = "var(--emerald-primary)";
+                    }
+                }
+            } catch (e) {}
+        }
+
+        setInterval(fetchAIState, 200);
+
+        function updateAIButton(enabled) {
+            if (enabled) {
+                btnToggleAI.className = "btn btn-emerald";
+                aiToggleTxt.textContent = " AI RUNNING (CLICK TO STOP)";
+            } else {
+                btnToggleAI.className = "btn btn-danger";
+                aiToggleTxt.textContent = " AI STOPPED (CLICK TO START)";
+            }
+        }
+
+        if (btnToggleAI) {
+            btnToggleAI.addEventListener("click", async () => {
+                try {
+                    const res = await fetch("/api/ai/toggle", { method: "POST" });
+                    const data = await res.json();
+                    updateAIButton(data.ai_enabled);
+                } catch (e) {
+                    console.error("Failed to toggle AI:", e);
+                }
+            });
+        }
+
+        // Stream Bandwidth Mode Preset Sync
+        const streamBandwidthSelect = document.getElementById("stream-bandwidth-mode");
+        if (streamBandwidthSelect) {
+            streamBandwidthSelect.addEventListener("change", (e) => {
+                const val = e.target.value;
+                const fpsInput = document.getElementById("stream-fps");
+                const qInput = document.getElementById("stream-jpeg-quality");
+                const visWInput = document.getElementById("stream-vis-width");
+                const thWInput = document.getElementById("stream-th-width");
+                if (val === "4G_SAVER") {
+                    if (fpsInput) fpsInput.value = 6.0;
+                    if (qInput) qInput.value = 50;
+                    if (visWInput) visWInput.value = 640;
+                    if (thWInput) thWInput.value = 640;
+                } else if (val === "EXTREME_SAVER") {
+                    if (fpsInput) fpsInput.value = 4.0;
+                    if (qInput) qInput.value = 40;
+                    if (visWInput) visWInput.value = 480;
+                    if (thWInput) thWInput.value = 480;
+                } else if (val === "BALANCED") {
+                    if (fpsInput) fpsInput.value = 10.0;
+                    if (qInput) qInput.value = 60;
+                    if (visWInput) visWInput.value = 800;
+                    if (thWInput) thWInput.value = 640;
+                } else if (val === "LAN_HIGH") {
+                    if (fpsInput) fpsInput.value = 15.0;
+                    if (qInput) qInput.value = 75;
+                    if (visWInput) visWInput.value = 0;
+                    if (thWInput) thWInput.value = 0;
+                }
+            });
+        }
+
+        // Start / Stop Scan Buttons
+        const btnStopScan = document.getElementById("btn-stop-scan");
+
+        if (btnStartScan) {
+            btnStartScan.addEventListener("click", async () => {
+                const mode = document.getElementById("scan-mode").value;
+                await fetch("/api/ptz/control", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        action: "start_sentry",
+                        scan_mode: mode,
+                        az_start: parseFloat(document.getElementById("scan-az-start").value),
+                        az_end: parseFloat(document.getElementById("scan-az-end").value),
+                        alt_start: parseFloat(document.getElementById("scan-alt-start").value),
+                        alt_end: parseFloat(document.getElementById("scan-alt-end").value),
+                        speed: parseFloat(document.getElementById("scan-az-speed").value),
+                        focal_length_mm: parseFloat(document.getElementById("scan-focal-length").value),
+                        fov_overlap_pct: parseFloat(document.getElementById("scan-fov-overlap").value),
+                        max_goto_speed: parseFloat(document.getElementById("mount-max-speed").value),
+                        settle_sec: parseFloat(document.getElementById("scan-settle-sec").value),
+                        step_calc_mode: document.getElementById("scan-step-calc") ? document.getElementById("scan-step-calc").value : "FOV_AUTO",
+                        step_az_deg: parseFloat(document.getElementById("scan-step-az") ? document.getElementById("scan-step-az").value : 12.0),
+                        step_dwell_sec: parseFloat(document.getElementById("scan-step-dwell") ? document.getElementById("scan-step-dwell").value : 1.5)
+                    })
+                });
+            });
+        }
+
+        const btnPauseScan = document.getElementById("btn-pause-scan");
+        if (btnPauseScan) {
+            btnPauseScan.addEventListener("click", async () => {
+                await fetch("/api/ptz/control", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ action: "pause_sentry" })
+                });
+            });
+        }
+
+        if (btnStopScan) {
+            btnStopScan.addEventListener("click", async () => {
+                await fetch("/api/ptz/control", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ action: "stop_sentry" })
+                });
+            });
+        }
+
+        document.getElementById("config-form").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const statusEl = document.getElementById("save-status");
+            statusEl.textContent = " กำลังบันทึกการตั้งค่า...";
+            statusEl.style.color = "var(--cyan-primary)";
+
+            const payload = {
+                cameras: {
+                    thermal: {
+                        ip: document.getElementById("th-ip").value,
+                        onvif_port: parseInt(document.getElementById("th-onvif-port").value),
+                        username: document.getElementById("th-user").value,
+                        password: document.getElementById("th-pass").value,
+                        rtsp_url: document.getElementById("th-rtsp").value,
+                        min_focal_mm: parseFloat(document.getElementById("th-focal-min").value),
+                        max_focal_mm: parseFloat(document.getElementById("th-focal-max").value)
+                    },
+                    visible: {
+                        ip: document.getElementById("vis-ip").value,
+                        onvif_port: parseInt(document.getElementById("vis-onvif-port").value),
+                        username: document.getElementById("vis-user").value,
+                        password: document.getElementById("vis-pass").value,
+                        rtsp_url: document.getElementById("vis-rtsp").value,
+                        min_focal_mm: parseFloat(document.getElementById("vis-focal-min").value),
+                        max_focal_mm: parseFloat(document.getElementById("vis-focal-max").value),
+                        wide_h_fov_deg: parseFloat(document.getElementById("vis-fov-h-wide").value),
+                        tele_h_fov_deg: parseFloat(document.getElementById("vis-fov-h-tele").value)
+                    }
+                },
+                mount: {
+                    tcp_host: document.getElementById("mount-host").value,
+                    tcp_port: parseInt(document.getElementById("mount-port").value),
+                    max_goto_speed: parseFloat(document.getElementById("mount-max-speed").value)
+                },
+                mission: {
+                    auto_sentry_enabled: document.getElementById("scan-auto-sentry") ? document.getElementById("scan-auto-sentry").checked : false,
+                    scan_mode: document.getElementById("scan-mode").value,
+                    scan_az_start: parseFloat(document.getElementById("scan-az-start").value),
+                    scan_az_end: parseFloat(document.getElementById("scan-az-end").value),
+                    scan_alt_start: parseFloat(document.getElementById("scan-alt-start").value),
+                    scan_alt_end: parseFloat(document.getElementById("scan-alt-end").value),
+                    sweep_speed_deg_s: parseFloat(document.getElementById("scan-az-speed").value),
+                    scan_focal_length_mm: parseFloat(document.getElementById("scan-focal-length").value),
+                    visible_sync_scan_zoom: document.getElementById("visible-sync-scan-zoom") ? (document.getElementById("visible-sync-scan-zoom").value !== "false") : true,
+                    visible_fov_multiplier: parseFloat(document.getElementById("visible-fov-multiplier") ? document.getElementById("visible-fov-multiplier").value : 2.0),
+                    scan_fov_overlap_pct: parseFloat(document.getElementById("scan-fov-overlap").value),
+                    max_goto_speed: parseFloat(document.getElementById("mount-max-speed").value),
+                    settle_sec: parseFloat(document.getElementById("scan-settle-sec").value),
+                    step_calc_mode: document.getElementById("scan-step-calc") ? document.getElementById("scan-step-calc").value : "FOV_AUTO",
+                    step_az_deg: parseFloat(document.getElementById("scan-step-az") ? document.getElementById("scan-step-az").value : 12.0),
+                    step_overlap_pct: parseFloat(document.getElementById("scan-fov-overlap").value),
+                    step_dwell_sec: parseFloat(document.getElementById("scan-step-dwell") ? document.getElementById("scan-step-dwell").value : 1.5),
+                    step_goto_speed: parseFloat(document.getElementById("mount-max-speed").value),
+                    min_focus_blur_laplacian: parseFloat(document.getElementById("focus-laplacian")?.value || 40.0),
+                    focus_settle_sec: parseFloat(document.getElementById("focus-settle-sec") ? document.getElementById("focus-settle-sec").value : 3.5),
+                    zoom_settle_wait_sec: parseFloat(document.getElementById("zoom-settle-sec") ? document.getElementById("zoom-settle-sec").value : 2.0)
+                },
+                ai: {
+                    detector_engine: document.getElementById("detector-engine") ? document.getElementById("detector-engine").value : "CLASSIC_THERMAL",
+                    hotspot_threshold: parseInt(document.getElementById("hotspot-threshold")?.value || 190),
+                    min_hotspot_area: parseInt(document.getElementById("min-hotspot-area")?.value || 15),
+                    max_hotspot_area: parseInt(document.getElementById("max-hotspot-area")?.value || 40000),
+                    morph_kernel_size: parseInt(document.getElementById("morph-kernel-size")?.value || 5),
+                    dilate_iterations: parseInt(document.getElementById("dilate-iterations")?.value || 2),
+                    blur_ksize: parseInt(document.getElementById("blur-ksize")?.value || 3),
+                    use_tophat: document.getElementById("use-tophat") ? document.getElementById("use-tophat").checked : true,
+                    tophat_ksize: parseInt(document.getElementById("tophat-ksize")?.value || 15),
+                    tophat_threshold: parseInt(document.getElementById("tophat-threshold")?.value || 35),
+                    use_adaptive: document.getElementById("use-adaptive") ? document.getElementById("use-adaptive").checked : true,
+                    adaptive_k: parseFloat(document.getElementById("adaptive-k")?.value || 3.0),
+                    adaptive_min_threshold: parseInt(document.getElementById("adaptive-min-threshold")?.value || 170),
+                    zoom_aware: document.getElementById("zoom-aware") ? document.getElementById("zoom-aware").checked : true,
+                    use_clutter_suppression: document.getElementById("use-clutter-suppression") ? document.getElementById("use-clutter-suppression").checked : true,
+                    clutter_threshold: parseInt(document.getElementById("clutter-threshold")?.value || 8),
+                    clutter_min_core_ratio: parseFloat(document.getElementById("clutter-min-core-ratio")?.value || 0.035),
+                    trigger_mode: document.getElementById("ai-trigger-mode") ? document.getElementById("ai-trigger-mode").value : "FIXED_INTERVAL",
+                    infer_interval_sec: parseFloat(document.getElementById("ai-infer-interval-ms")?.value || 200) / 1000.0,
+                    capture_az_step: parseFloat(document.getElementById("ai-capture-step")?.value || 5.0),
+                    conf_threshold: parseFloat(document.getElementById("ai-conf").value),
+                    nms_threshold: parseFloat(document.getElementById("ai-nms").value),
+                    min_verification_hits: parseInt(document.getElementById("kalman-hits").value),
+                    alarm_hold_cycles: parseInt(document.getElementById("alarm-hold").value),
+                    thermal_core_min_val: parseInt(document.getElementById("core-val").value)
+                },
+                frame_publisher: {
+                    enabled: document.getElementById("pub-enabled") ? document.getElementById("pub-enabled").checked : false,
+                    server_url: document.getElementById("pub-server-url") ? document.getElementById("pub-server-url").value.trim() : "http://192.168.1.105:8000",
+                    target_fps: parseFloat(document.getElementById("pub-target-fps")?.value || 15),
+                    adaptive: document.getElementById("pub-adaptive") ? document.getElementById("pub-adaptive").checked : true,
+                    source: document.getElementById("pub-source") ? document.getElementById("pub-source").value.trim() : "live",
+                    cameras: ["thermal", "visible"]
+                },
+                streaming: {
+                    bandwidth_mode: document.getElementById("stream-bandwidth-mode") ? document.getElementById("stream-bandwidth-mode").value : "4G_SAVER",
+                    stream_fps: parseFloat(document.getElementById("stream-fps")?.value || 6.0),
+                    jpeg_quality: parseInt(document.getElementById("stream-jpeg-quality")?.value || 50),
+                    visible_max_width: parseInt(document.getElementById("stream-vis-width")?.value || 640),
+                    thermal_max_width: parseInt(document.getElementById("stream-th-width")?.value || 640)
+                },
+                incident: {
+                    match_tolerance_deg: parseFloat(document.getElementById("incident-match-tol")?.value || 1.0),
+                    max_inactive_gap_hours: parseFloat(document.getElementById("incident-max-gap")?.value || 2.0)
+                },
+                llm: {
+                    enabled: document.getElementById("llm-enabled") ? document.getElementById("llm-enabled").checked : false,
+                    base_url: document.getElementById("llm-base-url") ? document.getElementById("llm-base-url").value.trim() : "https://lllm.narit.or.th/v1",
+                    api_key: document.getElementById("llm-api-key") ? document.getElementById("llm-api-key").value.trim() : "",
+                    model: document.getElementById("llm-model") ? document.getElementById("llm-model").value : "OpenAI-NARIT-Local-AI-01",
+                    max_tokens: parseInt(document.getElementById("llm-max-tokens")?.value || 2048),
+                    temperature: parseFloat(document.getElementById("llm-temperature")?.value || 0.1),
+                    timeout_sec: 45
+                },
+                thermal_imaging: {
+                    auto_mode: document.getElementById("th-auto-mode") ? document.getElementById("th-auto-mode").value : "SCHEDULE",
+                    current_brightness: parseInt(document.getElementById("th-current-b")?.value || 64),
+                    current_contrast: parseInt(document.getElementById("th-current-c")?.value || 128),
+                    day_brightness: parseInt(document.getElementById("th-day-b")?.value || 46),
+                    day_contrast: parseInt(document.getElementById("th-day-c")?.value || 135),
+                    night_brightness: parseInt(document.getElementById("th-night-b")?.value || 64),
+                    night_contrast: parseInt(document.getElementById("th-night-c")?.value || 128),
+                    schedule_day_start: document.getElementById("th-sched-day-start") ? document.getElementById("th-sched-day-start").value : "07:30",
+                    schedule_night_start: document.getElementById("th-sched-night-start") ? document.getElementById("th-sched-night-start").value : "17:30",
+                    dynamic_target_luma: parseFloat(document.getElementById("th-dyn-target-luma")?.value || 35.0),
+                    dynamic_min_brightness: parseInt(document.getElementById("th-dyn-min-b")?.value || 38),
+                    dynamic_max_brightness: parseInt(document.getElementById("th-dyn-max-b")?.value || 64)
+                }
+            };
+
+            try {
+                const res = await fetch("/api/config/save", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (data.status === "ok") {
+                    statusEl.textContent = " บันทึกการตั้งค่าเรียบร้อยแล้ว!";
+                    statusEl.style.color = "var(--emerald-primary)";
+                    setTimeout(() => { statusEl.textContent = ""; }, 4000);
+                } else {
+                    statusEl.textContent = " บันทึกไม่สำเร็จ: " + data.message;
+                    statusEl.style.color = "var(--danger-primary)";
+                }
+            } catch (err) {
+                statusEl.textContent = " เกิดข้อผิดพลาดในการเชื่อมต่อ";
+                statusEl.style.color = "var(--danger-primary)";
+            }
+        });
+
+        // Thermal Auto-Brightness UI Helpers
+        function onAutoModeChange() {
+            const mode = document.getElementById("th-auto-mode") ? document.getElementById("th-auto-mode").value : "SCHEDULE";
+            const schedBox = document.getElementById("box-schedule-settings");
+            const dynBox = document.getElementById("box-dynamic-settings");
+            if (schedBox) schedBox.style.display = (mode === "SCHEDULE") ? "block" : "none";
+            if (dynBox) dynBox.style.display = (mode === "DYNAMIC") ? "block" : "none";
+        }
+
+        async function applyThermalGraphicLive() {
+            const b = parseInt(document.getElementById("th-current-b")?.value || 64);
+            const c = parseInt(document.getElementById("th-current-c")?.value || 128);
+            const mode = document.getElementById("th-auto-mode") ? document.getElementById("th-auto-mode").value : "SCHEDULE";
+            const btn = document.getElementById("btn-apply-thermal-live");
+            const orig = btn ? btn.innerHTML : "";
+            if (btn) {
+                btn.innerHTML = "⏳ กำลังส่ง...";
+                btn.disabled = true;
+            }
+            try {
+                const res = await fetch("/api/camera/thermal/imaging", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ brightness: b, contrast: c, auto_mode: mode })
+                });
+                const data = await res.json();
+                if (data.status === "ok") {
+                    if (btn) btn.innerHTML = "✅ สำเร็จ!";
+                    setTimeout(() => { if (btn) { btn.innerHTML = orig; btn.disabled = false; } }, 2000);
+                } else {
+                    if (btn) btn.innerHTML = "❌ ผิดพลาด";
+                    setTimeout(() => { if (btn) { btn.innerHTML = orig; btn.disabled = false; } }, 2500);
+                }
+            } catch (err) {
+                if (btn) btn.innerHTML = "❌ ผิดพลาด";
+                setTimeout(() => { if (btn) { btn.innerHTML = orig; btn.disabled = false; } }, 2500);
+            }
+        }
+
+        // Initialize UI visibility on load
+        onAutoModeChange();
+
+        // Toggle Show/Hide LLM API Key
+        const btnToggleKey = document.getElementById("btn-toggle-llm-key");
+        const inputKey = document.getElementById("llm-api-key");
+        if (btnToggleKey && inputKey) {
+            btnToggleKey.addEventListener("click", () => {
+                if (inputKey.type === "password") {
+                    inputKey.type = "text";
+                    btnToggleKey.textContent = "🔒";
+                } else {
+                    inputKey.type = "password";
+                    btnToggleKey.textContent = "👁️";
+                }
+            });
+        }
+
+        // Test LLM Connection Button
+        const btnTestLLM = document.getElementById("btn-test-llm");
+        const statusLLM = document.getElementById("llm-test-status");
+        if (btnTestLLM) {
+            btnTestLLM.addEventListener("click", async () => {
+                const apiKey = document.getElementById("llm-api-key") ? document.getElementById("llm-api-key").value.trim() : "";
+                const baseUrl = document.getElementById("llm-base-url") ? document.getElementById("llm-base-url").value.trim() : "";
+
+                btnTestLLM.disabled = true;
+                btnTestLLM.textContent = "⌛ Testing...";
+                if (statusLLM) {
+                    statusLLM.textContent = "กำลังเชื่อมต่อไปยัง LLM endpoint...";
+                    statusLLM.style.color = "var(--cyan-primary)";
+                }
+
+                try {
+                    const res = await fetch("/api/llm/test", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ api_key: apiKey, base_url: baseUrl })
+                    });
+                    let data;
+                    try {
+                        data = await res.json();
+                    } catch (parseErr) {
+                        throw new Error(`HTTP ${res.status} (${res.statusText || 'Server Error'})`);
+                    }
+                    if (data.ok) {
+                        statusLLM.textContent = `✅ เชื่อมต่อสำเร็จ! พบโมเดล: ${data.models.join(", ")}`;
+                        statusLLM.style.color = "var(--emerald-primary)";
+                    } else {
+                        statusLLM.textContent = `❌ เชื่อมต่อไม่สำเร็จ: ${data.message}`;
+                        statusLLM.style.color = "var(--danger-primary)";
+                    }
+                } catch (e) {
+                    if (statusLLM) {
+                        statusLLM.textContent = `❌ ข้อผิดพลาด: ${e.message}`;
+                        statusLLM.style.color = "var(--danger-primary)";
+                    }
+                } finally {
+                    btnTestLLM.disabled = false;
+                    btnTestLLM.textContent = "⚡ TEST CONNECTION";
+                }
+            });
+        }
+    </script>
+</body>
+</html>

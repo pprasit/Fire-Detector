@@ -4,16 +4,18 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Mount API Test Console</title>
-  <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/narit-smart-wildfire-favicon.png') }}">
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='img/narit-fire-emblem.svg') }}?v=3">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/api_console.css') }}?v=8">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/mission_control.css') }}?v=21">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/tabs.css') }}?v=2">
+  <link rel="stylesheet" href="/static/shared/refined-ui.css?v=1">
+  <script defer src="/static/shared/refined-ui.js?v=1"></script>
 </head>
 <body class="api-console-body industrial-api-layout">
 <aside class="mission-sidebar" aria-label="Primary navigation">
   <div class="industrial-sidebar-brand">
-    <img src="{{ url_for('static', filename='img/narit-smart-wildfire-mark.png') }}" alt="NARIT Fire Detector">
+    <img src="{{ url_for('static', filename='img/narit-fire-emblem.svg') }}?v=3" alt="NARIT Fire Detector">
     <span><strong>NARIT</strong><small>FIRE DETECTOR</small></span>
   </div>
   <section class="industrial-active-mount" aria-label="Active mount">

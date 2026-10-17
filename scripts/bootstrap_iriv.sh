@@ -212,6 +212,9 @@ udevadm control --reload-rules
 udevadm trigger --subsystem-match=usb || true
 getent group plugdev >/dev/null || groupadd --system plugdev
 usermod -aG dialout,plugdev "$TARGET_USER"
+if getent group gpio >/dev/null; then
+    usermod -aG gpio "$TARGET_USER"
+fi
 
 log "Cloning the Fire Detector project"
 install -d -m 0755 -o "$TARGET_USER" -g "$TARGET_USER" "$(dirname "$PROJECT_DIR")"
@@ -244,9 +247,11 @@ import sys
 
 path = pathlib.Path(sys.argv[1])
 branch = sys.argv[2]
-settings = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+settings = json.loads(path.read_text(encoding="utf-8")) if path.exists() else json.loads(path.with_name("AppSetting.example.JSON").read_text(encoding="utf-8"))
 settings.setdefault("updater", {})["channel"] = branch
+settings["updater"].setdefault("enabled", False)
 path.write_text(json.dumps(settings, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+path.chmod(0o600)
 PY
 
 log "Installing the dashboard and updater services"

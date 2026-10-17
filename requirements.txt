@@ -4,3 +4,4 @@ Flask-Sock==0.7.0
 Pillow==11.3.0
 numpy>=2.0,<3
 websockets>=15,<16
+rpi-lgpio==0.6; platform_machine == "aarch64" and sys_platform == "linux"

@@ -1,0 +1,42 @@
+{
+  "cameras": {
+    "thermal": {
+      "ip": "",
+      "username": "admin",
+      "password": "",
+      "rtsp_url": "",
+      "main_rtsp_url": "",
+      "onvif_port": 8080
+    },
+    "visible": {
+      "ip": "",
+      "username": "admin",
+      "password": "",
+      "rtsp_url": "",
+      "main_rtsp_url": "",
+      "onvif_port": 80
+    }
+  },
+  "mount": {
+    "tcp_host": "127.0.0.1",
+    "tcp_port": 8000,
+    "use_simulator_fallback": false
+  },
+  "mission": {
+    "auto_sentry_enabled": false
+  },
+  "frame_publisher": {
+    "enabled": true,
+    "server_url": "http://127.0.0.1:8000",
+    "policy_url": "http://127.0.0.1:8000/api/stream/policy"
+  },
+  "telegram": {
+    "enabled": false,
+    "bot_token": "",
+    "chat_id": ""
+  },
+  "llm": {
+    "enabled": false,
+    "api_key": ""
+  }
+}

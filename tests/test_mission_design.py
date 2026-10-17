@@ -19,6 +19,7 @@ class MissionDesignTests(unittest.TestCase):
         cls.page = MISSION_PAGE.read_text(encoding="utf-8")
         cls.dashboard = DASHBOARD_SCRIPT.read_text(encoding="utf-8")
         cls.web_server = WEB_SERVER.read_text(encoding="utf-8")
+        cls.terrain = (PROJECT_ROOT / 'web/static/desktop/js/mission_terrain.js').read_text(encoding='utf-8')
 
     def test_desktop_navigation_exposes_mission_design_as_item_07(self):
         self.assertIn('data-view-mode="mission"', self.dashboard)
@@ -134,28 +135,24 @@ class MissionDesignTests(unittest.TestCase):
         self.assertIn('id="scanAltMax" type="number" min="-15" max="10" value="10"', self.page)
         self.assertIn("saved.altMin>=-15&&saved.altMax<=10", self.page)
 
-    def test_dem_panorama_is_created_on_demand_beside_capture(self):
+    def test_dem_view_uses_live_geometry_and_retains_offline_export_api(self):
         capture = self.page.index('id="captureToggle"')
         create = self.page.index('id="createDemPanorama"')
         self.assertLess(capture, create)
-        self.assertIn("Create DEM Panorama", self.page)
-        self.assertIn("/api/mission-design/dem-panorama", self.page)
-        self.assertIn("method:'POST'", self.page)
-        self.assertIn("altitude_min_deg:-15,altitude_max_deg:10", self.page)
-        self.assertIn("dem-panorama-layer", self.page)
-        self.assertIn("map.innerHTML=", self.page)
-        self.assertIn("async function demPanoramaApi(response)", self.page)
-        self.assertIn("contentType.includes('application/json')", self.page)
-        self.assertIn("loadDemPanorama()", self.page)
+        self.assertIn('type="module" src="/static/desktop/js/mission_terrain.js', self.page)
+        self.assertIn('new THREE.WebGLRenderer', self.terrain)
+        self.assertIn('new THREE.PlaneGeometry(widthM, depthM', self.terrain)
+        self.assertIn('positions.setY(', self.terrain)
+        self.assertIn('new THREE.CubeCamera', self.terrain)
+        self.assertIn('/api/pointing/model?resolution_m=30', self.terrain)
+        self.assertNotIn('/api/mission-design/dem-panorama', self.terrain)
         self.assertIn('@app.route("/api/mission-design/dem-panorama", methods=["GET", "POST"])', self.web_server)
         self.assertIn("def _mission_design_dem_panorama(*, create: bool = False, force: bool = False)", self.web_server)
         self.assertIn("render_dem_panorama(", self.web_server)
         self.assertIn("pointing_model=pointing_model", self.web_server)
         self.assertIn("azimuth_north_offset_deg=float", self.web_server)
         self.assertIn("panorama_digest", self.web_server)
-        self.assertIn("force:true", self.page)
-        self.assertIn("Regenerate DEM Panorama", self.page)
-        self.assertNotIn("button.hidden=true;$('map').dataset.demPanorama='ready'", self.page)
+        self.assertIn('Reload 3D terrain', self.terrain)
 
     def test_dem_panorama_pixels_are_reprojected_into_mount_coordinates(self):
         true_azimuth, true_altitude = _mount_row_to_geographic(
@@ -181,12 +178,11 @@ class MissionDesignTests(unittest.TestCase):
         np.testing.assert_allclose(true_azimuth, [279.0], atol=1e-9)
         np.testing.assert_allclose(true_altitude, [5.0], atol=1e-9)
 
-    def test_dem_panorama_keeps_source_aspect_ratio_with_horizontal_scroll(self):
-        self.assertIn("overflow-x:scroll", self.page)
-        self.assertIn("function sizeDemPanorama()", self.page)
-        self.assertIn("sourceAspect=(7200*azSpan/360)/(500*altSpan/25)", self.page)
-        self.assertIn("viewport.clientHeight*requiredMapAspect", self.page)
-        self.assertIn("new ResizeObserver(sizeDemPanorama)", self.page)
+    def test_dem_view_resizes_webgl_and_labels_in_screen_pixels(self):
+        self.assertIn('new ResizeObserver(()=>this.resize())', self.terrain)
+        self.assertIn('renderer.setSize(stage.clientWidth,stage.clientHeight,false)', self.terrain)
+        self.assertIn('ALTITUDE', self.terrain)
+        self.assertIn('TRUE AZIMUTH · 0° N / 90° E / 180° S / 270° W', self.terrain)
 
     def test_scan_grid_shows_live_mount_position_and_velocity(self):
         for field_id in ["actualAz", "actualAlt", "actualAzVel", "actualAltVel", "actualTarget"]:
@@ -226,16 +222,11 @@ class MissionDesignTests(unittest.TestCase):
         self.assertNotIn("function setScanCameraMode", self.page)
         self.assertNotIn("const scanCameraTabs=", self.page)
 
-    def test_panorama_has_horizontal_scroll_and_image_inspector(self):
-        self.assertIn("overflow-x:scroll", self.page)
-        self.assertIn("function sizeDemPanorama()", self.page)
-        self.assertIn("sourceAspect=(7200*azSpan/360)/(500*altSpan/25)", self.page)
-        self.assertIn("String(yScale/xScale)", self.page)
-        self.assertIn("new ResizeObserver(sizeDemPanorama)", self.page)
-        self.assertIn(".scan-grid-axis-y{transform:translateX(9px)", self.page)
-        self.assertIn("function normalizeYAxisLabels()", self.page)
-        self.assertIn("padStart(4", self.page)
-        self.assertIn('viewBox="0 -55 1000 700"', self.page)
+    def test_3d_panorama_has_navigation_and_preserves_capture_image_inspector(self):
+        self.assertIn('360° panorama', self.terrain)
+        self.assertIn('3D orbit', self.terrain)
+        self.assertIn('this.pointer = {az:', self.terrain)
+        self.assertIn('class="terrain-fov"', self.terrain)
         self.assertIn('id="gridImageViewer"', self.page)
         self.assertIn("$('viewerStage').addEventListener('wheel'", self.page)
         self.assertIn('id="viewMosaic"', self.page)

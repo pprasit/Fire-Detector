@@ -58,7 +58,7 @@ class PointingImageryResolutionTests(unittest.TestCase):
         self.assertIn('name: "station-detail-imagery"', script)
         self.assertIn('name: "station-precision-imagery"', script)
         self.assertIn("maxTextureSize >= 4096", script)
-        self.assertIn("this.controls.minDistance = 8", script)
+        self.assertIn("this.controls.minDistance = 0.05", script)
         self.assertIn("this.controls.maxDistance = 120000", script)
         self.assertIn("this.controls.zoomToCursor = true", script)
 
@@ -72,11 +72,11 @@ class PointingImageryResolutionTests(unittest.TestCase):
     def test_google_earth_navigation_and_adaptive_focus_imagery(self):
         script = POINTING_SCRIPT.read_text(encoding="utf-8")
         dashboard = DASHBOARD_SCRIPT.read_text(encoding="utf-8")
-        self.assertIn("this.controls.mouseButtons.LEFT = THREE.MOUSE.PAN", script)
+        self.assertIn("this.controls.mouseButtons.LEFT = THREE.MOUSE.ROTATE", script)
         self.assertIn("this.controls.mouseButtons.MIDDLE = THREE.MOUSE.ROTATE", script)
         self.assertIn("this.controls.mouseButtons.RIGHT = THREE.MOUSE.PAN", script)
         self.assertIn("this.controls.zoomToCursor = true", script)
-        self.assertIn("this.controls.screenSpacePanning = false", script)
+        self.assertIn("this.controls.screenSpacePanning = true", script)
         self.assertIn('name: "adaptive-focus-imagery"', script)
         self.assertIn('size: "2048,2048"', script)
         self.assertIn("distance < 700 ? 180 : distance < 1700 ? 400 : 750", script)

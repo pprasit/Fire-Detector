@@ -1,0 +1,20 @@
+description: Ultralytics YOLO26n model trained on e:\Dataset\fire and smoke thermal
+  cam.v1\data.yaml
+author: Ultralytics
+date: '2026-08-14T17:17:53.670167'
+version: 8.4.42
+license: AGPL-3.0 License (https://ultralytics.com/license)
+docs: https://docs.ultralytics.com
+stride: 32
+task: detect
+batch: 1
+imgsz:
+- 640
+- 640
+names:
+  0: fire
+args:
+  batch: 1
+  half: false
+channels: 3
+end2end: false

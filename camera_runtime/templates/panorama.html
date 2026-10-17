@@ -1,0 +1,1118 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#0b0f19">
+    <title>Thermal 360 Panorama Studio - Fire Sentinel</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        .studio-grid {
+            display: grid;
+            grid-template-columns: 380px 1fr;
+            gap: 20px;
+            padding: 20px;
+            max-width: 1750px;
+            margin: 0 auto;
+        }
+        @media (max-width: 1100px) {
+            .studio-grid { grid-template-columns: 1fr; }
+        }
+        .param-group {
+            margin-bottom: 16px;
+        }
+        .param-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #94a3b8;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .param-val-badge {
+            color: #f97316;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .range-inputs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        .input-dark {
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 8px;
+            color: #f8fafc;
+            padding: 8px 12px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.95rem;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .input-dark:focus {
+            outline: none;
+            border-color: #f97316;
+            box-shadow: 0 0 8px rgba(249, 115, 22, 0.3);
+        }
+        .preset-buttons {
+            display: flex;
+            gap: 6px;
+            margin-top: 8px;
+            flex-wrap: wrap;
+        }
+        .btn-preset {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #cbd5e1;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            width: auto !important;
+            flex: 0 0 auto;
+            white-space: nowrap;
+        }
+        .btn-preset:hover {
+            background: rgba(249, 115, 22, 0.2);
+            border-color: #f97316;
+            color: #f97316;
+        }
+        .hw-constraint-alert {
+            background: rgba(245, 158, 11, 0.12);
+            border: 1px solid rgba(245, 158, 11, 0.35);
+            border-radius: 8px;
+            padding: 10px 12px;
+            margin-bottom: 16px;
+            font-size: 0.8rem;
+            color: #fcd34d;
+            line-height: 1.4;
+        }
+        .preview-stat-card {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 14px;
+        }
+        .preview-stat-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-top: 8px;
+        }
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+        }
+        .stat-lbl { font-size: 0.7rem; color: #64748b; text-transform: uppercase; }
+        .stat-val { font-family: 'JetBrains Mono', monospace; font-weight: 700; color: #38bdf8; font-size: 1.05rem; }
+        .progress-bar-container {
+            width: 100%;
+            height: 12px;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 6px;
+            overflow: hidden;
+            margin: 14px 0 8px 0;
+            position: relative;
+        }
+        .progress-bar-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #f97316, #fb923c);
+            transition: width 0.3s ease;
+            box-shadow: 0 0 10px rgba(249, 115, 22, 0.6);
+        }
+        .viewer-container {
+            background: #020617;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            min-height: 480px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
+        /* Modern Compact Viewer Header & Toolbar */
+        .viewer-header {
+            padding: 10px 16px;
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .viewer-title-box {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            min-width: 0;
+        }
+        .viewer-title {
+            font-weight: 700;
+            font-size: 0.85rem;
+            color: #f8fafc;
+            letter-spacing: 0.03em;
+            white-space: nowrap;
+        }
+        .viewer-session-badge {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.72rem;
+            color: #94a3b8;
+            background: rgba(255, 255, 255, 0.06);
+            padding: 3px 8px;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            max-width: 320px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .viewer-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            width: auto !important;
+        }
+        .viewer-btn-group {
+            display: inline-flex;
+            align-items: center;
+            background: rgba(30, 41, 59, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 2px;
+            gap: 2px;
+            width: auto !important;
+        }
+        .viewer-tool-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            background: transparent;
+            border: none;
+            color: #cbd5e1;
+            padding: 5px 10px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            width: auto !important;
+            flex: 0 0 auto;
+            white-space: nowrap;
+        }
+        .viewer-tool-btn:hover {
+            background: rgba(255, 255, 255, 0.12);
+            color: #fff;
+        }
+        .viewer-tool-btn:active {
+            transform: scale(0.96);
+        }
+        .viewer-action-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 6px 14px;
+            border-radius: 8px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            width: auto !important;
+            flex: 0 0 auto;
+            white-space: nowrap;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+        }
+        .viewer-action-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+        }
+        .viewer-action-btn:active {
+            transform: translateY(0);
+        }
+        .btn-action-restitch {
+            background: rgba(16, 185, 129, 0.18);
+            border: 1px solid rgba(16, 185, 129, 0.45);
+            color: #34d399;
+        }
+        .btn-action-restitch:hover {
+            background: rgba(16, 185, 129, 0.32);
+            border-color: #10b981;
+            color: #6ee7b7;
+        }
+        .btn-action-download {
+            background: rgba(14, 165, 233, 0.18);
+            border: 1px solid rgba(14, 165, 233, 0.45);
+            color: #38bdf8;
+        }
+        .btn-action-download:hover {
+            background: rgba(14, 165, 233, 0.32);
+            border-color: #0ea5e9;
+            color: #7dd3fc;
+        }
+        .btn-action-delete {
+            background: rgba(239, 68, 68, 0.15);
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            color: #f87171;
+        }
+        .btn-action-delete:hover {
+            background: rgba(239, 68, 68, 0.28);
+            border-color: #ef4444;
+            color: #fca5a5;
+        }
+        .viewer-stage {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: auto;
+            padding: 16px;
+            position: relative;
+            background: radial-gradient(circle, #0f172a 0%, #020617 100%);
+        }
+        .viewer-img {
+            max-width: 100%;
+            max-height: 560px;
+            object-fit: contain;
+            border-radius: 8px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            transition: transform 0.2s;
+        }
+        .live-thumb-box {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            width: 200px;
+            height: 150px;
+            background: rgba(0,0,0,0.85);
+            border: 1px solid rgba(249, 115, 22, 0.4);
+            border-radius: 8px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.7);
+        }
+        .live-thumb-title {
+            font-size: 0.65rem;
+            color: #cbd5e1;
+            background: rgba(249, 115, 22, 0.3);
+            padding: 3px 6px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .live-thumb-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .gallery-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 14px;
+            margin-top: 14px;
+        }
+        .gallery-card {
+            background: rgba(15, 23, 42, 0.75);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            overflow: hidden;
+            transition: all 0.2s;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            cursor: pointer;
+        }
+        .gallery-card:hover {
+            border-color: rgba(249, 115, 22, 0.6);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+        }
+        .gallery-card.selected {
+            border-color: #f97316 !important;
+            box-shadow: 0 0 16px rgba(249, 115, 22, 0.5) !important;
+            background: rgba(249, 115, 22, 0.08) !important;
+        }
+        .gallery-thumb-wrap {
+            width: 100%;
+            height: 125px;
+            background: #020617;
+            position: relative;
+            cursor: pointer;
+            overflow: hidden;
+        }
+        .gallery-thumb {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .gallery-badge {
+            position: absolute;
+            top: 6px;
+            left: 6px;
+            font-size: 0.65rem;
+            font-weight: 700;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .badge-success { background: rgba(34, 197, 94, 0.85); color: #fff; }
+        .badge-warning { background: rgba(245, 158, 11, 0.85); color: #fff; }
+        .gallery-delete-btn {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            background: rgba(239, 68, 68, 0.85);
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            padding: 3px 8px;
+            font-size: 0.7rem;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .gallery-delete-btn:hover {
+            background: #dc2626;
+        }
+        .gallery-info {
+            padding: 10px 12px;
+            font-size: 0.75rem;
+            cursor: pointer;
+        }
+        .empty-notice-box {
+            background: rgba(30, 41, 59, 0.5);
+            border: 1px dashed rgba(255, 255, 255, 0.15);
+            border-radius: 8px;
+            padding: 30px 20px;
+            text-align: center;
+            max-width: 500px;
+        }
+    </style>
+</head>
+
+<body class="theme-dark">
+    <div class="app-wrapper">
+        <!-- Top App Bar -->
+        <header class="app-header">
+            <div class="header-left">
+                <a href="/" class="logo-badge" style="text-decoration: none;">
+                    <span class="fire-icon"></span>
+                    <div class="logo-text">
+                        <span class="logo-main">THERMAL 360 STUDIO</span>
+                        <span class="logo-sub font-mono">AUTOMATED PTZ PANORAMA</span>
+                    </div>
+                </a>
+            </div>
+
+            <div class="header-center">
+                <div id="studio-status-banner" class="status-banner banner-normal">
+                    <span id="banner-icon" class="banner-icon"></span>
+                    <span id="banner-text" class="banner-text">STUDIO IDLE — CONFIGURE PARAMETERS</span>
+                </div>
+            </div>
+
+            <div class="header-right">
+                <div class="header-actions">
+                    <a href="/" class="btn btn-secondary btn-header-nav">← LIVE DASHBOARD</a>
+                    <a href="/ptz_test" class="btn btn-secondary btn-header-nav">PTZ TEST</a>
+                    <a href="/settings" class="btn btn-secondary btn-header-nav">SETTINGS</a>
+                </div>
+                <div class="telemetry-pill">
+                    <span class="dot dot-green"></span>
+                    <span id="system-time" class="font-mono">--:--:--</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Studio Grid -->
+        <main class="studio-grid">
+            <!-- Left Panel: Parameter Configuration -->
+            <section class="card">
+                <h3 style="margin-top: 0; font-size: 1.1rem; color: #f8fafc; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 10px;">
+                    ⚙️ PANORAMA PARAMETERS
+                </h3>
+
+                <!-- Azimuth Range -->
+                <div class="param-group">
+                    <div class="param-label">
+                        <span>Azimuth (Pan) Range</span>
+                        <span class="param-val-badge">[-180° .. +180°]</span>
+                    </div>
+                    <div class="range-inputs">
+                        <div>
+                            <span style="font-size: 0.7rem; color: #64748b;">START (MIN)</span>
+                            <input type="number" id="inp-az-min" class="input-dark" value="-90.0" min="-300.0" max="300.0" step="1.0">
+                        </div>
+                        <div>
+                            <span style="font-size: 0.7rem; color: #64748b;">END (MAX)</span>
+                            <input type="number" id="inp-az-max" class="input-dark" value="90.0" min="-300.0" max="300.0" step="1.0">
+                        </div>
+                    </div>
+                    <div class="preset-buttons">
+                        <button class="btn-preset" onclick="setAzRange(-90, 90)">-90° -> +90° (180°)</button>
+                        <button class="btn-preset" onclick="setAzRange(-180, 180)">-180° -> +180° (360°)</button>
+                        <button class="btn-preset" onclick="setAzRange(-45, 45)">-45° -> +45° (90°)</button>
+                        <button class="btn-preset" onclick="setAzRange(0, 360)">0° -> 360°</button>
+                    </div>
+                </div>
+
+                <!-- Altitude Range -->
+                <div class="param-group">
+                    <div class="param-label">
+                        <span>Altitude (Tilt) Range</span>
+                        <span class="param-val-badge">[-25° .. +45°]</span>
+                    </div>
+                    <div class="range-inputs">
+                        <div>
+                            <span style="font-size: 0.7rem; color: #64748b;">MIN (GROUND)</span>
+                            <input type="number" id="inp-alt-min" class="input-dark" value="-20.0" min="-25.0" max="45.0" step="1.0">
+                        </div>
+                        <div>
+                            <span style="font-size: 0.7rem; color: #64748b;">MAX (HORIZON)</span>
+                            <input type="number" id="inp-alt-max" class="input-dark" value="0.0" min="-25.0" max="45.0" step="1.0">
+                        </div>
+                    </div>
+                    <div class="preset-buttons">
+                        <button class="btn-preset" onclick="setAltRange(-20, 0)">-20° -> 0° (Ground)</button>
+                        <button class="btn-preset" onclick="setAltRange(-10, 10)">-10° -> +10° (Horizon)</button>
+                        <button class="btn-preset" onclick="setAltRange(-20, 20)">-20° -> +20° (Full)</button>
+                    </div>
+                </div>
+
+                <!-- Thermal Focal Length -->
+                <div class="param-group">
+                    <div class="param-label">
+                        <span>Thermal Focal Length</span>
+                        <span class="param-val-badge" id="lbl-focal-mm">60.0 mm</span>
+                    </div>
+                    <input type="range" id="inp-focal-slider" min="31" max="155" value="60" step="1" style="width: 100%; accent-color: #f97316;">
+                    <div class="preset-buttons">
+                        <button class="btn-preset" onclick="setFocal(31)">31mm (Wide 14.2°)</button>
+                        <button class="btn-preset" onclick="setFocal(60)">60mm (7.4°)</button>
+                        <button class="btn-preset" onclick="setFocal(90)">90mm (4.9°)</button>
+                        <button class="btn-preset" onclick="setFocal(155)">155mm (Tele 2.8°)</button>
+                    </div>
+                    <span style="font-size: 0.72rem; color: #94a3b8; display: block; margin-top: 4px;">
+                        💡 ระบบจะสั่งกล้อง Thermal ปรับเลนส์ไปยัง Focal Length นี้และรอเลนส์นิ่งก่อนเริ่มถ่าย
+                    </span>
+                </div>
+
+                <!-- Overlap Percentage -->
+                <div class="param-group">
+                    <div class="param-label">
+                        <span>Overlap Percentage</span>
+                        <span class="param-val-badge" id="lbl-overlap-pct">25 %</span>
+                    </div>
+                    <input type="range" id="inp-overlap-slider" min="10" max="50" value="25" step="5" style="width: 100%; accent-color: #06b6d4;">
+                </div>
+
+                <!-- Camera Settling Delay -->
+                <div class="param-group">
+                    <div class="param-label">
+                        <span>Settling Delay (เวลารอกล้องหยุดสนิท)</span>
+                        <span class="param-val-badge" id="lbl-settle-sec" style="color: #10b981;">1.2 s</span>
+                    </div>
+                    <input type="range" id="inp-settle-slider" min="0.4" max="3.0" value="1.2" step="0.1" style="width: 100%; accent-color: #10b981;">
+                    <div class="preset-buttons">
+                        <button class="btn-preset" onclick="setSettle(0.8)">0.8s (เร็ว)</button>
+                        <button class="btn-preset" onclick="setSettle(1.2)">1.2s (แนะนำ)</button>
+                        <button class="btn-preset" onclick="setSettle(1.8)">1.8s (นิ่งสนิท)</button>
+                        <button class="btn-preset" onclick="setSettle(2.5)">2.5s (ซูมไกล)</button>
+                    </div>
+                    <span style="font-size: 0.72rem; color: #94a3b8; display: block; margin-top: 4px;">
+                        💡 หยุดรอให้กล้อง PTZ นิ่งสนิทและสลายแรงสั่นก่อนกดถ่ายภาพในแต่ละจุด
+                    </span>
+                </div>
+
+                <!-- Calculated Grid Preview Card -->
+                <div class="preview-stat-card">
+                    <div style="font-size: 0.75rem; font-weight: 700; color: #cbd5e1; text-transform: uppercase;">
+                        📊 CALCULATED GRID PREVIEW
+                    </div>
+                    <div class="preview-stat-grid">
+                        <div class="stat-item">
+                            <span class="stat-lbl">Thermal FOV (H x V)</span>
+                            <span class="stat-val" id="stat-fov">-- x --</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-lbl">Total Frames</span>
+                            <span class="stat-val" id="stat-frames">-- frames</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-lbl">Grid Rows x Cols</span>
+                            <span class="stat-val" id="stat-grid">-- x --</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-lbl">Est. Duration</span>
+                            <span class="stat-val" id="stat-est-time">-- sec</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Mission Control Action Buttons -->
+                <div style="margin-top: 20px; display: flex; flex-direction: column; gap: 10px;">
+                    <button id="btn-start-capture" class="btn" style="background: linear-gradient(135deg, #ea580c, #f97316); color: #fff; font-weight: 700; padding: 12px; font-size: 1rem; border: none; border-radius: 8px; cursor: pointer; box-shadow: 0 4px 15px rgba(234, 88, 12, 0.4);">
+                        🚀 START THERMAL 360 CAPTURE
+                    </button>
+                    <button id="btn-stop-capture" class="btn btn-secondary" style="display: none; background: rgba(239, 68, 68, 0.2); border-color: #ef4444; color: #f87171; font-weight: 700; padding: 10px;">
+                        🛑 ABORT MISSION
+                    </button>
+                </div>
+            </section>
+
+            <!-- Right Panel: Live Execution Monitor & Result Viewer -->
+            <section class="card" style="display: flex; flex-direction: column;">
+                <!-- Live Progress Card -->
+                <div id="progress-card" style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 14px; margin-bottom: 16px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <span style="font-size: 0.8rem; font-weight: 600; color: #cbd5e1;">MISSION PROGRESS: </span>
+                            <span id="disp-mission-status" class="font-mono" style="color: #f97316; font-weight: 700;">IDLE</span>
+                        </div>
+                        <div class="font-mono" style="font-size: 0.85rem; color: #94a3b8;">
+                            Step: <span id="disp-step" style="color: #38bdf8; font-weight: 700;">0 / 0</span>
+                            | Remaining: <span id="disp-remaining-time" style="color: #f59e0b;">0s</span>
+                        </div>
+                    </div>
+
+                    <div class="progress-bar-container">
+                        <div id="progress-bar-fill" class="progress-bar-fill"></div>
+                    </div>
+                    <div id="disp-mission-message" style="font-size: 0.78rem; color: #94a3b8;">Ready to configure and start.</div>
+                </div>
+
+                <!-- Main Panorama Viewer Stage -->
+                <div class="viewer-container">
+                    <div class="viewer-header">
+                        <div class="viewer-title-box">
+                            <span class="viewer-title">🖼️ PANORAMA VIEWER</span>
+                            <span id="disp-session-label" class="viewer-session-badge">No session loaded</span>
+                        </div>
+
+                        <div class="viewer-toolbar">
+                            <!-- Zoom Controls (Segmented Pill Group) -->
+                            <div class="viewer-btn-group">
+                                <button id="btn-zoom-in" class="viewer-tool-btn" onclick="zoomViewer(1.25)" title="ซูมเข้า">
+                                    🔍 <span>In</span>
+                                </button>
+                                <button id="btn-zoom-out" class="viewer-tool-btn" onclick="zoomViewer(0.8)" title="ซูมออก">
+                                    🔍 <span>Out</span>
+                                </button>
+                                <button id="btn-zoom-reset" class="viewer-tool-btn" onclick="resetViewer()" title="รีเซ็ต 1:1">
+                                    ↺ <span>1:1</span>
+                                </button>
+                            </div>
+
+                            <!-- Action Buttons -->
+                            <button id="btn-restitch-current" class="viewer-action-btn btn-action-restitch" style="display: none;" onclick="restitchCurrentSession()" title="ประมวลผลต่อภาพใหม่ด้วย Spherical 3D Ray Warper">
+                                ✨ <span>Re-Stitch</span>
+                            </button>
+
+                            <a id="btn-download-img" href="#" target="_blank" class="viewer-action-btn btn-action-download" style="display: none;" title="ดาวน์โหลดภาพความละเอียดเต็ม">
+                                ⬇ <span>Download</span>
+                            </a>
+
+                            <button id="btn-delete-current" class="viewer-action-btn btn-action-delete" style="display: none;" onclick="deleteCurrentLoadedSession()" title="ลบเซสชันนี้">
+                                🗑️ <span>Delete</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="viewer-stage" id="viewer-stage">
+                        <!-- Stitched Image Viewer -->
+                        <img id="stitched-viewer-img" src="" alt="Panorama" class="viewer-img" style="display: none;">
+
+                        <!-- Placeholder / Notice Container -->
+                        <div id="viewer-placeholder" class="empty-notice-box">
+                            <div style="font-size: 2.5rem; margin-bottom: 8px;">📷</div>
+                            <div id="notice-title" style="font-size: 1rem; font-weight: 600; color: #f8fafc; margin-bottom: 4px;">ยังไม่มีภาพพาโนรามาที่เลือก</div>
+                            <div id="notice-desc" style="font-size: 0.8rem; color: #94a3b8; line-height: 1.5;">
+                                เลือกเซสชันจากรายการด้านล่าง หรือกดปุ่ม <strong>"START THERMAL 360 CAPTURE"</strong> เพื่อเริ่มถ่ายพาโนรามาชุดใหม่
+                            </div>
+                            <div id="notice-action" style="margin-top: 14px; display: none;">
+                                <button id="btn-notice-delete" class="btn btn-preset" style="background: rgba(239, 68, 68, 0.3); border-color: #ef4444; color: #fca5a5; font-size: 0.85rem; padding: 6px 14px;">
+                                    🗑️ ลบเซสชันที่ล้มเหลวนี้ทิ้ง
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Live Mini Thumbnail Box (Active during capture) -->
+                        <div id="live-thumb-box" class="live-thumb-box" style="display: none;">
+                            <div class="live-thumb-title" id="live-thumb-title">LIVE FRAME #0</div>
+                            <img id="live-thumb-img" src="" class="live-thumb-img" alt="Live frame">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Previous Sessions Gallery -->
+                <div style="margin-top: 20px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <h4 style="margin: 0; font-size: 0.95rem; color: #cbd5e1;">📁 RECENT PANORAMA SESSIONS</h4>
+                        <button class="btn-preset" onclick="loadSessions()">🔄 Refresh List</button>
+                    </div>
+                    <div id="gallery-list" class="gallery-grid">
+                        <!-- Loaded dynamically -->
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- JavaScript Logic -->
+    <script>
+        let pollTimer = null;
+        let isCapturing = false;
+        let currentZoomScale = 1.0;
+        let currentLoadedSessionId = null;
+
+        // UI Element References
+        const inpAzMin = document.getElementById('inp-az-min');
+        const inpAzMax = document.getElementById('inp-az-max');
+        const inpAltMin = document.getElementById('inp-alt-min');
+        const inpAltMax = document.getElementById('inp-alt-max');
+        const inpFocal = document.getElementById('inp-focal-slider');
+        const lblFocal = document.getElementById('lbl-focal-mm');
+        const inpOverlap = document.getElementById('inp-overlap-slider');
+        const lblOverlap = document.getElementById('lbl-overlap-pct');
+
+        const btnStart = document.getElementById('btn-start-capture');
+        const btnStop = document.getElementById('btn-stop-capture');
+
+        // Presets Handlers
+        function setAzRange(minVal, maxVal) {
+            inpAzMin.value = parseFloat(minVal).toFixed(1);
+            inpAzMax.value = parseFloat(maxVal).toFixed(1);
+            triggerPlanCalculation();
+        }
+
+        function setAltRange(minVal, maxVal) {
+            inpAltMin.value = parseFloat(minVal).toFixed(1);
+            inpAltMax.value = parseFloat(maxVal).toFixed(1);
+            triggerPlanCalculation();
+        }
+
+        function setFocal(val) {
+            inpFocal.value = val;
+            lblFocal.textContent = val.toFixed(1) + ' mm';
+            triggerPlanCalculation();
+        }
+
+        const inpSettle = document.getElementById('inp-settle-slider');
+        const lblSettle = document.getElementById('lbl-settle-sec');
+
+        function setSettle(val) {
+            inpSettle.value = val;
+            lblSettle.textContent = parseFloat(val).toFixed(1) + ' s';
+            triggerPlanCalculation();
+        }
+
+        inpSettle.addEventListener('input', (e) => {
+            lblSettle.textContent = parseFloat(e.target.value).toFixed(1) + ' s';
+            triggerPlanCalculation();
+        });
+
+        inpFocal.addEventListener('input', (e) => {
+            lblFocal.textContent = parseFloat(e.target.value).toFixed(1) + ' mm';
+            triggerPlanCalculation();
+        });
+
+        inpOverlap.addEventListener('input', (e) => {
+            lblOverlap.textContent = e.target.value + ' %';
+            triggerPlanCalculation();
+        });
+
+        [inpAzMin, inpAzMax, inpAltMin, inpAltMax, inpSettle].forEach(el => {
+            el.addEventListener('change', () => {
+                triggerPlanCalculation();
+            });
+        });
+
+        // Calculate Plan via Backend API
+        let calcTimeout = null;
+        function triggerPlanCalculation() {
+            clearTimeout(calcTimeout);
+            calcTimeout = setTimeout(fetchGridPlan, 200);
+        }
+
+        async function fetchGridPlan() {
+            try {
+                const res = await fetch('/api/panorama/calculate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        az_min: parseFloat(inpAzMin.value),
+                        az_max: parseFloat(inpAzMax.value),
+                        alt_min: parseFloat(inpAltMin.value),
+                        alt_max: parseFloat(inpAltMax.value),
+                        focal_mm: parseFloat(inpFocal.value),
+                        overlap_pct: parseFloat(inpOverlap.value),
+                        settle_sec: parseFloat(inpSettle.value)
+                    })
+                });
+                const plan = await res.json();
+                if (plan && plan.valid) {
+                    document.getElementById('stat-fov').textContent = plan.h_fov_deg + '° x ' + plan.v_fov_deg + '°';
+                    document.getElementById('stat-frames').textContent = plan.total_waypoints + ' frames';
+                    document.getElementById('stat-grid').textContent = plan.rows_count + ' rows';
+                    document.getElementById('stat-est-time').textContent = '~' + plan.estimated_duration_sec + 's';
+                }
+            } catch (err) {
+                console.error('Error fetching plan:', err);
+            }
+        }
+
+        // Start Capture
+        btnStart.addEventListener('click', async () => {
+            if (!confirm('ยืนยันเริ่มถ่ายภาพความร้อน 360 องศา?\n- Azimuth: ' + inpAzMin.value + '° ถึง ' + inpAzMax.value + '°\n- Altitude: ' + inpAltMin.value + '° ถึง ' + inpAltMax.value + '°\n- Focal Length: ' + inpFocal.value + 'mm (ปรับเลนส์อัตโนมัติ)\n- Overlap: ' + inpOverlap.value + '%\n- เวลารอกล้องนิ่ง (Settling Delay): ' + inpSettle.value + ' วินาที')) {
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/panorama/start', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        az_min: parseFloat(inpAzMin.value),
+                        az_max: parseFloat(inpAzMax.value),
+                        alt_min: parseFloat(inpAltMin.value),
+                        alt_max: parseFloat(inpAltMax.value),
+                        focal_mm: parseFloat(inpFocal.value),
+                        overlap_pct: parseFloat(inpOverlap.value),
+                        settle_sec: parseFloat(inpSettle.value)
+                    })
+                });
+                const result = await res.json();
+                if (result.success) {
+                    startPolling();
+                } else {
+                    alert('Error starting capture: ' + (result.error || 'Unknown error'));
+                }
+            } catch (err) {
+                alert('Network error: ' + err);
+            }
+        });
+
+        // Abort Capture
+        btnStop.addEventListener('click', async () => {
+            if (confirm('ต้องการยกเลิกภารกิจถ่ายภาพนี้ใช่หรือไม่?')) {
+                await fetch('/api/panorama/stop', { method: 'POST' });
+            }
+        });
+
+        // Live Polling
+        function startPolling() {
+            isCapturing = true;
+            btnStart.style.display = 'none';
+            btnStop.style.display = 'block';
+            document.getElementById('live-thumb-box').style.display = 'flex';
+
+            if (pollTimer) clearInterval(pollTimer);
+            pollTimer = setInterval(pollStatus, 800);
+            pollStatus();
+        }
+
+        async function pollStatus() {
+            try {
+                const res = await fetch('/api/panorama/status');
+                const st = await res.json();
+
+                // Update Progress UI
+                const fill = document.getElementById('progress-bar-fill');
+                fill.style.width = st.progress_pct + '%';
+
+                document.getElementById('disp-mission-status').textContent = st.status;
+                document.getElementById('disp-mission-message').textContent = st.message;
+                document.getElementById('disp-step').textContent = st.current_step + ' / ' + st.total_steps;
+                document.getElementById('disp-remaining-time').textContent = st.estimated_remaining_sec + 's';
+
+                // Update Status Banner
+                const bannerText = document.getElementById('banner-text');
+                bannerText.textContent = 'THERMAL 360 [' + st.status + ']: ' + st.message;
+
+                // Update live frame thumbnail
+                if (st.latest_thumbnail) {
+                    const thumbImg = document.getElementById('live-thumb-img');
+                    thumbImg.src = st.latest_thumbnail + '?t=' + Date.now();
+                    document.getElementById('live-thumb-title').textContent = 'LIVE AZ: ' + st.current_az.toFixed(1) + '° ALT: ' + st.current_alt.toFixed(1) + '°';
+                }
+
+                // Check Completion or Abort
+                if (!st.is_running && isCapturing) {
+                    isCapturing = false;
+                    clearInterval(pollTimer);
+                    btnStart.style.display = 'block';
+                    btnStop.style.display = 'none';
+                    document.getElementById('live-thumb-box').style.display = 'none';
+
+                    if (st.status === 'COMPLETED' && st.stitched_image) {
+                        displayStitchedImage(st.stitched_image, st.session_id, true);
+                        loadSessions();
+                    } else if (st.status === 'ERROR') {
+                        alert('Capture Error: ' + st.error);
+                    }
+                }
+            } catch (e) {
+                console.error('Poll error:', e);
+            }
+        }
+
+        // Display Panorama Image or Incomplete Notice
+        function displayStitchedImage(url, sessionId, hasStitched, targetCard = null) {
+            currentLoadedSessionId = sessionId;
+            const viewerImg = document.getElementById('stitched-viewer-img');
+            const placeholder = document.getElementById('viewer-placeholder');
+            const dlBtn = document.getElementById('btn-download-img');
+            const delBtn = document.getElementById('btn-delete-current');
+            const restitchBtn = document.getElementById('btn-restitch-current');
+            const label = document.getElementById('disp-session-label');
+            const noticeTitle = document.getElementById('notice-title');
+            const noticeDesc = document.getElementById('notice-desc');
+            const noticeAction = document.getElementById('notice-action');
+            const btnNoticeDelete = document.getElementById('btn-notice-delete');
+
+            label.textContent = sessionId;
+            delBtn.style.display = 'inline-flex';
+            restitchBtn.style.display = 'inline-flex';
+
+            // Highlight selected card in gallery
+            document.querySelectorAll('.gallery-card').forEach(c => c.classList.remove('selected'));
+            if (targetCard) {
+                targetCard.classList.add('selected');
+            }
+
+            // Smooth scroll to viewer
+            const viewerBox = document.querySelector('.viewer-container');
+            if (viewerBox) {
+                viewerBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+
+            if (!hasStitched) {
+                viewerImg.style.display = 'none';
+                placeholder.style.display = 'block';
+                dlBtn.style.display = 'none';
+                restitchBtn.style.display = 'none';
+                noticeTitle.textContent = '⚠️ เซสชันนี้ยังไม่มีภาพพาโนรามาสมบูรณ์';
+                noticeDesc.innerHTML = 'เซสชัน <code>' + sessionId + '</code> ไม่พบไฟล์พาโนรามาที่ต่อเสร็จแล้ว';
+                noticeAction.style.display = 'block';
+                btnNoticeDelete.onclick = () => deleteSession(sessionId);
+                return;
+            }
+
+            // Show loading placeholder briefly while image is decoding
+            placeholder.style.display = 'block';
+            noticeTitle.textContent = '⏳ กำลังโหลดภาพพาโนรามา...';
+            noticeDesc.innerHTML = 'กำลังแสดงภาพความละเอียดสูง <code>' + sessionId + '</code>';
+            noticeAction.style.display = 'none';
+            viewerImg.style.display = 'none';
+
+            const fullUrl = url + '?t=' + Date.now();
+
+            viewerImg.onload = () => {
+                viewerImg.style.display = 'block';
+                placeholder.style.display = 'none';
+                dlBtn.style.display = 'inline-flex';
+                dlBtn.href = fullUrl;
+            };
+
+            viewerImg.onerror = () => {
+                viewerImg.style.display = 'none';
+                placeholder.style.display = 'block';
+                dlBtn.style.display = 'none';
+                noticeTitle.textContent = '⚠️ ไม่สามารถโหลดไฟล์ภาพพาโนรามาได้';
+                noticeDesc.innerHTML = 'ไฟล์ภาพอาจสูญหายหรือยังต่อภาพไม่สมบูรณ์สำหรับเซสชัน <code>' + sessionId + '</code>';
+                noticeAction.style.display = 'block';
+                btnNoticeDelete.onclick = () => deleteSession(sessionId);
+            };
+
+            viewerImg.src = fullUrl;
+
+            // Immediate check in case image is already cached
+            if (viewerImg.complete && viewerImg.naturalWidth > 0) {
+                viewerImg.style.display = 'block';
+                placeholder.style.display = 'none';
+                dlBtn.style.display = 'inline-flex';
+                dlBtn.href = fullUrl;
+            }
+
+            resetViewer();
+        }
+
+        // Zoom & Pan Viewer Controls
+        function zoomViewer(factor) {
+            currentZoomScale = Math.max(0.5, Math.min(4.0, currentZoomScale * factor));
+            const img = document.getElementById('stitched-viewer-img');
+            img.style.transform = 'scale(' + currentZoomScale + ')';
+        }
+
+        function resetViewer() {
+            currentZoomScale = 1.0;
+            const img = document.getElementById('stitched-viewer-img');
+            img.style.transform = 'scale(1.0)';
+        }
+
+        // Re-Stitch Handler
+        async function restitchCurrentSession() {
+            if (!currentLoadedSessionId) return;
+            const btn = document.getElementById('btn-restitch-current');
+            const originalHtml = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '⏳ กำลังต่อภาพด้วย 3D Ray Warper...';
+
+            try {
+                const res = await fetch('/api/panorama/restitch/' + currentLoadedSessionId, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ enable_align: true })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    displayStitchedImage(data.stitched_url, currentLoadedSessionId, true);
+                    alert('✨ ต่อภาพพาโนรามาใหม่สำเร็จด้วยระบบ Spherical 3D Ray Warper เรียบร้อยแล้ว!');
+                    await loadSessions();
+                } else {
+                    alert('ไม่สามารถต่อภาพใหม่ได้: ' + (data.error || 'Server error'));
+                }
+            } catch (err) {
+                alert('เกิดข้อผิดพลาดในการต่อภาพ: ' + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalHtml;
+            }
+        }
+
+        // Delete Session Handler
+        async function deleteCurrentLoadedSession() {
+            if (!currentLoadedSessionId) return;
+            await deleteSession(currentLoadedSessionId);
+        }
+
+        async function deleteSession(sessionId) {
+            if (!confirm('ยืนยันต้องการลบเซสชัน ' + sessionId + ' และไฟล์ภาพทั้งหมดทิ้งถาวรใช่หรือไม่?')) {
+                return;
+            }
+
+            try {
+                let res = await fetch('/api/panorama/session/' + sessionId, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                if (!res.ok) {
+                    res = await fetch('/api/panorama/session/' + sessionId, {
+                        method: 'DELETE'
+                    });
+                }
+                if (!res.ok) {
+                    const errText = await res.text();
+                    throw new Error('Server returned HTTP ' + res.status + ' (' + errText.slice(0, 80) + ')');
+                }
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    if (currentLoadedSessionId === sessionId) {
+                        currentLoadedSessionId = null;
+                        document.getElementById('stitched-viewer-img').style.display = 'none';
+                        const placeholder = document.getElementById('viewer-placeholder');
+                        placeholder.style.display = 'block';
+                        document.getElementById('notice-title').textContent = 'ลบเซสชันเรียบร้อยแล้ว';
+                        document.getElementById('notice-desc').textContent = 'โฟลเดอร์และไฟล์ภาพของ ' + sessionId + ' ถูกลบออกจากระบบแล้ว';
+                        document.getElementById('notice-action').style.display = 'none';
+                        document.getElementById('btn-download-img').style.display = 'none';
+                        document.getElementById('btn-delete-current').style.display = 'none';
+                        document.getElementById('disp-session-label').textContent = 'No session loaded';
+                    }
+                    await loadSessions();
+                } else {
+                    alert('ไม่สามารถลบเซสชันได้: ' + (data.error || 'Server error'));
+                }
+            } catch (err) {
+                alert('เกิดข้อผิดพลาดในการลบ: ' + err.message);
+            }
+        }
+
+        // Load Recent Sessions
+        async function loadSessions() {
+            try {
+                const res = await fetch('/api/panorama/sessions');
+                const sessions = await res.json();
+                const container = document.getElementById('gallery-list');
+                container.innerHTML = '';
+
+                if (sessions.length === 0) {
+                    container.innerHTML = '<div style="color: #64748b; font-size: 0.85rem; padding: 20px 0;">ยังไม่มีประวัติเซสชันพาโนรามาที่บันทึกไว้ในระบบ</div>';
+                    return;
+                }
+
+                sessions.forEach((s, idx) => {
+                    const card = document.createElement('div');
+                    card.className = 'gallery-card';
+                    const hasStitched = !!s.has_stitched;
+                    const thumbUrl = hasStitched ? ('/api/panorama/image/' + s.folder_name + '/thumbnail.jpg') : '';
+                    const stitchedUrl = '/api/panorama/image/' + s.folder_name + '/stitched_panorama.jpg';
+
+                    const badgeClass = hasStitched ? 'badge-success' : 'badge-warning';
+                    const badgeText = hasStitched ? 'STITCHED' : 'INCOMPLETE';
+
+                    card.innerHTML = `
+                        <div class="gallery-thumb-wrap" id="thumb-wrap-${s.folder_name}">
+                            <span class="gallery-badge ${badgeClass}">${badgeText}</span>
+                            <button class="gallery-delete-btn" title="ลบเซสชันนี้" onclick="event.stopPropagation(); deleteSession('${s.folder_name}')">🗑️ ลบ</button>
+                            ${hasStitched
+                                ? `<img src="${thumbUrl}" class="gallery-thumb" onerror="this.src='/static/placeholder.jpg'">`
+                                : `<div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: #64748b; font-size: 0.75rem;">
+                                     <span style="font-size: 1.5rem; margin-bottom: 4px;">⚠️</span>
+                                     <span>ไม่มีไฟล์ภาพ</span>
+                                   </div>`
+                            }
+                        </div>
+                        <div class="gallery-info">
+                            <div style="font-weight: 700; color: #f8fafc; font-size: 0.75rem; margin-bottom: 4px; word-break: break-all;">${s.folder_name}</div>
+                            <div style="color: #94a3b8; font-size: 0.7rem;">ภาพถ่าย: ${s.actual_frames || s.total_frames || 0} ภาพ | โฟกัส: ${s.focal_mm ? s.focal_mm + 'mm' : '--'}</div>
+                            <div style="color: #f97316; font-size: 0.7rem; margin-top: 2px;">ช่วงมุม: Az ${s.az_range ? s.az_range[0] + '°..' + s.az_range[1] + '°' : '--'}</div>
+                        </div>
+                    `;
+
+                    // Clicking ANYWHERE on the card opens the image
+                    card.onclick = (e) => {
+                        if (e.target.closest('.gallery-delete-btn')) return;
+                        displayStitchedImage(stitchedUrl, s.folder_name, hasStitched, card);
+                    };
+
+                    container.appendChild(card);
+                });
+
+                // Auto display newest stitched session on initial load if viewer is empty
+                if (!currentLoadedSessionId && sessions.length > 0) {
+                    const newestStitched = sessions.find(s => s.has_stitched);
+                    if (newestStitched) {
+                        const stitchedUrl = '/api/panorama/image/' + newestStitched.folder_name + '/stitched_panorama.jpg';
+                        const firstCard = container.querySelector('.gallery-card');
+                        displayStitchedImage(stitchedUrl, newestStitched.folder_name, true, firstCard);
+                    }
+                }
+            } catch (err) {
+                console.error('Error loading sessions:', err);
+            }
+        }
+
+        // Clock display
+        setInterval(() => {
+            const now = new Date();
+            document.getElementById('system-time').textContent = now.toTimeString().split(' ')[0];
+        }, 1000);
+
+        // Initial trigger
+        triggerPlanCalculation();
+        loadSessions();
+    </script>
+</body>
+</html>

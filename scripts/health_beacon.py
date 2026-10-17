@@ -14,7 +14,10 @@ from pathlib import Path
 from typing import Any
 from urllib.request import urlopen
 
-import RPi.GPIO as GPIO
+try:
+    import RPi.GPIO as GPIO
+except ImportError:
+    GPIO = None  # Health evaluation also runs on hosts without GPIO hardware.
 
 LOG = logging.getLogger("health-beacon")
 DO0_BCM_PIN = 23
@@ -267,6 +270,8 @@ def monitor_status(
 
 
 def main() -> int:
+    if GPIO is None:
+        raise RuntimeError("GPIO backend missing; install rpi-lgpio on the IRIV PiControl.")
     parser = argparse.ArgumentParser()
     parser.add_argument("--base-url", default="http://127.0.0.1:8000")
     parser.add_argument("--request-timeout", type=float, default=0.5)

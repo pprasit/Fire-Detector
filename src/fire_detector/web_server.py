@@ -5066,6 +5066,13 @@ def create_app() -> Flask:
 
     @app.get("/api/pointing/cache/<path:filename>")
     def api_pointing_cache(filename: str):
+        # Generate the high-precision asset lazily for the active station only.
+        match = re.fullmatch(r"pointing_([0-9a-f]{20})_height_hq_v1\.json", filename)
+        if match and not (POINTING_CACHE_DIR / filename).is_file():
+            model = _pointing_model_raster_payload(POINTING_GRID_RESOLUTION_M)
+            if model.get("cache_key") == match.group(1):
+                from fire_detector.mission_terrain_assets import build_terrain_assets
+                build_terrain_assets(DEM_PATH, model, POINTING_CACHE_DIR)
         return send_from_directory(POINTING_CACHE_DIR, filename)
 
     @app.get("/api/pointing/favorites")

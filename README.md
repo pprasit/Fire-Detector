@@ -2,8 +2,13 @@
 
 Python project for the Raspberry Pi based Fire Detector control and monitor system.
 
-This repository currently contains only the ODrive monitor/control dashboard.
-Camera and Hailo detection experiments are intentionally outside this project.
+This repository includes the ODrive monitor/control dashboard and the deployed
+thermal/visible camera, fire detection, NCNN model and panorama runtime in
+`camera_runtime/`. Experimental Hailo pipelines remain outside this project.
+
+**New Raspberry Pi:** follow [คู่มือติดตั้งเครื่องใหม่](docs/NEW_STATION_TH.md).
+Local settings and runtime data are excluded from Git. Pulling source alone does
+not install OS dependencies or supply camera credentials and axis calibration.
 
 For the current project state and handoff notes, read [HANDOFF.md](HANDOFF.md).
 
@@ -34,6 +39,63 @@ python3 scripts/simulate_fire_events.py --dry-run --seed 42
 
 Use `--server`, `--device-id`, `--station-id`, `--secret-file`, and `--ca` to
 override Station configuration. Use `--window-sec 0` for an immediate test.
+
+## Mission Design terrain view
+
+The Mission Design panel renders an interactive WebGL terrain mesh from the
+station DEM and satellite textures. **360° panorama** projects the 3D scene
+from the configured station camera height into geographic bearing and altitude:
+0°/360° true north, 90° east, 180° south, 270° west; altitude zero is the true
+horizon. Camera markers and FOV corners are converted from mount coordinates
+using the active Pointing Model and station north offset. The compact panel puts live position,
+velocity and target telemetry next to its title. Toolbars are hidden to give
+the terrain more height. Use the horizontal scrollbar or drag the panorama to
+explore the full azimuth range; altitude labels stay fixed on the left. The
+scrolling view is contained within the chart beside the live camera column.
+The initial view centers on the live camera and expands its vertical range if
+the compensated true altitude falls outside the default window. During manual
+navigation, an edge arrow marks an offscreen camera; click it to return to the
+real camera direction. The marker is never silently clamped to a false altitude.
+Header telemetry and the scan-range summary remain explicitly labelled mount
+coordinates; geographic display alignment does not change encoder calibration,
+scan commands or safety limits.
+Wheel zoom and display navigation do not change physical mount or camera zoom.
+Wheel zoom smoothly scales both angular axes together (1–8×), rebuilding the
+horizontal scroll track while keeping the geographic point under the cursor
+fixed where the panorama boundaries permit. Shift-wheel scrolls horizontally.
+
+Hover over terrain to see a thermal FOV preview at the selected planning zoom.
+The compact chart footer shows the actual thermal optical FOV, chart angular
+scale and imagery attribution. Hover coordinates and range, native sensor
+sampling and navigation instructions are omitted to give the chart more room.
+Source DEM and mesh spacing are available in the terrain-status tooltip.
+The amber frame follows the **actual thermal optical FOV**, read from verified
+live-frame metadata every 500 ms. It uses the current optical zoom, not the
+hidden planning zoom. The dashed green frame remains a separate hover preview.
+Stale, unverified or missing zoom metadata removes the amber frame and shows
+an unavailable message rather than inventing a zoom value.
+
+Thermal sampling uses the SIP30-150-LWIR datasheet's **640 × 512 native detector**:
+average arcsec per sensor pixel = FOV in degrees × 3600 / native pixel count.
+The readout separately reports geographic-axis arcsec per chart CSS pixel and
+the projected FOV box size. Resizing/upscaling video does not create native
+detector detail. Coverage is estimated from optical zoom/lens specifications;
+unreported digital zoom/cropping is not included in the amber optical frame.
+Refresh Mission Design after changing station or Pointing Model configuration.
+The default **High** mode uses a 16-bit native DEM height texture and approximately
+39 m mesh spacing across the 40 km footprint. Rendering detail remains limited
+by the underlying DEM's survey resolution. The station caches high-precision elevation
+assets separately, preserving the original GeoTIFF and existing map caches.
+
+Terrain presentation uses soft daylight, neutral tone mapping and a small
+vegetation saturation reduction. The panorama retains linear HDR colour in its
+cube render target when floating-point rendering is supported, then applies
+tone mapping at display time. Atmospheric haze follows sightline distance so
+adjacent cube faces agree. Lighting and haze are illustrative rather than live
+weather. They do not add canopy, buildings or new elevation samples; close-up
+detail remains limited by the source DEM and satellite imagery.
+The existing offline DEM panorama API remains available for image exports but
+is not used as the interactive view's background.
 
 ## Mission Control worker
 
@@ -158,8 +220,10 @@ SSH key. The matching private key remains on the Windows workstation and must
 never be copied into this repository. Use `--ssh-public-key-file PATH` only to
 override the bundled public key.
 
-If the current production code has not been merged to `main`, select its branch
-explicitly with `--branch <branch-name>`. Run `--help` to see every option.
+The published station version is available on `main`. Run `--help` to see every
+option. New stations start in simulation with automatic updates disabled until
+hardware acceptance. Install the camera runtime separately using the new-station
+runbook; bootstrap alone installs the mount dashboard.
 
 After the required reboot, connect from Windows and authenticate Codex using
 the headless device-code flow:
