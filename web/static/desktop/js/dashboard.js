@@ -61,6 +61,7 @@ function installIndustrialDeckLayout() {
         <button type="button" data-mission-nav="settings">
           <i aria-hidden="true"><svg><use href="/static/img/mission-nav-icons.svg#settings"></use></svg></i><span>Settings</span><kbd>09</kbd>
         </button>
+        <a href="/software-updates"><i aria-hidden="true"><svg viewBox="0 0 24 24"><use href="/static/img/mission-nav-icons.svg#software-updates"></use></svg></i><span>Software Updates</span><kbd>10</kbd></a>
       </nav>`;
   }
 

@@ -12,6 +12,10 @@ not install OS dependencies or supply camera credentials and axis calibration.
 
 For the current project state and handoff notes, read [HANDOFF.md](HANDOFF.md).
 
+The Station publisher page is available under **Settings → Software Updates**.
+See [Software publishing UI](docs/SOFTWARE_UPDATES_UI.md) for HTTPS, signed-bundle
+configuration, approval scope and the remaining build/agent integration.
+
 For provisioning a Station for the central Receiver and media services, read
 [Station onboarding runbook](docs/STATION_ONBOARDING.md).
 

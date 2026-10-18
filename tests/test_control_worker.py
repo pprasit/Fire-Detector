@@ -68,12 +68,27 @@ class FakeSessionSocket:
             raise ConnectionError("test session ended")
 
 
+def sample_settings():
+    return {"motion_limits": {"slew_rate_deg_per_sec": 5.0, "azimuth_ccw_limit_deg": -180.0,
+                              "azimuth_cw_limit_deg": 180.0, "altitude_lower_limit_deg": -90.0,
+                              "altitude_upper_limit_deg": 90.0},
+            "mount_agent": {"remote": {"device_id": "iriv-production", "host": "server.invalid",
+                                        "secret_file": "unused", "ca_file": "unused"}}}
+
+
 class ControlWorkerTests(unittest.IsolatedAsyncioTestCase):
     def worker(self):
         temporary = TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
+        settings = sample_settings()
+        secret = Path(temporary.name) / "test-secret"
+        secret.write_bytes(b"unit-test-shared-secret")
+        settings["mount_agent"]["remote"]["secret_file"] = str(secret)
+        settings_path = Path(temporary.name) / "settings.json"
+        settings_path.write_text(json.dumps(settings))
         with (
-            patch.object(control_worker, "SETTINGS_PATH", Path(__file__).resolve().parents[1] / "AppSetting.JSON"),
+            patch.object(control_worker, "SETTINGS_PATH", settings_path),
+            patch.object(control_worker.ssl, "create_default_context", return_value=MagicMock()),
             patch.object(control_worker, "STATE_PATH", Path(temporary.name) / "state.json"),
         ):
             worker = control_worker.ControlWorker(watchdog_seconds=0.03)
@@ -179,7 +194,7 @@ class ControlWorkerTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(worker.mount.stops, 1)
 
     async def test_region_sensor_does_not_block_enable(self):
-        settings = json.loads((Path(__file__).resolve().parents[1] / "AppSetting.JSON").read_text())
+        settings = sample_settings()
         mount = control_worker.LocalMount(settings, motion_enabled=False)
         base = {
             "connected": True, "health": "ready", "has_bus_power": True,
@@ -195,7 +210,7 @@ class ControlWorkerTests(unittest.IsolatedAsyncioTestCase):
             await mount.enable(["azimuth", "altitude"], False)
 
     async def test_local_jog_uses_sequenced_deadman_heartbeats(self):
-        settings = json.loads((Path(__file__).resolve().parents[1] / "AppSetting.JSON").read_text())
+        settings = sample_settings()
         mount = control_worker.LocalMount(settings, motion_enabled=True)
         mount.preflight = AsyncMock(return_value={
             "connected": True,

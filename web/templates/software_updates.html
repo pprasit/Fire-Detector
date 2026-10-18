@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Software Updates · NARIT Fire Detector</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='shared/software_updates.css', v='20261018-preflight') }}">
+  <script defer src="{{ url_for('static', filename='shared/software_updates.js', v='20261018-preflight') }}"></script>
+</head>
+<body>
+  {% macro icon(name) -%}<svg class="update-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="{{ url_for('static', filename='img/mission-nav-icons.svg') }}#{{ name }}"></use></svg>{%- endmacro %}
+  <aside class="sidebar">
+    <a class="brand" href="/"><img src="{{ url_for('static', filename='img/narit-fire-emblem.svg') }}" alt="NARIT"><span>NARIT<small>FIRE DETECTOR</small></span></a>
+    <a href="/">{{ icon("update-arrow-left") }} Back to Dashboard</a>
+    <span class="nav-caption">SYSTEM</span>
+    <a href="/">{{ icon("settings") }} Settings</a>
+    <a class="selected" href="/software-updates" aria-current="page">{{ icon("software-updates") }} Software Updates <span>10</span></a>
+    <p>Publish from your main station.<br>Track deployment on the server.</p>
+  </aside>
+  <main>
+    <header><div><p class="eyebrow">STATION / SOFTWARE</p><h1>{{ icon("software-updates") }} Software Updates</h1><p class="subtitle">Review your software, approve releases, and monitor station deployment.</p><p id="signedInUser" class="hint"></p></div><div class="header-actions"><a id="serverLink" class="button" target="_blank" rel="noopener noreferrer" hidden>{{ icon("update-external") }} Server Dashboard</a><button id="sessionLogout" type="button" class="quiet">{{ icon("update-logout") }} Sign out</button></div></header>
+    <p id="publisherReadiness" class="hint" role="status">Checking build and signing readiness…</p>
+    <div id="message" class="notice" role="status" aria-live="polite">Loading software information…</div>
+    <section class="summary" aria-label="Current software">
+      <article><span>Source version</span><strong id="version">—</strong><small id="branch">—</small></article>
+      <article><span>Running version</span><strong id="running">—</strong><small id="runningNote">Checking status</small></article>
+      <article><span>Uncommitted changes</span><strong id="changes">—</strong><small>Source changes on this station</small></article>
+      <article><span>Approval</span><strong id="approvalState">Not approved</strong><small id="approvalExpiry">Dashboard administrator approval required</small></article>
+    </section>
+    <div class="columns">
+      <div>
+        <section class="panel">
+          <div class="section-heading"><span class="step" aria-label="Step 1">{{ icon("update-source") }}</span><div><h2>Review source</h2><p>Changes since the current commit.</p></div><button id="refresh" type="button" class="quiet">{{ icon("software-updates") }} Refresh</button></div>
+          <dl><div><dt>Station ID</dt><dd id="deviceId">—</dd></div><div><dt>Source commit</dt><dd id="commit" class="mono">—</dd></div></dl>
+          <details id="plan" hidden><summary>Source files for review</summary><p id="planNote"></p><ul id="fileList" class="release-files"></ul><button id="downloadPlan" type="button" class="quiet">{{ icon("update-download") }} Download review plan</button></details>
+        </section>
+        <section class="panel approval-panel">
+          <div class="section-heading"><span class="step" aria-label="Step 2">{{ icon("update-shield") }}</span><div><h2>Release approval</h2></div></div>
+          <form id="approvalForm">
+            <fieldset id="approvalFields" class="release-actions">
+              <span id="candidateVersion" class="release-version"></span>
+              <button id="approveRelease" type="submit" class="primary" disabled>{{ icon("update-shield") }} Approve &amp; Release</button>
+            </fieldset>
+          </form>
+        </section>
+      </div>
+      <div>
+        <section class="panel publish-panel">
+          <div class="section-heading"><span class="step" aria-label="Step 3">{{ icon("update-rollout") }}</span><div><h2>Publish & monitor</h2><p>Build, upload and deployment status.</p></div></div>
+          <div class="upload-progress"><div><strong id="jobPhase">Ready for source review</strong><span id="uploadPercent" hidden></span></div><progress id="uploadProgress" value="0" max="100">0%</progress><small id="uploadBytes">No upload started</small></div>
+          <div class="publication-actions">
+            <button id="toggleJob" type="button" class="quiet" disabled>Stop</button>
+            <button id="cancelUpdate" type="button" class="quiet" disabled>Cancel update</button>
+          </div>
+          <button id="rollout" type="button" hidden disabled>{{ icon("update-rollout") }} Deploy update</button>
+          <ul id="stationProgress" class="station-progress"></ul>
+        </section>
+      </div>
+    </div>
+  </main>
+</body>
+</html>

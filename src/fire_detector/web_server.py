@@ -2877,6 +2877,11 @@ def create_app() -> Flask:
         static_folder=str(PROJECT_ROOT / "web" / "static"),
         template_folder=str(PROJECT_ROOT / "web" / "templates"),
     )
+    from fire_detector.software_updates import register_update_routes
+    register_update_routes(
+        app, PROJECT_ROOT,
+        get_device_id=lambda: _load_app_settings().get("mount_agent", {}).get("remote", {}).get("device_id", ""),
+    )
     # WebSocket ping/pong makes dead dashboard peers deterministic: a client
     # that disappears without a TCP FIN is closed after two missed intervals
     # instead of retaining a worker and socket for hours.

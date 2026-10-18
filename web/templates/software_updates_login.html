@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Sign in · Software Updates</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='shared/software_updates.css') }}">
+  <script defer src="{{ url_for('static', filename='shared/software_updates_login.js') }}"></script>
+</head>
+<body class="login-page">
+  <main class="login-card">
+    <a class="brand" href="/"><img src="{{ url_for('static', filename='img/narit-fire-emblem.svg') }}" alt="NARIT"><span>NARIT<small>FIRE DETECTOR</small></span></a>
+    <p class="eyebrow">STATION / SOFTWARE UPDATES</p>
+    <h1><svg class="update-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="{{ url_for('static', filename='img/mission-nav-icons.svg') }}#update-shield"></use></svg>Sign in to continue</h1>
+    <p class="subtitle">Use your existing server Dashboard administrator account.</p>
+    <form id="serverLoginForm">
+      <fieldset {% if not secure %}disabled{% endif %}>
+        <label for="login">Dashboard username or email</label>
+        <input id="login" name="username" autocomplete="username" maxlength="254" required autofocus>
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" maxlength="256" required>
+        <button id="signIn" class="primary" type="submit">Sign in with server account</button>
+      </fieldset>
+    </form>
+    <p id="loginMessage" class="hint" role="status" aria-live="polite">{% if secure %}Your account is verified by the server. Your password is not stored on this station.{% else %}Open this station using its HTTPS address to sign in securely.{% endif %}</p>
+    <a class="login-back" href="/">Back to Dashboard</a>
+  </main>
+</body>
+</html>

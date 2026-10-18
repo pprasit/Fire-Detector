@@ -16,8 +16,8 @@ from urllib.request import urlopen
 
 try:
     import RPi.GPIO as GPIO
-except ImportError:
-    GPIO = None  # Health evaluation also runs on hosts without GPIO hardware.
+except (ImportError, RuntimeError):
+    GPIO = None  # Health evaluation also runs in a sandbox without GPIO devices.
 
 LOG = logging.getLogger("health-beacon")
 DO0_BCM_PIN = 23

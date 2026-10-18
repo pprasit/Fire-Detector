@@ -1,0 +1,7 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Review · {{ path }}</title><link rel="stylesheet" href="{{ url_for('static', filename='shared/software_updates.css') }}"></head>
+<body class="file-review-page"><main><p class="eyebrow">REVIEWED SOURCE SNAPSHOT</p><h1>{{ path }}</h1>
+<p class="subtitle">This is the exact copy captured for this review. Later edits require a new review.</p>
+<section class="panel"><h2>Changes from the previous commit</h2><pre class="source-code">{{ diff }}</pre></section>
+<section class="panel"><h2>Reviewed file</h2><pre class="source-code">{{ content }}</pre></section></main></body></html>
